@@ -1,4 +1,5 @@
 export * from "./schema/users";
+export * from "./schema/auth";
 export * from "./schema/notebooks";
 export * from "./schema/sources";
 export * from "./schema/conversations";

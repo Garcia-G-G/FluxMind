@@ -4,6 +4,12 @@ export type {
 } from "@/db/schema/users";
 
 export type {
+  Session,
+  Account,
+  Verification,
+} from "@/db/schema/auth";
+
+export type {
   Notebook,
   NewNotebook,
 } from "@/db/schema/notebooks";
