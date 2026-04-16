@@ -12,7 +12,10 @@ import * as subscriptions from "@/db/schema/subscriptions";
 
 const connectionString = process.env.DATABASE_URL!;
 
-const client = postgres(connectionString);
+const client = postgres(connectionString, {
+  max: 10,
+  idle_timeout: 30,
+});
 
 export const db = drizzle(client, {
   schema: {

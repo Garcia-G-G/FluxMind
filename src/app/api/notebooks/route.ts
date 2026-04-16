@@ -15,7 +15,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const search = searchParams.get("search") ?? "";
+    const search = (searchParams.get("search") ?? "").slice(0, 100);
     const sort = searchParams.get("sort") ?? "updatedAt";
     const order = searchParams.get("order") ?? "desc";
 
@@ -39,7 +39,6 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
         settings: notebooks.settings,
         createdAt: notebooks.createdAt,
         updatedAt: notebooks.updatedAt,
-        userId: notebooks.userId,
         sourceCount: sql<number>`(SELECT COUNT(*) FROM sources WHERE sources.notebook_id = ${notebooks.id})`.as("source_count"),
       })
       .from(notebooks)

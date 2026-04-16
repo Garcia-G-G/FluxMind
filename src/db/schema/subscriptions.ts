@@ -7,7 +7,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./users";
+import { users, planEnum } from "./users";
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",
@@ -25,7 +25,7 @@ export const subscriptions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     stripeSubscriptionId: text("stripe_subscription_id").notNull().unique(),
-    plan: text("plan").notNull(),
+    plan: planEnum("plan").notNull(),
     status: subscriptionStatusEnum("status").notNull(),
     currentPeriodStart: timestamp("current_period_start", {
       mode: "date",

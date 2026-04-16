@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Upload, X, FileText, Loader2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,14 @@ export const FileUploader = ({
   const [isDragging, setIsDragging] = useState(false);
   const [uploads, setUploads] = useState<UploadingFile[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const uploadSource = useUploadSource();
+
+  useEffect(() => {
+    return () => {
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+    };
+  }, []);
 
   const processFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -73,7 +80,8 @@ export const FileUploader = ({
       }
 
       // Clear done uploads after 2 seconds
-      setTimeout(() => {
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      cleanupTimerRef.current = setTimeout(() => {
         setUploads((prev) => prev.filter((u) => u.status === "error"));
       }, 2000);
     },
@@ -142,11 +150,20 @@ export const FileUploader = ({
         onChange={(e) => e.target.files && processFiles(e.target.files)}
       />
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload files by dropping or clicking"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isDragging
             ? "border-primary bg-primary/5"
             : "border-border hover:border-primary/50"

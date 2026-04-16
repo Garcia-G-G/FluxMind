@@ -42,18 +42,17 @@ const DashboardPage = (): React.ReactNode => {
   const { data: session } = useSession();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("updatedAt");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window === "undefined") return "grid";
+    const stored = localStorage.getItem("fluxmind:view-mode");
+    return stored === "list" ? "list" : "grid";
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [editNotebook, setEditNotebook] = useState<NotebookWithCount | null>(null);
   const [deleteNotebook, setDeleteNotebook] = useState<NotebookWithCount | null>(null);
 
   const { data: notebooks, isLoading } = useNotebooks(search, sort, "desc");
   const deleteNotebookMutation = useDeleteNotebook();
-
-  useEffect(() => {
-    const stored = localStorage.getItem("fluxmind:view-mode");
-    if (stored === "grid" || stored === "list") setViewMode(stored);
-  }, []);
 
   useEffect(() => {
     localStorage.setItem("fluxmind:view-mode", viewMode);

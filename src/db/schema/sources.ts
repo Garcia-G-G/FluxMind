@@ -46,7 +46,10 @@ export const sources = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
-  (table) => [index("sources_notebook_id_idx").on(table.notebookId)]
+  (table) => [
+    index("sources_notebook_id_idx").on(table.notebookId),
+    index("sources_status_idx").on(table.status),
+  ]
 );
 
 export const sourceChunks = pgTable(

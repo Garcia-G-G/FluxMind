@@ -12,6 +12,7 @@ export const AppShell = ({
   children: ReactNode;
 }): React.ReactNode => {
   const [commandOpen, setCommandOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
@@ -24,12 +25,25 @@ export const AppShell = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const sidebarWidth = sidebarCollapsed ? 60 : 240;
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
-      <div className="md:pl-[240px] flex flex-col min-h-screen">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      />
+      <div
+        className="hidden md:flex flex-col min-h-screen transition-[padding-left] duration-200 ease-in-out"
+        style={{ paddingLeft: sidebarWidth }}
+      >
         <Header onOpenCommandPalette={() => setCommandOpen(true)} />
         <main className="flex-1 p-4 md:p-6">{children}</main>
+      </div>
+      {/* Mobile layout — no sidebar padding */}
+      <div className="md:hidden flex flex-col min-h-screen">
+        <Header onOpenCommandPalette={() => setCommandOpen(true)} />
+        <main className="flex-1 p-4">{children}</main>
       </div>
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
     </div>

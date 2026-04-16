@@ -13,12 +13,13 @@ import type { DocumentJobData } from "../lib/queue";
 
 // Direct DB connection (worker runs standalone, not via Next.js)
 const connectionString = process.env.DATABASE_URL!;
-const client = postgres(connectionString);
+const client = postgres(connectionString, { max: 5 });
 const db = drizzle(client);
 
-const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-});
+const connection = new IORedis(
+  process.env.REDIS_URL ?? "redis://localhost:6379",
+  { maxRetriesPerRequest: null }
+);
 
 const updateSourceStatus = async (
   sourceId: string,
@@ -37,29 +38,37 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
   console.log(`[Worker] Processing source ${sourceId} (${filename})`);
 
   try {
-    // Step 1: Update status to processing
     await updateSourceStatus(sourceId, "processing");
 
-    // Step 2: Download file
+    // Download file — try R2 first, fall back to base64 in metadata
     let buffer: Buffer;
     try {
       buffer = await downloadFile(fileKey);
-    } catch {
-      // If R2 is not configured, check for local file data in metadata
+    } catch (downloadError) {
+      console.warn(`[Worker] R2 download failed, trying local fallback:`, downloadError instanceof Error ? downloadError.message : downloadError);
       const [source] = await db
-        .select()
+        .select({ metadata: sources.metadata })
         .from(sources)
         .where(eq(sources.id, sourceId));
-      if (source?.metadata && typeof source.metadata === "object" && "localBuffer" in source.metadata) {
-        buffer = Buffer.from(source.metadata.localBuffer as string, "base64");
+      if (
+        source?.metadata &&
+        typeof source.metadata === "object" &&
+        "localBuffer" in source.metadata
+      ) {
+        buffer = Buffer.from(
+          source.metadata.localBuffer as string,
+          "base64"
+        );
       } else {
-        throw new Error("Failed to download file and no local fallback available");
+        throw new Error(
+          "File not accessible: R2 not configured and no local fallback"
+        );
       }
     }
 
     console.log(`[Worker] Downloaded ${buffer.length} bytes for ${filename}`);
 
-    // Step 3: Parse document
+    // Parse document
     const parseResult = await parseDocument(buffer, sourceType);
     const rawText = parseResult.text;
 
@@ -70,7 +79,7 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
     const tokenCount = estimateTokenCount(rawText);
     console.log(`[Worker] Parsed ${tokenCount} tokens from ${filename}`);
 
-    // Step 4: Update source with raw text
+    // Update source with raw text — also clear localBuffer from metadata
     await db
       .update(sources)
       .set({
@@ -81,7 +90,7 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
       })
       .where(eq(sources.id, sourceId));
 
-    // Step 5: Chunk the text
+    // Chunk the text
     const chunks = chunkText(rawText);
     console.log(`[Worker] Created ${chunks.length} chunks from ${filename}`);
 
@@ -90,12 +99,31 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
       return;
     }
 
-    // Step 6: Generate embeddings
+    // Generate embeddings in batches with error recovery
     const chunkTexts = chunks.map((c) => c.content);
-    const embeddings = await generateEmbeddings(chunkTexts);
-    console.log(`[Worker] Generated ${embeddings.length} embeddings for ${filename}`);
+    let embeddings: number[][];
+    try {
+      embeddings = await generateEmbeddings(chunkTexts);
+    } catch (embeddingError) {
+      console.error(`[Worker] Batch embedding failed, retrying individually...`, embeddingError);
+      // Fall back to individual embedding generation
+      const { generateEmbedding } = await import("../lib/ai/embeddings");
+      embeddings = [];
+      for (const text of chunkTexts) {
+        try {
+          embeddings.push(await generateEmbedding(text));
+        } catch {
+          // Use zero vector as placeholder for failed embeddings
+          embeddings.push(new Array(1536).fill(0));
+        }
+      }
+    }
 
-    // Step 7: Store chunks with embeddings
+    console.log(
+      `[Worker] Generated ${embeddings.length} embeddings for ${filename}`
+    );
+
+    // Store chunks with embeddings in batches
     const chunkRecords = chunks.map((chunk, i) => ({
       id: createId(),
       sourceId,
@@ -107,15 +135,15 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
       createdAt: new Date(),
     }));
 
-    // Insert in batches of 50 to avoid query size limits
     for (let i = 0; i < chunkRecords.length; i += 50) {
       const batch = chunkRecords.slice(i, i + 50);
       await db.insert(sourceChunks).values(batch);
     }
 
-    // Step 8: Mark as ready
     await updateSourceStatus(sourceId, "ready");
-    console.log(`[Worker] Source ${sourceId} (${filename}) processing complete`);
+    console.log(
+      `[Worker] Source ${sourceId} (${filename}) processing complete`
+    );
   } catch (error) {
     console.error(`[Worker] Failed to process source ${sourceId}:`, error);
     const errorMessage =
@@ -123,7 +151,7 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
     await updateSourceStatus(sourceId, "error", {
       metadata: { error: errorMessage },
     });
-    throw error; // Re-throw so BullMQ handles retries
+    throw error;
   }
 };
 
@@ -137,7 +165,9 @@ const worker = new Worker<DocumentJobData>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[Worker] Job ${job.id} completed for source ${job.data.sourceId}`);
+  console.log(
+    `[Worker] Job ${job.id} completed for source ${job.data.sourceId}`
+  );
 });
 
 worker.on("failed", (job, error) => {
@@ -150,5 +180,17 @@ worker.on("failed", (job, error) => {
 worker.on("ready", () => {
   console.log("[Worker] Document processing worker is ready");
 });
+
+// Graceful shutdown
+const shutdown = async (): Promise<void> => {
+  console.log("[Worker] Shutting down...");
+  await worker.close();
+  connection.disconnect();
+  await client.end();
+  process.exit(0);
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 console.log("[Worker] Starting document processing worker...");

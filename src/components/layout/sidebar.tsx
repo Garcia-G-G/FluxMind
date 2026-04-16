@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,13 +24,18 @@ const navItems = [
   { href: "/dashboard", icon: BookOpen, label: "All Notebooks" },
   { href: "/dashboard", icon: Compass, label: "Explore" },
   { href: "/settings", icon: Settings, label: "Settings" },
-];
+] as const;
 
-export const Sidebar = (): React.ReactNode => {
+export const Sidebar = ({
+  collapsed,
+  onCollapsedChange,
+}: {
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+}): React.ReactNode => {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const { data: session } = useSession();
-  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <motion.aside
@@ -88,7 +92,8 @@ export const Sidebar = (): React.ReactNode => {
 
       <div className="border-t border-border p-2 space-y-1">
         <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+          aria-label="Toggle theme"
           className="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors w-full"
         >
           <Sun className="h-4 w-4 shrink-0 dark:hidden" />
@@ -117,7 +122,8 @@ export const Sidebar = (): React.ReactNode => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => onCollapsedChange(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="w-full justify-start gap-3 px-2.5"
         >
           {collapsed ? (

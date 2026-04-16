@@ -44,8 +44,13 @@ export const parseCsv = (buffer: Buffer): ParseResult => {
     skipEmptyLines: true,
   });
 
-  if (result.errors.length > 0 && result.data.length === 0) {
-    throw new Error(`CSV parsing failed: ${result.errors[0].message}`);
+  if (result.errors.length > 0) {
+    // If we have no data at all, fail outright
+    if (result.data.length === 0) {
+      throw new Error(`CSV parsing failed: ${result.errors[0].message}`);
+    }
+    // If we have partial data, continue but log warnings
+    console.warn(`CSV parsed with ${result.errors.length} errors, proceeding with ${result.data.length} valid rows`);
   }
 
   // Convert rows to readable text

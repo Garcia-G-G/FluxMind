@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sources } from "@/db/schema/sources";
@@ -18,6 +18,7 @@ export const GET = async (
 
     const { id } = await params;
 
+    // Join with notebooks and verify ownership in the query
     const [source] = await db
       .select({
         id: sources.id,
@@ -35,23 +36,27 @@ export const GET = async (
       })
       .from(sources)
       .innerJoin(notebooks, eq(sources.notebookId, notebooks.id))
-      .where(eq(sources.id, id));
+      .where(
+        and(eq(sources.id, id), eq(notebooks.userId, session.user.id))
+      );
 
     if (!source) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      ...source,
-      // Don't send localBuffer metadata to client
-      metadata: source.metadata && typeof source.metadata === "object"
+    // Strip internal metadata before sending to client
+    const cleanMetadata =
+      source.metadata && typeof source.metadata === "object"
         ? Object.fromEntries(
             Object.entries(source.metadata as Record<string, unknown>).filter(
               ([k]) => k !== "localBuffer"
             )
           )
-        : source.metadata,
-      // Truncate rawText for preview
+        : source.metadata;
+
+    return NextResponse.json({
+      ...source,
+      metadata: cleanMetadata,
       rawTextPreview: source.rawText?.slice(0, 500) ?? null,
       rawText: undefined,
     });
@@ -76,28 +81,30 @@ export const DELETE = async (
 
     const { id } = await params;
 
+    // Verify ownership and get file info in one query
     const [source] = await db
       .select({
         id: sources.id,
-        notebookId: sources.notebookId,
         fileUrl: sources.fileUrl,
       })
       .from(sources)
       .innerJoin(notebooks, eq(sources.notebookId, notebooks.id))
-      .where(eq(sources.id, id));
+      .where(
+        and(eq(sources.id, id), eq(notebooks.userId, session.user.id))
+      );
 
     if (!source) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Delete from R2 if applicable
+    // Delete from R2 (best effort)
     if (source.fileUrl && !source.fileUrl.startsWith("local://")) {
       try {
         const { deleteFile } = await import("@/lib/storage/r2");
         const key = source.fileUrl.split("/").slice(-4).join("/");
         await deleteFile(key);
       } catch {
-        // Best effort — file may already be gone
+        // File may already be gone
       }
     }
 
