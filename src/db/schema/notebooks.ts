@@ -27,6 +27,7 @@ export const notebooks = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     icon: text("icon"),
+    color: text("color").default("#6366f1"),
     coverImage: text("cover_image"),
     isPublic: boolean("is_public").notNull().default(false),
     settings: jsonb("settings").$type<Record<string, unknown>>(),
