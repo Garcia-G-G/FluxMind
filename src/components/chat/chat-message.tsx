@@ -1,13 +1,10 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy, Check, RotateCcw } from "lucide-react";
-import { useState } from "react";
 import { motion } from "motion/react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Citation, type CitationData } from "@/components/chat/citation";
 
 const CITATION_REGEX = /\[Source:\s*"([^"]+)"(?:\s*p\.(\d+))?\]/g;
@@ -57,14 +54,18 @@ export const ChatMessage = memo(({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex justify-end gap-3"
+        transition={{ duration: 0.3 }}
+        className="flex justify-end"
       >
-        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-primary-foreground text-sm">
+        <div
+          className="max-w-[80%] px-4 py-2.5 text-sm text-white"
+          style={{
+            background: "linear-gradient(135deg, var(--fm-accent-orange), var(--fm-accent-rose), var(--fm-accent-violet))",
+            borderRadius: "20px 20px 6px 20px",
+          }}
+        >
           {content}
         </div>
-        <Avatar className="h-7 w-7 shrink-0">
-          <AvatarFallback className="text-xs bg-primary/10">U</AvatarFallback>
-        </Avatar>
       </motion.div>
     );
   }
@@ -76,30 +77,51 @@ export const ChatMessage = memo(({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
       className="flex gap-3 group"
     >
-      <Avatar className="h-7 w-7 shrink-0 mt-0.5">
-        <AvatarFallback className="text-xs bg-primary text-primary-foreground font-bold">
+      {/* AI avatar */}
+      <div
+        className="h-7 w-7 rounded-full p-[2px] shrink-0 mt-0.5"
+        style={{ background: "var(--fm-accent-gradient)" }}
+      >
+        <div
+          className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-bold"
+          style={{ background: "var(--fm-surface)", color: "var(--fm-text)" }}
+        >
           F
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+        </div>
+      </div>
+
+      <div
+        className="flex-1 min-w-0 max-w-[80%] px-4 py-3"
+        style={{
+          background: "var(--fm-glass-bg)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid var(--fm-glass-border)",
+          borderRadius: "20px 20px 20px 6px",
+        }}
+      >
+        <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0" style={{ color: "var(--fm-text)" }}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
               pre: ({ children }) => (
-                <div className="relative group/code">
-                  <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-                    {children}
-                  </pre>
-                </div>
+                <pre
+                  className="overflow-x-auto rounded-lg p-3 text-xs"
+                  style={{ background: "var(--fm-bg-tertiary)" }}
+                >
+                  {children}
+                </pre>
               ),
               code: ({ children, className }) => {
                 const isBlock = className?.includes("language-");
                 if (isBlock) return <code className={className}>{children}</code>;
                 return (
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  <code
+                    className="rounded px-1 py-0.5 text-xs"
+                    style={{ background: "var(--fm-bg-tertiary)" }}
+                  >
                     {children}
                   </code>
                 );
@@ -119,34 +141,40 @@ export const ChatMessage = memo(({
         )}
 
         {isStreaming && (
-          <span className="inline-block w-1.5 h-4 bg-foreground/70 animate-pulse ml-0.5 align-text-bottom" />
+          <div className="flex items-center gap-1 mt-2">
+            {[0, 0.2, 0.4].map((delay, i) => (
+              <div
+                key={i}
+                className="h-2 w-2 rounded-full"
+                style={{
+                  background: "var(--fm-accent-violet)",
+                  animation: `typingPulse 1.4s ease-in-out infinite`,
+                  animationDelay: `${delay}s`,
+                }}
+              />
+            ))}
+          </div>
         )}
 
         {!isStreaming && (
           <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
+            <button
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors"
+              style={{ color: "var(--fm-text-tertiary)" }}
               onClick={handleCopy}
             >
-              {copied ? (
-                <Check className="h-3 w-3 mr-1" />
-              ) : (
-                <Copy className="h-3 w-3 mr-1" />
-              )}
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "Copied" : "Copy"}
-            </Button>
+            </button>
             {onRegenerate && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground"
+              <button
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors"
+                style={{ color: "var(--fm-text-tertiary)" }}
                 onClick={onRegenerate}
               >
-                <RotateCcw className="h-3 w-3 mr-1" />
+                <RotateCcw className="h-3 w-3" />
                 Regenerate
-              </Button>
+              </button>
             )}
           </div>
         )}

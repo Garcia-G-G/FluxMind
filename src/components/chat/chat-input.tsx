@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Send, Square, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Square, ChevronDown, ArrowUp } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,10 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { models } from "@/lib/ai/models";
 
-const providerIcons: Record<string, string> = {
-  google: "G",
-  anthropic: "A",
-  openai: "O",
+const providerColors: Record<string, string> = {
+  google: "#2563eb",
+  anthropic: "#7c3aed",
+  openai: "#22c55e",
 };
 
 export const ChatInput = ({
@@ -47,20 +46,40 @@ export const ChatInput = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim() && !isLoading) {
-        onSubmit(e);
-      }
+      if (input.trim() && !isLoading) onSubmit(e);
     }
   };
 
   const currentModel = models.find((m) => m.id === selectedModel) ?? models[0];
 
   return (
-    <form onSubmit={onSubmit} className="border-t border-border bg-background p-4">
-      <div className="flex items-end gap-2 max-w-3xl mx-auto">
+    <form
+      onSubmit={onSubmit}
+      className="p-4"
+      style={{ borderTop: "1px solid var(--fm-surface-border)" }}
+    >
+      <div
+        className="flex items-end gap-2 max-w-3xl mx-auto px-4 py-3 rounded-2xl"
+        style={{
+          background: "var(--fm-glass-bg)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid var(--fm-glass-border)",
+        }}
+      >
+        {/* Model selector */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md border border-input text-xs text-muted-foreground hover:bg-accent transition-colors shrink-0 cursor-pointer mb-0.5">
-            <span className="font-medium">{providerIcons[currentModel.provider]}</span>
+          <DropdownMenuTrigger
+            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors shrink-0 mb-0.5"
+            style={{
+              background: "var(--fm-surface)",
+              border: "1px solid var(--fm-surface-border)",
+              color: "var(--fm-text-secondary)",
+            }}
+          >
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ background: providerColors[currentModel.provider] }}
+            />
             <span className="hidden sm:inline">{currentModel.name}</span>
             <ChevronDown className="h-3 w-3" />
           </DropdownMenuTrigger>
@@ -72,12 +91,15 @@ export const ChatInput = ({
                 className="flex items-center justify-between"
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-muted flex items-center justify-center text-xs font-medium">
-                    {providerIcons[model.provider]}
-                  </span>
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ background: providerColors[model.provider] }}
+                  />
                   <div>
                     <p className="text-sm">{model.name}</p>
-                    <p className="text-xs text-muted-foreground">{model.description}</p>
+                    <p className="text-xs" style={{ color: "var(--fm-text-tertiary)" }}>
+                      {model.description}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -87,7 +109,7 @@ export const ChatInput = ({
                     </Badge>
                   )}
                   {model.id === selectedModel && (
-                    <span className="text-primary text-sm">&#10003;</span>
+                    <span style={{ color: "var(--fm-accent-violet)" }}>&#10003;</span>
                   )}
                 </div>
               </DropdownMenuItem>
@@ -95,7 +117,8 @@ export const ChatInput = ({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex-1 relative">
+        {/* Textarea */}
+        <div className="flex-1">
           <textarea
             ref={textareaRef}
             value={input}
@@ -104,30 +127,40 @@ export const ChatInput = ({
             placeholder="Ask about your sources..."
             rows={1}
             disabled={isLoading}
-            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-            style={{ maxHeight: 150 }}
+            className="w-full resize-none text-sm disabled:opacity-50"
+            style={{
+              background: "transparent",
+              color: "var(--fm-text)",
+              border: "none",
+              outline: "none",
+              maxHeight: 150,
+            }}
           />
         </div>
 
+        {/* Send/Stop button */}
         {isLoading ? (
-          <Button
+          <button
             type="button"
-            size="sm"
-            variant="outline"
             onClick={onStop}
-            className="shrink-0 mb-0.5"
+            className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-colors"
+            style={{
+              background: "var(--fm-surface)",
+              border: "1px solid var(--fm-surface-border)",
+              color: "var(--fm-text-secondary)",
+            }}
           >
-            <Square className="h-3.5 w-3.5" />
-          </Button>
+            <Square className="h-4 w-4" />
+          </button>
         ) : (
-          <Button
+          <button
             type="submit"
-            size="sm"
             disabled={!input.trim()}
-            className="shrink-0 mb-0.5"
+            className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-white transition-opacity disabled:opacity-40"
+            style={{ background: "var(--fm-accent-gradient)" }}
           >
-            <Send className="h-3.5 w-3.5" />
-          </Button>
+            <ArrowUp className="h-4 w-4" />
+          </button>
         )}
       </div>
     </form>
