@@ -15,6 +15,7 @@ import {
   Mail,
   Video,
   GraduationCap,
+  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuizView } from "@/components/studio/quiz-view";
@@ -28,6 +29,7 @@ import { ThreadPreview } from "@/components/studio/thread-preview";
 import { NewsletterPreview } from "@/components/studio/newsletter-preview";
 import { ReelScriptView } from "@/components/studio/reel-script-view";
 import { CourseView } from "@/components/studio/course-view";
+import { MindMapCanvas } from "@/components/mind-map/mind-map-canvas";
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
 import {
   useGenerateSlides,
@@ -37,6 +39,7 @@ import {
   useGenerateNewsletter,
   useGenerateReel,
   useGenerateCourse,
+  useGenerateMindMap,
 } from "@/hooks/use-studio-outputs";
 import type { SlidesContent } from "@/app/api/studio/slides/route";
 import type { InfographicContent } from "@/app/api/studio/infographic/route";
@@ -57,7 +60,8 @@ type StudioTab =
   | "thread"
   | "newsletter"
   | "reel"
-  | "course";
+  | "course"
+  | "mindmap";
 
 type OutputData<T> = { id: string; title: string } & T;
 
@@ -79,6 +83,7 @@ const StudioPage = ({
   const generateNewsletter = useGenerateNewsletter();
   const generateReel = useGenerateReel();
   const generateCourse = useGenerateCourse();
+  const generateMindMap = useGenerateMindMap();
 
   // All output data
   const [quizData, setQuizData] = useState<OutputData<{ questions: unknown[] }> | null>(null);
@@ -90,6 +95,7 @@ const StudioPage = ({
   const [newsletterData, setNewsletterData] = useState<OutputData<NewsletterContent> | null>(null);
   const [reelData, setReelData] = useState<OutputData<ReelContent> | null>(null);
   const [courseData, setCourseData] = useState<OutputData<CourseContent> | null>(null);
+  const [mindMapData, setMindMapData] = useState<OutputData<{ nodes: unknown[]; edges: unknown[] }> | null>(null);
 
   const generate = async <T,>(
     type: StudioTab,
@@ -141,6 +147,8 @@ const StudioPage = ({
       return wrap(reelData.title, <ReelScriptView reel={reelData as ReelContent} />);
     if (activeTab === "course" && courseData)
       return wrap(courseData.title, <CourseView course={courseData as CourseContent} />);
+    if (activeTab === "mindmap" && mindMapData)
+      return wrap(mindMapData.title, <MindMapCanvas data={mindMapData as { nodes: Parameters<typeof MindMapCanvas>[0]["data"]["nodes"]; edges: Parameters<typeof MindMapCanvas>[0]["data"]["edges"] }} />);
     if (activeTab === "research")
       return <div><div className="flex justify-end mb-4">{backBtn}</div><DeepResearch notebookId={notebookId} /></div>;
 
@@ -237,6 +245,10 @@ const StudioPage = ({
           description="Extract tabular data from sources."
           onGenerate={() => generate("datatable", generateDataTable.mutateAsync, setDataTableData)}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
+        <StudioCard icon={Network} title="Mind Map" tab="mindmap"
+          description="Explorable knowledge graph from sources."
+          onGenerate={() => generate("mindmap", generateMindMap.mutateAsync, setMindMapData)}
+          isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
       </div>
 
       {/* Content section */}

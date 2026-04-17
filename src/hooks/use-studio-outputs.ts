@@ -66,3 +66,17 @@ export const useGenerateCourse = () => {
       generateStudioOutput("/api/studio/course", data),
   });
 };
+
+export const useGenerateMindMap = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string; model?: string }) =>
+      generateStudioOutput("/api/studio/mindmap", data),
+  });
+};
+
+export const useGenerateAudio = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string }) =>
+      generateStudioOutput("/api/studio/audio", data),
+  });
+};
