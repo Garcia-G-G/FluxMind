@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { LogOut, Settings, CreditCard, User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +35,7 @@ export const UserMenu = (): React.ReactNode => {
     await signOut({
       fetchOptions: {
         onSuccess: () => {
-          router.push("/");
+          router.push("/login");
           router.refresh();
         },
       },
@@ -45,36 +44,65 @@ export const UserMenu = (): React.ReactNode => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={user.image ?? undefined} alt={user.name} />
-          <AvatarFallback className="text-xs">
+      <DropdownMenuTrigger className="outline-none cursor-pointer">
+        <div
+          className="h-8 w-8 rounded-full p-[2px] shrink-0"
+          style={{ background: "var(--fm-accent-gradient)" }}
+        >
+          <div
+            className="h-full w-full rounded-full flex items-center justify-center text-[10px] font-medium"
+            style={{ background: "var(--fm-surface)", color: "var(--fm-text)" }}
+          >
             {getInitials(user.name)}
-          </AvatarFallback>
-        </Avatar>
+          </div>
+        </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent
+        align="end"
+        className="w-56"
+        style={{
+          background: "var(--fm-glass-bg)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid var(--fm-glass-border)",
+        }}
+      >
         <DropdownMenuLabel>
           <div className="flex flex-col">
-            <span className="text-sm font-medium">{user.name}</span>
-            <span className="text-xs text-muted-foreground">{user.email}</span>
+            <span className="text-sm font-medium" style={{ color: "var(--fm-text)" }}>
+              {user.name}
+            </span>
+            <span className="text-xs" style={{ color: "var(--fm-text-tertiary)" }}>
+              {user.email}
+            </span>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/settings")}>
+        <DropdownMenuSeparator style={{ background: "var(--fm-surface-border)" }} />
+        <DropdownMenuItem
+          onClick={() => router.push("/settings")}
+          style={{ borderRadius: 8, color: "var(--fm-text-secondary)" }}
+        >
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/settings")}>
+        <DropdownMenuItem
+          onClick={() => router.push("/settings")}
+          style={{ borderRadius: 8, color: "var(--fm-text-secondary)" }}
+        >
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/settings/billing")}>
+        <DropdownMenuItem
+          onClick={() => router.push("/settings/billing")}
+          style={{ borderRadius: 8, color: "var(--fm-text-secondary)" }}
+        >
           <CreditCard className="mr-2 h-4 w-4" />
           Billing
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuSeparator style={{ background: "var(--fm-surface-border)" }} />
+        <DropdownMenuItem
+          onClick={handleSignOut}
+          style={{ borderRadius: 8, color: "var(--fm-error)" }}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Sign out
         </DropdownMenuItem>
