@@ -6,6 +6,7 @@ import {
   jsonb,
   index,
   pgEnum,
+  real,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { outputs } from "./outputs";
@@ -58,6 +59,8 @@ export const flashcardProgress = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     cardIndex: integer("card_index").notNull(),
     status: flashcardStatusEnum("status").notNull().default("new"),
+    easeFactor: real("ease_factor").notNull().default(2.5),
+    interval: integer("interval").notNull().default(0),
     nextReview: timestamp("next_review", { mode: "date" }),
     repetitions: integer("repetitions").notNull().default(0),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
