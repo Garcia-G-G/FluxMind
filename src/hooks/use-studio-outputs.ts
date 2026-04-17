@@ -38,3 +38,31 @@ export const useGenerateDataTable = () => {
       generateStudioOutput("/api/studio/datatable", data),
   });
 };
+
+export const useGenerateThread = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string; model?: string }) =>
+      generateStudioOutput("/api/studio/thread", data),
+  });
+};
+
+export const useGenerateNewsletter = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string; model?: string }) =>
+      generateStudioOutput("/api/studio/newsletter", data),
+  });
+};
+
+export const useGenerateReel = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string; model?: string }) =>
+      generateStudioOutput("/api/studio/reel", data),
+  });
+};
+
+export const useGenerateCourse = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string; model?: string }) =>
+      generateStudioOutput("/api/studio/course", data),
+  });
+};
