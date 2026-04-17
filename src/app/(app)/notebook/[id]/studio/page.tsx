@@ -6,14 +6,36 @@ import {
   Layers,
   Loader2,
   Wand2,
+  Presentation,
+  Image,
+  Table,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuizView } from "@/components/studio/quiz-view";
 import { FlashcardView } from "@/components/studio/flashcard-view";
 import { StudyStats } from "@/components/studio/study-stats";
+import { SlideViewer } from "@/components/studio/slide-viewer";
+import { InfographicViewer } from "@/components/studio/infographic-viewer";
+import { DataTableView } from "@/components/studio/data-table-view";
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
+import {
+  useGenerateSlides,
+  useGenerateInfographic,
+  useGenerateDataTable,
+} from "@/hooks/use-studio-outputs";
+import type { SlidesContent } from "@/app/api/studio/slides/route";
+import type { InfographicContent } from "@/app/api/studio/infographic/route";
+import type { DataTableContent } from "@/app/api/studio/datatable/route";
 
-type StudioTab = "overview" | "quiz" | "flashcards";
+type StudioTab =
+  | "overview"
+  | "quiz"
+  | "flashcards"
+  | "slides"
+  | "infographic"
+  | "datatable";
+
+type OutputData<T> = { id: string; title: string } & T;
 
 const StudioPage = ({
   params,
@@ -23,90 +45,147 @@ const StudioPage = ({
   const { id: notebookId } = use(params);
   const [activeTab, setActiveTab] = useState<StudioTab>("overview");
 
+  // Generators
   const generateQuiz = useGenerateQuiz();
   const generateFlashcards = useGenerateFlashcards();
+  const generateSlides = useGenerateSlides();
+  const generateInfographic = useGenerateInfographic();
+  const generateDataTable = useGenerateDataTable();
 
-  const [quizData, setQuizData] = useState<{
-    id: string;
-    title: string;
-    questions: Array<Record<string, unknown>>;
-  } | null>(null);
+  // State for generated data
+  const [quizData, setQuizData] = useState<OutputData<{ questions: unknown[] }> | null>(null);
+  const [flashcardData, setFlashcardData] = useState<OutputData<{ cards: unknown[] }> | null>(null);
+  const [slidesData, setSlidesData] = useState<OutputData<SlidesContent> | null>(null);
+  const [infographicData, setInfographicData] = useState<OutputData<InfographicContent> | null>(null);
+  const [dataTableData, setDataTableData] = useState<OutputData<DataTableContent> | null>(null);
 
-  const [flashcardData, setFlashcardData] = useState<{
-    id: string;
-    title: string;
-    cards: Array<Record<string, unknown>>;
-  } | null>(null);
-
-  const handleGenerateQuiz = async (): Promise<void> => {
+  const generate = async <T,>(
+    type: StudioTab,
+    mutateAsync: (args: { notebookId: string }) => Promise<T>,
+    setter: (data: T) => void
+  ): Promise<void> => {
     try {
-      const result = await generateQuiz.mutateAsync({ notebookId });
-      setQuizData(result);
-      
-      setActiveTab("quiz");
+      const result = await mutateAsync({ notebookId });
+      setter(result);
+      setActiveTab(type);
     } catch {
-      // Error handled by mutation
+      // Error shown by mutation
     }
   };
 
-  const handleGenerateFlashcards = async (): Promise<void> => {
-    try {
-      const result = await generateFlashcards.mutateAsync({ notebookId });
-      setFlashcardData(result);
-      
-      setActiveTab("flashcards");
-    } catch {
-      // Error handled by mutation
+  // Render active output view
+  if (activeTab !== "overview") {
+    const backBtn = (
+      <Button variant="outline" size="sm" onClick={() => setActiveTab("overview")}>
+        Back to Studio
+      </Button>
+    );
+
+    if (activeTab === "quiz" && quizData) {
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-medium">{quizData.title}</h2>
+            {backBtn}
+          </div>
+          <QuizView outputId={quizData.id} questions={quizData.questions as Parameters<typeof QuizView>[0]["questions"]} />
+        </div>
+      );
     }
-  };
-
-  if (activeTab === "quiz" && quizData) {
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-medium">{quizData.title}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveTab("overview")}
-          >
-            Back to Studio
-          </Button>
+    if (activeTab === "flashcards" && flashcardData) {
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-medium">{flashcardData.title}</h2>
+            {backBtn}
+          </div>
+          <FlashcardView outputId={flashcardData.id} cards={flashcardData.cards as Parameters<typeof FlashcardView>[0]["cards"]} />
         </div>
-        <QuizView
-          outputId={quizData.id}
-          questions={quizData.questions as Parameters<typeof QuizView>[0]["questions"]}
-        />
-      </div>
-    );
+      );
+    }
+    if (activeTab === "slides" && slidesData) {
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium">{slidesData.title}</h2>
+            {backBtn}
+          </div>
+          <SlideViewer slides={slidesData as SlidesContent} />
+        </div>
+      );
+    }
+    if (activeTab === "infographic" && infographicData) {
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium">{infographicData.title}</h2>
+            {backBtn}
+          </div>
+          <InfographicViewer infographic={infographicData as InfographicContent} />
+        </div>
+      );
+    }
+    if (activeTab === "datatable" && dataTableData) {
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium">{dataTableData.title}</h2>
+            {backBtn}
+          </div>
+          <DataTableView data={dataTableData as DataTableContent} />
+        </div>
+      );
+    }
+    // Fallback to overview if data not ready
+    setActiveTab("overview");
   }
 
-  if (activeTab === "flashcards" && flashcardData) {
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-medium">{flashcardData.title}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveTab("overview")}
-          >
-            Back to Studio
-          </Button>
-        </div>
-        <FlashcardView
-          outputId={flashcardData.id}
-          cards={flashcardData.cards as Parameters<typeof FlashcardView>[0]["cards"]}
-        />
+  // Studio card helper
+  const StudioCard = ({
+    icon: Icon,
+    title,
+    description,
+    onGenerate,
+    isPending,
+    error,
+    hasData,
+    tab,
+  }: {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    onGenerate: () => void;
+    isPending: boolean;
+    error: Error | null;
+    hasData: boolean;
+    tab: StudioTab;
+  }): React.ReactNode => (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="h-5 w-5 text-primary" />
+        <h3 className="font-medium">{title}</h3>
       </div>
-    );
-  }
+      <p className="text-sm text-muted-foreground mb-4">{description}</p>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={onGenerate} disabled={isPending} className="gap-1.5">
+          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+          Generate
+        </Button>
+        {hasData && (
+          <Button size="sm" variant="outline" onClick={() => setActiveTab(tab)}>
+            View
+          </Button>
+        )}
+      </div>
+      {error && <p className="text-xs text-destructive mt-2">{error.message}</p>}
+    </div>
+  );
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-xl font-semibold mb-1">Studio</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Generate study materials from your sources
+        Generate study materials and visual outputs from your sources
       </p>
 
       {(quizData || flashcardData) && (
@@ -119,86 +198,37 @@ const StudioPage = ({
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <HelpCircle className="h-5 w-5 text-primary" />
-            <h3 className="font-medium">Quiz</h3>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Test your knowledge with multiple choice, true/false, and free
-            response questions.
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={handleGenerateQuiz}
-              disabled={generateQuiz.isPending}
-              className="gap-1.5"
-            >
-              {generateQuiz.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4" />
-              )}
-              Generate Quiz
-            </Button>
-            {quizData && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setActiveTab("quiz")}
-              >
-                Resume
-              </Button>
-            )}
-          </div>
-          {generateQuiz.error && (
-            <p className="text-xs text-destructive mt-2">
-              {generateQuiz.error.message}
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <Layers className="h-5 w-5 text-primary" />
-            <h3 className="font-medium">Flashcards</h3>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Learn with spaced repetition flashcards. Cards you miss come back
-            sooner.
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={handleGenerateFlashcards}
-              disabled={generateFlashcards.isPending}
-              className="gap-1.5"
-            >
-              {generateFlashcards.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4" />
-              )}
-              Generate Flashcards
-            </Button>
-            {flashcardData && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setActiveTab("flashcards")}
-              >
-                Resume
-              </Button>
-            )}
-          </div>
-          {generateFlashcards.error && (
-            <p className="text-xs text-destructive mt-2">
-              {generateFlashcards.error.message}
-            </p>
-          )}
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <StudioCard
+          icon={HelpCircle} title="Quiz" tab="quiz"
+          description="Test knowledge with MC, T/F, and free response questions."
+          onGenerate={() => generate("quiz", generateQuiz.mutateAsync, setQuizData)}
+          isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData}
+        />
+        <StudioCard
+          icon={Layers} title="Flashcards" tab="flashcards"
+          description="Learn with spaced repetition flashcards."
+          onGenerate={() => generate("flashcards", generateFlashcards.mutateAsync, setFlashcardData)}
+          isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData}
+        />
+        <StudioCard
+          icon={Presentation} title="Slide Deck" tab="slides"
+          description="Generate a presentation with multiple layouts."
+          onGenerate={() => generate("slides", generateSlides.mutateAsync, setSlidesData)}
+          isPending={generateSlides.isPending} error={generateSlides.error} hasData={!!slidesData}
+        />
+        <StudioCard
+          icon={Image} title="Infographic" tab="infographic"
+          description="Visual infographic with stats, timelines, and comparisons."
+          onGenerate={() => generate("infographic", generateInfographic.mutateAsync, setInfographicData)}
+          isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData}
+        />
+        <StudioCard
+          icon={Table} title="Data Tables" tab="datatable"
+          description="Extract and organize tabular data from sources."
+          onGenerate={() => generate("datatable", generateDataTable.mutateAsync, setDataTableData)}
+          isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData}
+        />
       </div>
     </div>
   );
