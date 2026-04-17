@@ -10,6 +10,7 @@ import { relations } from "drizzle-orm";
 import { notebooks } from "./notebooks";
 
 export const canvasNodeTypeEnum = pgEnum("canvas_node_type", [
+  "snapshot",
   "source",
   "output",
   "note",
