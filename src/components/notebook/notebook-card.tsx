@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MoreHorizontal, Pencil, Trash2, FileText } from "lucide-react";
-import { motion } from "motion/react";
+import { MoreHorizontal, Pencil, Trash2, FileText, BookOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import { GlassCard } from "@/components/shared/glass-card";
+import { BreathingIcon } from "@/components/shared/breathing-icon";
 import type { Notebook } from "@/db/schema/notebooks";
 
 type NotebookWithCount = Notebook & { sourceCount: number };
@@ -30,64 +30,52 @@ const formatRelativeTime = (date: Date): string => {
 
 export const NotebookCard = ({
   notebook,
-  index,
   onEdit,
   onDelete,
 }: {
   notebook: NotebookWithCount;
-  index: number;
+  index?: number;
   onEdit: (notebook: NotebookWithCount) => void;
   onDelete: (notebook: NotebookWithCount) => void;
 }): React.ReactNode => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-    >
-      <Link href={`/notebook/${notebook.id}`} className="block group">
-        <div className="relative rounded-lg border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:scale-[1.02] hover:border-border/80">
-          <div
-            className="absolute left-0 top-3 bottom-3 w-1 rounded-full"
-            style={{ backgroundColor: notebook.color ?? "#6366f1" }}
-          />
+    <Link href={`/notebook/${notebook.id}`} className="block group">
+      <GlassCard hover padding="md" className="relative overflow-hidden">
+        {/* Color bar at top */}
+        <div
+          className="absolute top-0 left-0 right-0 h-[3px]"
+          style={{ background: notebook.color ?? "var(--fm-accent-violet)" }}
+        />
 
-          <div className="pl-3">
+        <div className="flex items-start gap-3 pt-1">
+          <BreathingIcon icon={BookOpen} size={32} />
+
+          <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-lg shrink-0">
-                  {notebook.icon ?? "📓"}
-                </span>
-                <h3 className="font-medium text-sm truncate">
-                  {notebook.title}
-                </h3>
-              </div>
+              <h3
+                className="font-semibold text-base truncate"
+                style={{ color: "var(--fm-text)" }}
+              >
+                {notebook.title}
+              </h3>
               <div
                 onClick={(e) => e.preventDefault()}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2"
               >
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors cursor-pointer">
-                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  <DropdownMenuTrigger
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-lg transition-colors cursor-pointer"
+                    style={{ color: "var(--fm-text-tertiary)" }}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onEdit(notebook);
-                      }}
-                    >
+                    <DropdownMenuItem onClick={(e) => { e.preventDefault(); onEdit(notebook); }}>
                       <Pencil className="mr-2 h-3.5 w-3.5" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onDelete(notebook);
-                      }}
-                    >
+                    <DropdownMenuItem variant="destructive" onClick={(e) => { e.preventDefault(); onDelete(notebook); }}>
                       <Trash2 className="mr-2 h-3.5 w-3.5" />
                       Delete
                     </DropdownMenuItem>
@@ -97,23 +85,23 @@ export const NotebookCard = ({
             </div>
 
             {notebook.description && (
-              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+              <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--fm-text-secondary)" }}>
                 {notebook.description}
               </p>
             )}
 
             <div className="flex items-center gap-3 mt-3">
-              <Badge variant="secondary" className="text-xs gap-1 px-1.5 py-0">
+              <span className="flex items-center gap-1 text-xs" style={{ color: "var(--fm-text-secondary)" }}>
                 <FileText className="h-3 w-3" />
-                {notebook.sourceCount ?? 0}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
+                {notebook.sourceCount ?? 0} sources
+              </span>
+              <span className="text-xs" style={{ color: "var(--fm-text-tertiary)" }}>
                 {formatRelativeTime(notebook.updatedAt)}
               </span>
             </div>
           </div>
         </div>
-      </Link>
-    </motion.div>
+      </GlassCard>
+    </Link>
   );
 };
