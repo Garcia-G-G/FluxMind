@@ -9,6 +9,8 @@ import {
   Presentation,
   Image,
   Table,
+  Globe,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuizView } from "@/components/studio/quiz-view";
@@ -17,6 +19,7 @@ import { StudyStats } from "@/components/studio/study-stats";
 import { SlideViewer } from "@/components/studio/slide-viewer";
 import { InfographicViewer } from "@/components/studio/infographic-viewer";
 import { DataTableView } from "@/components/studio/data-table-view";
+import { DeepResearch } from "@/components/studio/deep-research";
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
 import {
   useGenerateSlides,
@@ -33,7 +36,8 @@ type StudioTab =
   | "flashcards"
   | "slides"
   | "infographic"
-  | "datatable";
+  | "datatable"
+  | "research";
 
 type OutputData<T> = { id: string; title: string } & T;
 
@@ -136,6 +140,14 @@ const StudioPage = ({
         </div>
       );
     }
+    if (activeTab === "research") {
+      return (
+        <div>
+          <div className="flex justify-end mb-4">{backBtn}</div>
+          <DeepResearch notebookId={notebookId} />
+        </div>
+      );
+    }
     // Fallback to overview if data not ready
     setActiveTab("overview");
   }
@@ -229,6 +241,26 @@ const StudioPage = ({
           onGenerate={() => generate("datatable", generateDataTable.mutateAsync, setDataTableData)}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData}
         />
+      </div>
+
+      {/* Deep Research section */}
+      <div className="mt-6 rounded-lg border border-border bg-card p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Globe className="h-5 w-5 text-primary" />
+          <h3 className="font-medium">Deep Research</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Go beyond your sources — search the web, read articles, and produce a
+          comprehensive research report.
+        </p>
+        <Button
+          size="sm"
+          onClick={() => setActiveTab("research")}
+          className="gap-1.5"
+        >
+          <Search className="h-4 w-4" />
+          Start Research
+        </Button>
       </div>
     </div>
   );

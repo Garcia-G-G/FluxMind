@@ -24,6 +24,7 @@ export const outputTypeEnum = pgEnum("output_type", [
   "thread",
   "newsletter",
   "course",
+  "research_report",
 ]);
 
 export const outputStatusEnum = pgEnum("output_status", [
