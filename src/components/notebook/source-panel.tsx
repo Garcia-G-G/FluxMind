@@ -15,7 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUploader } from "@/components/upload/file-uploader";
+import { UrlInput } from "@/components/upload/url-input";
 import { useSources, useDeleteSource } from "@/hooks/use-sources";
+
+import { Link, PlayCircle } from "lucide-react";
 
 const typeIcons: Record<string, React.ElementType> = {
   pdf: FileText,
@@ -23,6 +26,8 @@ const typeIcons: Record<string, React.ElementType> = {
   txt: File,
   csv: FileSpreadsheet,
   image: ImageIcon,
+  url: Link,
+  youtube: PlayCircle,
 };
 
 const StatusBadge = ({ status }: { status: string }): React.ReactNode => {
@@ -64,9 +69,10 @@ export const SourcePanel = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3 border-b border-border">
-        <h2 className="text-sm font-medium mb-2">Sources</h2>
+      <div className="p-3 border-b border-border space-y-2">
+        <h2 className="text-sm font-medium">Sources</h2>
         <FileUploader notebookId={notebookId} compact />
+        <UrlInput notebookId={notebookId} />
       </div>
 
       <div className="flex-1 overflow-y-auto">
