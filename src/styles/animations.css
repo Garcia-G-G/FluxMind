@@ -1,0 +1,173 @@
+/* FluxMind v3 Liquid Flow Animations */
+
+/* === Orbital === */
+@keyframes orbitalSpin {
+  0% { transform: rotate(0deg) translateX(24px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(24px) rotate(-360deg); }
+}
+@keyframes orbitalSpinReverse {
+  0% { transform: rotate(360deg) translateX(18px) rotate(-360deg); }
+  100% { transform: rotate(0deg) translateX(18px) rotate(0deg); }
+}
+
+/* === Breathing === */
+@keyframes breathingScale {
+  0%, 100% { transform: scale(1.0); opacity: 0.85; }
+  50% { transform: scale(1.08); opacity: 1.0; }
+}
+
+/* === Rotating Border === */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rotateBorder {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+/* === Gradient Text Shift === */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* === Blob Morphing (7 blobs) === */
+@keyframes blob1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(40px, -30px) scale(1.05); }
+  50% { transform: translate(-20px, 40px) scale(0.95); }
+  75% { transform: translate(30px, 20px) scale(1.03); }
+}
+@keyframes blob2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50px, 30px) scale(1.08); }
+  66% { transform: translate(30px, -40px) scale(0.92); }
+}
+@keyframes blob3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(30px, 50px) scale(0.96); }
+  50% { transform: translate(-40px, -20px) scale(1.06); }
+  80% { transform: translate(20px, -30px) scale(1.02); }
+}
+@keyframes blob4 {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  25% { transform: translate(-30px, 40px) scale(1.04) rotate(45deg); }
+  50% { transform: translate(40px, -30px) scale(0.94) rotate(90deg); }
+  75% { transform: translate(-20px, -20px) scale(1.06) rotate(135deg); }
+}
+@keyframes blob5 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -20px) scale(1.03); }
+  50% { transform: translate(0px, 30px) scale(0.97); }
+  75% { transform: translate(-30px, -10px) scale(1.05); }
+}
+@keyframes blob6 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-20px, -30px) scale(1.06); }
+  66% { transform: translate(25px, 20px) scale(0.94); }
+}
+@keyframes blob7 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -25px) scale(1.04); }
+}
+
+/* === Mesh === */
+@keyframes meshPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+/* === God Rays (4) === */
+@keyframes godRay1 {
+  0% { transform: rotate(-15deg) translateX(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: rotate(-15deg) translateX(100vw); opacity: 0; }
+}
+@keyframes godRay2 {
+  0% { transform: rotate(-25deg) translateX(-100%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: rotate(-25deg) translateX(100vw); opacity: 0; }
+}
+@keyframes godRay3 {
+  0% { transform: rotate(-10deg) translateX(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: rotate(-10deg) translateX(100vw); opacity: 0; }
+}
+@keyframes godRay4 {
+  0% { transform: rotate(-20deg) translateX(-100%); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: rotate(-20deg) translateX(100vw); opacity: 0; }
+}
+
+/* === Constellation Drift (3) === */
+@keyframes constellationDrift1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(15px, -18px); }
+}
+@keyframes constellationDrift2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-12px, 15px); }
+}
+@keyframes constellationDrift3 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(10px, 12px); }
+}
+
+/* === Particle Float (4 variants) === */
+@keyframes particleFloat1 {
+  0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-20px) translateX(15px); opacity: 0; }
+}
+@keyframes particleFloat2 {
+  0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { transform: translateY(-20px) translateX(-10px); opacity: 0; }
+}
+@keyframes particleFloat3 {
+  0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+  15% { opacity: 0.6; }
+  85% { opacity: 0.6; }
+  100% { transform: translateY(-20px) translateX(20px); opacity: 0; }
+}
+@keyframes particleFloat4 {
+  0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.7; }
+  100% { transform: translateY(-20px) translateX(-15px); opacity: 0; }
+}
+
+/* === Wave === */
+@keyframes waveShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* === Typing === */
+@keyframes typingPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes cursorFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* === Icon Glow === */
+@keyframes iconGlowPulse {
+  0%, 100% { box-shadow: 0 0 12px var(--fm-glow-violet, rgba(124,58,237,0.3)); }
+  50% { box-shadow: 0 0 24px var(--fm-glow-violet, rgba(124,58,237,0.5)); }
+}
+@keyframes innerGlowPulse {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--fm-glow-violet, rgba(124,58,237,0.3))); }
+  50% { filter: drop-shadow(0 0 8px var(--fm-glow-violet, rgba(124,58,237,0.5))); }
+}
