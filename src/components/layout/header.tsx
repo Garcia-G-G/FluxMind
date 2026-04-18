@@ -1,21 +1,29 @@
 "use client";
 
-import { Search, Bell } from "lucide-react";
+import React from "react";
+import { Search, Bell, Moon, Sun, Settings, Menu } from "lucide-react";
+import { motion } from "motion/react";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { useSession } from "@/lib/auth-client";
+import { useFluxTheme } from "@/components/shared/theme-provider";
 
 export const Header = ({
   onOpenCommandPalette,
+  onToggleSidebar,
 }: {
   onOpenCommandPalette: () => void;
+  onToggleSidebar?: () => void;
 }): React.ReactNode => {
   const { data: session } = useSession();
-  const initials = session?.user?.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) ?? "FM";
+  const { mode, toggleMode } = useFluxTheme();
+  const [themeRotation, setThemeRotation] = React.useState(0);
+
+  const initial = session?.user?.name?.[0]?.toUpperCase() ?? "G";
+
+  const handleThemeToggle = (): void => {
+    setThemeRotation((r) => r + 360);
+    toggleMode();
+  };
 
   return (
     <header
@@ -25,14 +33,25 @@ export const Header = ({
         borderBottom: "1px solid var(--fm-header-border)",
       }}
     >
-      <div className="flex items-center gap-2">
+      {/* Left: hamburger */}
+      <div className="flex items-center">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="hidden md:flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+            style={{ color: "var(--fm-text-secondary)" }}
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
         <MobileSidebar />
       </div>
 
-      {/* Center: search */}
+      {/* Center: search bar */}
       <button
         onClick={onOpenCommandPalette}
-        className="hidden sm:flex items-center gap-2 px-3 h-9 max-w-[400px] text-xs transition-all"
+        className="flex items-center gap-2 px-4 h-9 max-w-[450px] w-full text-sm mx-4"
         style={{
           background: "var(--fm-input-bg)",
           border: "1px solid var(--fm-input-border)",
@@ -40,42 +59,53 @@ export const Header = ({
           color: "var(--fm-text-tertiary)",
         }}
       >
-        <Search className="h-3.5 w-3.5" />
-        <span>Search...</span>
-        <kbd
-          className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded px-1.5 font-mono text-[10px] font-medium"
-          style={{ background: "var(--fm-surface)", color: "var(--fm-text-tertiary)", border: "1px solid var(--fm-surface-border)" }}
-        >
-          <span className="text-xs">&#8984;</span>K
-        </kbd>
+        <Search className="h-4 w-4 shrink-0" />
+        <span className="hidden sm:inline">Search notebooks, sources, conve...</span>
+        <span className="sm:hidden">Search...</span>
       </button>
 
-      {/* Right */}
-      <div className="flex items-center gap-3">
+      {/* Right: bell, theme, settings, avatar */}
+      <div className="flex items-center gap-1.5">
         <button
-          className="sm:hidden h-9 w-9 flex items-center justify-center rounded-lg transition-colors"
-          onClick={onOpenCommandPalette}
+          className="relative h-9 w-9 flex items-center justify-center rounded-lg"
           style={{ color: "var(--fm-text-secondary)" }}
+          aria-label="Notifications"
         >
-          <Search className="h-4 w-4" />
-        </button>
-        <button
-          className="relative h-9 w-9 flex items-center justify-center rounded-lg transition-colors"
-          style={{ color: "var(--fm-text-secondary)" }}
-        >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-[18px] w-[18px]" />
+          <span
+            className="absolute top-1.5 right-2 h-2 w-2 rounded-full"
+            style={{ background: "var(--fm-accent-orange)" }}
+          />
         </button>
 
-        {/* User avatar with gradient border */}
+        <button
+          onClick={handleThemeToggle}
+          className="h-9 w-9 flex items-center justify-center rounded-lg"
+          style={{ color: "var(--fm-text-secondary)" }}
+          aria-label="Toggle theme"
+        >
+          <motion.div animate={{ rotate: themeRotation }} transition={{ duration: 0.5 }}>
+            {mode === "dark" ? <Moon className="h-[18px] w-[18px]" /> : <Sun className="h-[18px] w-[18px]" />}
+          </motion.div>
+        </button>
+
+        <button
+          className="h-9 w-9 flex items-center justify-center rounded-lg"
+          style={{ color: "var(--fm-text-secondary)" }}
+          aria-label="Settings"
+        >
+          <Settings className="h-[18px] w-[18px]" />
+        </button>
+
         <div
-          className="h-9 w-9 rounded-full p-[2px] shrink-0"
-          style={{ background: "var(--fm-accent-gradient)" }}
+          className="h-9 w-9 rounded-full p-[2px] shrink-0 ml-1"
+          style={{ background: "linear-gradient(135deg, var(--fm-accent-rose), var(--fm-accent-violet))" }}
         >
           <div
-            className="h-full w-full rounded-full flex items-center justify-center text-xs font-medium"
+            className="h-full w-full rounded-full flex items-center justify-center text-sm font-semibold"
             style={{ background: "var(--fm-surface)", color: "var(--fm-text)" }}
           >
-            {initials}
+            {initial}
           </div>
         </div>
       </div>

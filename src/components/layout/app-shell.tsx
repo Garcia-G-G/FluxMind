@@ -28,7 +28,7 @@ export const AppShell = ({
   const sidebarWidth = sidebarCollapsed ? 60 : 240;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ background: "var(--fm-bg)" }}>
       <Sidebar
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
@@ -37,10 +37,12 @@ export const AppShell = ({
         className="hidden md:flex flex-col min-h-screen transition-[padding-left] duration-200 ease-in-out"
         style={{ paddingLeft: sidebarWidth }}
       >
-        <Header onOpenCommandPalette={() => setCommandOpen(true)} />
+        <Header
+          onOpenCommandPalette={() => setCommandOpen(true)}
+          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
-      {/* Mobile layout — no sidebar padding */}
       <div className="md:hidden flex flex-col min-h-screen">
         <Header onOpenCommandPalette={() => setCommandOpen(true)} />
         <main className="flex-1 p-4">{children}</main>
