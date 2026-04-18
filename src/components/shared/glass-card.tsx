@@ -22,15 +22,12 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-2xl",
+          "fm-glass-blur rounded-2xl",
           paddingMap[padding],
           hover && "transition-transform duration-300 hover:-translate-y-1",
           className
         )}
         style={{
-          background: "var(--fm-glass-bg, rgba(20,20,35,0.6))",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
           border: "1px solid var(--fm-glass-border, rgba(255,255,255,0.08))",
           boxShadow: "var(--fm-card-shadow, 0 4px 24px rgba(0,0,0,0.3))",
         }}
