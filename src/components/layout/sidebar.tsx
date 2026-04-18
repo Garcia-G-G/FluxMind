@@ -45,14 +45,13 @@ export const Sidebar = ({
   };
 
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 60 : 240 }}
-      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+    <aside
       className="hidden md:flex flex-col h-screen fixed left-0 top-0 z-30"
       style={{
+        width: collapsed ? 60 : 240,
         background: "var(--fm-sidebar-bg)",
-        backdropFilter: "blur(20px)",
         borderRight: "1px solid var(--fm-sidebar-border)",
+        transition: "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
       {/* Logo */}
@@ -181,7 +180,7 @@ export const Sidebar = ({
           )}
         </Button>
       </div>
-    </motion.aside>
+    </aside>
   );
 };
 
