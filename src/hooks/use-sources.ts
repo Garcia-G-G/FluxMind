@@ -28,7 +28,7 @@ export const useSources = (notebookId: string) => {
       const hasProcessing = data.some(
         (s) => s.status === "pending" || s.status === "processing"
       );
-      return hasProcessing ? 3000 : false;
+      return hasProcessing ? 5000 : false;
     },
   });
 };
