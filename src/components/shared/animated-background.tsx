@@ -1,15 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const BLOB_CONFIG = [
   { size: 900, top: "-10%", left: "-5%", blur: 140, anim: "blob1", dur: "32s", color: "var(--fm-blob1)" },
   { size: 750, top: "20%", right: "-10%", blur: 120, anim: "blob2", dur: "36s", color: "var(--fm-blob2)" },
-  { size: 650, bottom: "10%", left: "15%", blur: 100, anim: "blob3", dur: "40s", color: "var(--fm-blob3)" },
   { size: 800, top: "50%", left: "50%", blur: 160, anim: "blob4", dur: "44s", color: "var(--fm-blob4)" },
-  { size: 550, top: "5%", left: "40%", blur: 80, anim: "blob5", dur: "28s", color: "var(--fm-blob5)" },
-  { size: 600, bottom: "20%", right: "5%", blur: 110, anim: "blob6", dur: "48s", color: "var(--fm-blob6)" },
-  { size: 1000, top: "30%", left: "-15%", blur: 150, anim: "blob7", dur: "50s", color: "var(--fm-blob7)" },
 ];
 
 const CONSTELLATION_DOTS = Array.from({ length: 24 }, (_, i) => ({
@@ -20,25 +16,20 @@ const CONSTELLATION_DOTS = Array.from({ length: 24 }, (_, i) => ({
   delay: `${i * 1.2}s`,
 }));
 
-const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
-  left: `${5 + Math.random() * 90}%`,
-  size: 2 + Math.random() * 3,
-  anim: `particleFloat${(i % 4) + 1}`,
-  dur: `${8 + Math.random() * 12}s`,
-  delay: `${Math.random() * 15}s`,
-}));
-
-const GOD_RAYS = [
-  { anim: "godRay1", dur: "45s", delay: "0s", top: "10%", width: "200px", height: "150vh" },
-  { anim: "godRay2", dur: "55s", delay: "8s", top: "0%", width: "150px", height: "140vh" },
-  { anim: "godRay3", dur: "50s", delay: "15s", top: "5%", width: "180px", height: "145vh" },
-  { anim: "godRay4", dur: "60s", delay: "22s", top: "15%", width: "160px", height: "135vh" },
-];
-
 // Tiny base64 noise texture
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E")`;
 
 export const AnimatedBackground = (): React.ReactNode => {
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const onChange = (e: MediaQueryListEvent): void => setReducedMotion(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   const constellationLines = useMemo(() => {
     const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
     const threshold = 18;
@@ -58,6 +49,10 @@ export const AnimatedBackground = (): React.ReactNode => {
     }
     return lines;
   }, []);
+
+  if (reducedMotion) {
+    return null;
+  }
 
   return (
     <div
@@ -112,24 +107,6 @@ export const AnimatedBackground = (): React.ReactNode => {
         <rect width="100%" height="100%" fill="url(#mesh)" />
       </svg>
 
-      {/* Layer 3: God rays */}
-      {GOD_RAYS.map((ray, i) => (
-        <div
-          key={`ray-${i}`}
-          style={{
-            position: "absolute",
-            top: ray.top,
-            left: "-50%",
-            width: ray.width,
-            height: ray.height,
-            background: `linear-gradient(180deg, transparent, var(--fm-godray), transparent)`,
-            animation: `${ray.anim} ${ray.dur} linear infinite`,
-            animationDelay: ray.delay,
-            opacity: 0,
-          }}
-        />
-      ))}
-
       {/* Layer 4: Constellation network */}
       <svg
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
@@ -172,27 +149,8 @@ export const AnimatedBackground = (): React.ReactNode => {
           backgroundRepeat: "repeat",
           backgroundSize: "256px 256px",
           opacity: "var(--fm-noise-opacity, 0.03)",
-          mixBlendMode: "overlay",
         }}
       />
-
-      {/* Layer 6: Floating particles */}
-      {PARTICLES.map((p, i) => (
-        <div
-          key={`particle-${i}`}
-          style={{
-            position: "absolute",
-            left: p.left,
-            bottom: 0,
-            width: p.size,
-            height: p.size,
-            borderRadius: "50%",
-            background: "var(--fm-particle)",
-            animation: `${p.anim} ${p.dur} linear infinite`,
-            animationDelay: p.delay,
-          }}
-        />
-      ))}
 
       {/* Layer 7: Bottom gradient wave */}
       <div
