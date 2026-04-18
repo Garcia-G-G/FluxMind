@@ -22,7 +22,6 @@ export const Header = ({
       className="h-[60px] flex items-center justify-between px-4 sticky top-0 z-20"
       style={{
         background: "var(--fm-header-bg)",
-        backdropFilter: "blur(20px)",
         borderBottom: "1px solid var(--fm-header-border)",
       }}
     >
