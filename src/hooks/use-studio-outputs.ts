@@ -80,3 +80,10 @@ export const useGenerateAudio = () => {
       generateStudioOutput("/api/studio/audio", data),
   });
 };
+
+export const useGenerateVideo = () => {
+  return useMutation({
+    mutationFn: (data: { notebookId: string }) =>
+      generateStudioOutput("/api/studio/video", data),
+  });
+};

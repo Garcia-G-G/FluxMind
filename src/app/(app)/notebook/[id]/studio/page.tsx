@@ -16,6 +16,7 @@ import {
   Video,
   GraduationCap,
   Network,
+  Film,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuizView } from "@/components/studio/quiz-view";
@@ -30,6 +31,7 @@ import { NewsletterPreview } from "@/components/studio/newsletter-preview";
 import { ReelScriptView } from "@/components/studio/reel-script-view";
 import { CourseView } from "@/components/studio/course-view";
 import { MindMapCanvas } from "@/components/mind-map/mind-map-canvas";
+import { VideoPlayer } from "@/components/video/video-player";
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
 import {
   useGenerateSlides,
@@ -40,6 +42,7 @@ import {
   useGenerateReel,
   useGenerateCourse,
   useGenerateMindMap,
+  useGenerateVideo,
 } from "@/hooks/use-studio-outputs";
 import type { SlidesContent } from "@/app/api/studio/slides/route";
 import type { InfographicContent } from "@/app/api/studio/infographic/route";
@@ -61,7 +64,8 @@ type StudioTab =
   | "newsletter"
   | "reel"
   | "course"
-  | "mindmap";
+  | "mindmap"
+  | "video";
 
 type OutputData<T> = { id: string; title: string } & T;
 
@@ -84,6 +88,7 @@ const StudioPage = ({
   const generateReel = useGenerateReel();
   const generateCourse = useGenerateCourse();
   const generateMindMap = useGenerateMindMap();
+  const generateVideoOverview = useGenerateVideo();
 
   // All output data
   const [quizData, setQuizData] = useState<OutputData<{ questions: unknown[] }> | null>(null);
@@ -96,6 +101,7 @@ const StudioPage = ({
   const [reelData, setReelData] = useState<OutputData<ReelContent> | null>(null);
   const [courseData, setCourseData] = useState<OutputData<CourseContent> | null>(null);
   const [mindMapData, setMindMapData] = useState<OutputData<{ nodes: unknown[]; edges: unknown[] }> | null>(null);
+  const [videoData, setVideoData] = useState<OutputData<{ fileUrl?: string; chapters?: unknown[]; status: string }> | null>(null);
 
   const generate = async <T,>(
     type: StudioTab,
@@ -147,6 +153,8 @@ const StudioPage = ({
       return wrap(reelData.title, <ReelScriptView reel={reelData as ReelContent} />);
     if (activeTab === "course" && courseData)
       return wrap(courseData.title, <CourseView course={courseData as CourseContent} />);
+    if (activeTab === "video" && videoData)
+      return wrap(videoData.title, <VideoPlayer fileUrl={(videoData as Record<string, unknown>).fileUrl as string ?? null} title={videoData.title} status={videoData.status ?? "ready"} chapters={(videoData as Record<string, unknown>).chapters as Parameters<typeof VideoPlayer>[0]["chapters"]} />);
     if (activeTab === "mindmap" && mindMapData)
       return wrap(mindMapData.title, <MindMapCanvas data={mindMapData as { nodes: Parameters<typeof MindMapCanvas>[0]["data"]["nodes"]; edges: Parameters<typeof MindMapCanvas>[0]["data"]["edges"] }} />);
     if (activeTab === "research")
@@ -249,6 +257,10 @@ const StudioPage = ({
           description="Explorable knowledge graph from sources."
           onGenerate={() => generate("mindmap", generateMindMap.mutateAsync, setMindMapData)}
           isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
+        <StudioCard icon={Film} title="Video Overview" tab="video"
+          description="AI-narrated video with generated visuals."
+          onGenerate={() => generate("video", generateVideoOverview.mutateAsync, setVideoData)}
+          isPending={generateVideoOverview.isPending} error={generateVideoOverview.error} hasData={!!videoData} />
       </div>
 
       {/* Content section */}
