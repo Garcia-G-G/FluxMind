@@ -18,7 +18,7 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PLANS, type PlanId } from "@/lib/stripe";
+import { PLANS, type PlanId } from "@/lib/billing/plans";
 
 const features = [
   { icon: BookOpen, title: "Multi-Format Sources", description: "Upload PDFs, DOCX, TXT, CSV, images, URLs, and YouTube videos." },

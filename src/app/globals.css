@@ -127,4 +127,20 @@
   html {
     @apply font-sans;
   }
+
+  /* Gradient focus ring for accessibility */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--fm-accent-violet, #7c3aed), 0 0 0 4px var(--fm-glow-violet, rgba(124,58,237,0.3));
+    border-radius: inherit;
+  }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }

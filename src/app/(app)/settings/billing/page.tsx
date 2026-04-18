@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PLANS, type PlanId } from "@/lib/stripe";
+import { PLANS, type PlanId } from "@/lib/billing/plans";
 
 const BillingPage = (): React.ReactNode => {
   const [loading, setLoading] = useState<string | null>(null);

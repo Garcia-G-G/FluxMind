@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLANS, type PlanId } from "@/lib/stripe";
+import { PLANS, type PlanId } from "@/lib/billing/plans";
 
 const comparisonFeatures = [
   { name: "Notebooks", key: "notebooks" as const },

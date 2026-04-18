@@ -17,7 +17,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "FluxMind",
-  description: "Knowledge intelligence platform",
+  description: "AI-powered knowledge intelligence platform",
+  manifest: "/manifest.json",
+  themeColor: "#7c3aed",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "FluxMind",
+  },
 };
 
 const RootLayout = ({ children }: { children: ReactNode }): ReactNode => {

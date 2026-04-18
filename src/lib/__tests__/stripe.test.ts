@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PLANS, isWithinLimit } from "@/lib/stripe";
+import { PLANS, isWithinLimit } from "@/lib/billing/plans";
 
 describe("plan limits", () => {
   it("all plans have required limit fields", () => {
