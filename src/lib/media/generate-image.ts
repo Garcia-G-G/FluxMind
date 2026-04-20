@@ -20,8 +20,8 @@ export type GeneratedImage = {
 };
 
 const STYLE_PREFIX =
-  "Hand-drawn technical illustration, thin black ink lines on cream paper, small illustrated vignettes (icons, scenes, metaphoric objects), subtle orange watercolor accents. " +
-  "CRITICAL RULES: NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO LABELS, NO TYPOGRAPHY of any kind. The image must be purely visual — icons, scenes, objects, patterns only. Leave breathing room in the composition for text to be overlaid separately. ";
+  "Vintage engineering sketchbook illustration on cream-colored graph paper. Loose pen-and-ink style, confident thin black line work, small illustrated vignettes (icons, scenes, metaphoric objects, technical apparatus), occasional subtle watercolor wash in muted orange or sepia on key focal elements. Slightly off-register as if drawn by hand. " +
+  "ABSOLUTE RULE: NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO LABELS, NO TYPOGRAPHY anywhere in the image. The drawing must be purely visual — objects, scenes, icons, patterns only. Leave breathing room in the composition for text to be overlaid separately. Style reference: Leonardo da Vinci's Codex, old physics textbook diagrams, technical illustrated notebooks. ";
 
 type FalImageResult = {
   data?: {

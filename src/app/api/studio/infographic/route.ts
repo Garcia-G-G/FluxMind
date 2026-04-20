@@ -29,7 +29,7 @@ const layoutSchema = z.object({
   illustrationPrompt: z
     .string()
     .describe(
-      "Visual-only prompt for AI image generation. NO text, NO labels, NO numbers, NO words anywhere. Describe objects, scenes, icons, metaphors. 100-200 words. Will be placed BEHIND a text overlay so leave breathing room for text in the layout.",
+      "Visual-only prompt for AI image generation. NO text, NO labels, NO numbers, NO words anywhere. Style: pen-and-ink technical illustration on graph paper. Describe small illustrated vignettes positioned in specific zones of the canvas (e.g. top-left beach scene, center-right airplane, bottom-right pressure cooker), leaving whitespace around each for text overlay. 100-200 words. Think vintage engineering notebook: thin black line work with occasional muted orange or sepia watercolor wash on focal elements, scenes at different 'points' of a larger picture.",
     ),
   header: z.object({
     text: z.string(),
@@ -182,7 +182,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
 You are a world-class data visualization designer building a hybrid infographic. An AI model will render an ILLUSTRATION background, and a deterministic code layer will render ALL TEXT, CHARTS, CALLOUTS, AND STATS on top. Therefore:
 
-1. illustrationPrompt — describe the visual scene ONLY. Think "what would I draw if I could only communicate with pictures?" Icons, metaphoric objects, scenes, diagrams without labels. 100-200 words. NO text, NO letters, NO numbers, NO words, NO typography INSIDE the image. Example good prompt phrasing: "a cross-section cutaway of a rice cooker with thin ink lines, steam curling upward in watercolor, a small thermometer icon beside it, and a minimalist radial pattern suggesting heat distribution on cream paper, with open breathing space in the upper-center and lower-right for text overlay."
+1. illustrationPrompt — describe the visual scene ONLY. Think "what would I draw if I could only communicate with pictures?" Icons, metaphoric objects, scenes, diagrams without labels. 100-200 words. NO text, NO letters, NO numbers, NO words, NO typography INSIDE the image. Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook, Leonardo da Vinci's Codex meets old physics textbook. Describe small illustrated vignettes positioned in specific zones of the canvas (top-left beach scene, center-right airplane, bottom-right pressure cooker, etc.), scenes at different "points" of a larger picture, leaving whitespace around each for text overlay. Example good prompt: "a cross-section cutaway of a rice cooker with thin ink lines in the center-left, steam curling upward in a soft sepia watercolor wash toward the upper edge, a small thermometer vignette in the lower-left, a minimalist radial heat-distribution pattern in the upper-right, all rendered on cream graph paper with confident off-register hand-drawn lines and plenty of open space between vignettes for overlaid text."
 
 2. blocks — the interactive text/chart layer. Pick 4 to 10 blocks from these types:
    - stat: a single big number with a short label, placed at a semantic position (e.g. top-left)
@@ -203,7 +203,7 @@ You are a world-class data visualization designer building a hybrid infographic.
 6. accentColor: pick ONE from the allowed palette that matches the topic's mood.
 
 EXAMPLE (for reference, a rice-thermodynamics topic):
-- illustrationPrompt: a minimalist hand-drawn cross-section of a rice grain with watercolor steam, concentric heat-wave rings, a small spoon and a simmering pot rendered in thin ink, soft orange wash accents, cream paper, plenty of open space in the upper-third and lower-right for text
+- illustrationPrompt: vintage engineering sketchbook page on cream graph paper — a pen-and-ink cross-section of a rice grain in the upper-left vignette, concentric heat-wave rings sketched faintly in the center, a small spoon and a simmering pot with steam curling up in the lower-right rendered in thin confident ink lines, a tiny thermometer vignette in the top-right, soft sepia-orange watercolor wash on steam and grain focal points, slightly off-register hand-drawn lines, plenty of open whitespace between vignettes in the upper-center and lower-left for text overlay
 - blocks: a chart (line, x="minutes", y="temperature", 5 points with an annotation on point 3 "gelatinization begins"); 2 stats at top-left and top-right showing "60%" water ratio and "18m" cook time; a callout at mid-right pointing up at the steam area with a note about latent heat; a takeaway summarizing the optimal cooking window
 - sections: 3 accessibility-oriented heading+summary pairs
 - keyStats: 3 cards repeating the most critical numbers

@@ -14,7 +14,12 @@ import { generateInfographicImage } from "@/lib/media/generate-image";
 import { uploadFile } from "@/lib/storage/r2";
 import {
   arrowheadMarkerDef,
+  embeddedFontFace,
   escapeXml,
+  FONT_HANDWRITTEN,
+  FONT_SERIF,
+  FONT_TECHNICAL,
+  gridPatternDef,
   wrapText,
 } from "@/lib/media/svg-helpers";
 
@@ -56,15 +61,15 @@ export type ComposedSlide = {
 
 // ---------- Internal constants ----------
 
-const FONT_SANS = "Inter, Helvetica Neue, Arial, sans-serif";
-const FONT_SERIF = "Georgia, 'Times New Roman', serif";
-const COLOR_TEXT = "#0f172a";
-const COLOR_MUTED = "#64748b";
+// Sketchbook ink-on-cream palette.
+const COLOR_TEXT = "#1a1a1a";
+const COLOR_MUTED = "#4a4a4a";
+const COLOR_HAIRLINE = "#2a2a2a";
 
 // ---------- SVG layout renderers ----------
 
 const renderFooter = (W: number, H: number): string => {
-  return `<text x="${W - 48}" y="${H - 32}" font-family="${FONT_SANS}" font-size="14" fill="${COLOR_MUTED}" text-anchor="end">FluxMind</text>`;
+  return `<text x="${W - 48}" y="${H - 32}" font-family="${FONT_TECHNICAL}" font-size="14" fill="${COLOR_MUTED}" text-anchor="end">FluxMind</text>`;
 };
 
 const renderTitleLayout = (
@@ -89,17 +94,17 @@ const renderTitleLayout = (
     );
   });
 
-  // Accent line under the title block
+  // Accent line under the title block (slightly thinner — hairline feel)
   const accentLineY = startY + totalTitleH + 24;
   parts.push(
-    `<rect x="${cx - 60}" y="${accentLineY}" width="120" height="4" rx="2" fill="${accent}" />`,
+    `<rect x="${cx - 60}" y="${accentLineY}" width="120" height="3" rx="1.5" fill="${accent}" />`,
   );
 
   if (slide.subtitle) {
     const subLines = wrapText(slide.subtitle, 60).slice(0, 2);
     subLines.forEach((line, i) => {
       parts.push(
-        `<text x="${cx}" y="${accentLineY + 60 + i * 40}" font-family="${FONT_SANS}" font-size="28" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${cx}" y="${accentLineY + 60 + i * 42}" font-family="${FONT_HANDWRITTEN}" font-size="32" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
   }
@@ -128,7 +133,7 @@ const renderContentLayout = (
 
   // Accent bar under the title
   parts.push(
-    `<rect x="${leftX}" y="${titleBottom + 10}" width="40" height="3" rx="1.5" fill="${accent}" />`,
+    `<rect x="${leftX}" y="${titleBottom + 10}" width="40" height="2.5" rx="1.25" fill="${accent}" />`,
   );
 
   // Subtitle (optional)
@@ -137,9 +142,9 @@ const renderContentLayout = (
     const subLines = wrapText(slide.subtitle, 55).slice(0, 1);
     subLines.forEach((line) => {
       parts.push(
-        `<text x="${leftX}" y="${cursorY}" font-family="${FONT_SANS}" font-size="22" fill="${COLOR_MUTED}">${escapeXml(line)}</text>`,
+        `<text x="${leftX}" y="${cursorY}" font-family="${FONT_HANDWRITTEN}" font-size="26" fill="${COLOR_MUTED}">${escapeXml(line)}</text>`,
       );
-      cursorY += 34;
+      cursorY += 36;
     });
     cursorY += 8;
   } else {
@@ -148,19 +153,19 @@ const renderContentLayout = (
 
   // Bullets on left half
   const bullets = slide.bullets ?? [];
-  const bulletLineH = 32;
+  const bulletLineH = 34;
   const bulletGap = 18;
   const indentX = leftX + 28;
 
   bullets.slice(0, 5).forEach((bullet) => {
     const lines = wrapText(bullet, 50).slice(0, 2);
-    // Bullet square
+    // Bullet square — accent keeps the eye moving down the list
     parts.push(
       `<rect x="${leftX}" y="${cursorY - 16}" width="8" height="8" fill="${accent}" />`,
     );
     lines.forEach((line, li) => {
       parts.push(
-        `<text x="${indentX}" y="${cursorY + li * bulletLineH - 4}" font-family="${FONT_SANS}" font-size="24" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
+        `<text x="${indentX}" y="${cursorY + li * bulletLineH - 4}" font-family="${FONT_HANDWRITTEN}" font-size="26" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
       );
     });
     cursorY += lines.length * bulletLineH + bulletGap;
@@ -178,12 +183,12 @@ const renderStatLayout = (
 ): string => {
   const parts: string[] = [];
 
-  // Eyebrow title at top-left
+  // Eyebrow title at top-left (technical face, spaced caps)
   if (slide.title) {
     const titleLines = wrapText(slide.title.toUpperCase(), 50).slice(0, 1);
     titleLines.forEach((line, i) => {
       parts.push(
-        `<text x="100" y="${110 + i * 28}" font-family="${FONT_SANS}" font-size="18" font-weight="700" fill="${COLOR_MUTED}" letter-spacing="2">${escapeXml(line)}</text>`,
+        `<text x="100" y="${110 + i * 28}" font-family="${FONT_TECHNICAL}" font-size="18" font-weight="700" fill="${COLOR_MUTED}" letter-spacing="2">${escapeXml(line)}</text>`,
       );
     });
   }
@@ -194,16 +199,16 @@ const renderStatLayout = (
   const statValue = slide.stat?.value ?? "";
   const statLabel = slide.stat?.label ?? "";
 
-  // Big stat value centered
+  // Big stat value centered — serif feels like a display number in a textbook
   parts.push(
-    `<text x="${cx}" y="${cy + 30}" font-family="${FONT_SANS}" font-size="220" font-weight="900" fill="${accent}" text-anchor="middle" letter-spacing="-6">${escapeXml(statValue)}</text>`,
+    `<text x="${cx}" y="${cy + 30}" font-family="${FONT_SERIF}" font-size="220" font-weight="900" fill="${accent}" text-anchor="middle" letter-spacing="-6">${escapeXml(statValue)}</text>`,
   );
 
-  // Label beneath
+  // Label beneath (technical face)
   const labelLines = wrapText(statLabel, 35).slice(0, 2);
   labelLines.forEach((line, i) => {
     parts.push(
-      `<text x="${cx}" y="${cy + 100 + i * 38}" font-family="${FONT_SANS}" font-size="28" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+      `<text x="${cx}" y="${cy + 100 + i * 38}" font-family="${FONT_TECHNICAL}" font-size="30" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
     );
   });
 
@@ -229,7 +234,7 @@ const renderComparisonLayout = (
   });
   const titleBottom = topY + titleLines.length * 58;
   parts.push(
-    `<rect x="${leftX}" y="${titleBottom + 10}" width="40" height="3" rx="1.5" fill="${accent}" />`,
+    `<rect x="${leftX}" y="${titleBottom + 10}" width="40" height="2.5" rx="1.25" fill="${accent}" />`,
   );
 
   const items = slide.comparisonItems ?? [];
@@ -246,14 +251,14 @@ const renderComparisonLayout = (
   items.forEach((item, i) => {
     const bx = startX + i * (colW + gap);
     parts.push(
-      `<rect x="${bx}" y="${boxY}" width="${colW}" height="${boxH}" rx="16" fill="white" fill-opacity="0.92" stroke="${accent}" stroke-width="2" />`,
+      `<rect x="${bx}" y="${boxY}" width="${colW}" height="${boxH}" rx="6" fill="white" fill-opacity="0.92" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
     );
 
     // Value
     const valueLines = wrapText(item.value, 14).slice(0, 1);
     valueLines.forEach((line) => {
       parts.push(
-        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 - 4}" font-family="${FONT_SANS}" font-size="64" font-weight="700" fill="${accent}" text-anchor="middle" letter-spacing="-1">${escapeXml(line)}</text>`,
+        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 - 4}" font-family="${FONT_SERIF}" font-size="64" font-weight="700" fill="${accent}" text-anchor="middle" letter-spacing="-1">${escapeXml(line)}</text>`,
       );
     });
 
@@ -261,7 +266,7 @@ const renderComparisonLayout = (
     const labelLines = wrapText(item.label, 26).slice(0, 2);
     labelLines.forEach((line, li) => {
       parts.push(
-        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 + 50 + li * 26}" font-family="${FONT_SANS}" font-size="20" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 + 50 + li * 28}" font-family="${FONT_TECHNICAL}" font-size="22" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
   });
@@ -301,7 +306,7 @@ const renderQuoteLayout = (
   if (attribution) {
     const attrY = quoteStartY + quoteLines.length * lineH + 40;
     parts.push(
-      `<text x="${W - 140}" y="${attrY}" font-family="${FONT_SANS}" font-size="20" fill="${COLOR_MUTED}" text-anchor="end">${escapeXml(`— ${attribution}`)}</text>`,
+      `<text x="${W - 140}" y="${attrY}" font-family="${FONT_HANDWRITTEN}" font-size="24" fill="${COLOR_MUTED}" text-anchor="end">${escapeXml(`— ${attribution}`)}</text>`,
     );
   }
 
@@ -327,12 +332,12 @@ const renderFlowLayout = (
   });
   const titleBottom = topY + titleLines.length * 58;
   parts.push(
-    `<rect x="${leftX}" y="${titleBottom + 10}" width="40" height="3" rx="1.5" fill="${accent}" />`,
+    `<rect x="${leftX}" y="${titleBottom + 10}" width="40" height="2.5" rx="1.25" fill="${accent}" />`,
   );
 
   const steps = slide.flowSteps ?? [];
   const n = Math.max(1, steps.length);
-  const r = 32;
+  const r = 28;
   const startX = 180;
   const endX = W - 180;
   const span = endX - startX;
@@ -345,35 +350,35 @@ const renderFlowLayout = (
     parts.push(
       `<circle cx="${stepX}" cy="${cy}" r="${r}" fill="${accent}" />`,
     );
-    // Step number
+    // Step number (serif numeral, textbook feel)
     parts.push(
-      `<text x="${stepX}" y="${cy + 10}" font-family="${FONT_SANS}" font-size="28" font-weight="700" fill="white" text-anchor="middle">${i + 1}</text>`,
+      `<text x="${stepX}" y="${cy + 10}" font-family="${FONT_SERIF}" font-size="28" font-weight="700" fill="white" text-anchor="middle">${i + 1}</text>`,
     );
 
     // Label below circle
     const labelLines = wrapText(step.label, 22).slice(0, 2);
     labelLines.forEach((line, li) => {
       parts.push(
-        `<text x="${stepX}" y="${cy + r + 36 + li * 26}" font-family="${FONT_SANS}" font-size="20" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${stepX}" y="${cy + r + 36 + li * 28}" font-family="${FONT_HANDWRITTEN}" font-size="22" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
-    const labelBottom = cy + r + 36 + labelLines.length * 26;
+    const labelBottom = cy + r + 36 + labelLines.length * 28;
 
     // Detail below label
     const detailLines = wrapText(step.detail, 28).slice(0, 3);
     detailLines.forEach((line, li) => {
       parts.push(
-        `<text x="${stepX}" y="${labelBottom + 8 + li * 22}" font-family="${FONT_SANS}" font-size="16" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${stepX}" y="${labelBottom + 8 + li * 22}" font-family="${FONT_TECHNICAL}" font-size="16" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
 
-    // Arrow to next
+    // Arrow to next — thinner hairline
     if (i < n - 1) {
       const nextX = startX + ((i + 1) / (n - 1)) * span;
       const ax1 = stepX + r + 8;
       const ax2 = nextX - r - 8;
       parts.push(
-        `<line x1="${ax1}" y1="${cy}" x2="${ax2}" y2="${cy}" stroke="${accent}" stroke-width="2.5" marker-end="url(#fm-slide-arrowhead)" />`,
+        `<line x1="${ax1}" y1="${cy}" x2="${ax2}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1.25" marker-end="url(#fm-slide-arrowhead)" />`,
       );
     }
   });
@@ -395,12 +400,12 @@ const renderClosingLayout = (
   // if needed in the future.
   const eyebrow = slide.subtitle?.toUpperCase() ?? "SUMMARY";
   parts.push(
-    `<text x="${cx}" y="${cy - 180}" font-family="${FONT_SANS}" font-size="18" font-weight="700" fill="${accent}" text-anchor="middle" letter-spacing="4">${escapeXml(eyebrow)}</text>`,
+    `<text x="${cx}" y="${cy - 180}" font-family="${FONT_TECHNICAL}" font-size="18" font-weight="700" fill="${accent}" text-anchor="middle" letter-spacing="4">${escapeXml(eyebrow)}</text>`,
   );
 
   // Accent rule
   parts.push(
-    `<rect x="${cx - 40}" y="${cy - 160}" width="80" height="3" rx="1.5" fill="${accent}" />`,
+    `<rect x="${cx - 40}" y="${cy - 160}" width="80" height="2.5" rx="1.25" fill="${accent}" />`,
   );
 
   // Takeaway (use title as the single sentence)
@@ -431,8 +436,11 @@ const buildSlideSvg = (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
   );
   parts.push(
-    `<defs>${arrowheadMarkerDef(accent, "fm-slide-arrowhead")}</defs>`,
+    `<defs>${embeddedFontFace()}${gridPatternDef("fm-slide-grid")}${arrowheadMarkerDef(accent, "fm-slide-arrowhead")}</defs>`,
   );
+
+  // Graph-paper grid baked into overlay for the paper feel.
+  parts.push(`<rect width="${W}" height="${H}" fill="url(#fm-slide-grid)" />`);
 
   switch (slide.layout) {
     case "title":
@@ -508,27 +516,28 @@ export const composeSlide = async (
   const svg = buildSlideSvg(slide, W, H, deckAccent);
   const svgBuffer = Buffer.from(svg);
 
-  // 3. White translucent sheet for legibility.
-  // Title / closing are hero slides → more illustration shows through (alpha 0.5).
-  // All other layouts use 0.7 so bullets / stats / quotes are legible.
+  // 3. Cream-colored readability sheet for legibility.
+  // Title / closing are hero slides → more illustration shows through (alpha 0.45).
+  // All other layouts use 0.6 so bullets / stats / quotes are legible while
+  // still feeling like paper, not glass.
   const sheetAlpha =
-    slide.layout === "title" || slide.layout === "closing" ? 0.5 : 0.7;
-  const whiteSheet = await sharp({
+    slide.layout === "title" || slide.layout === "closing" ? 0.45 : 0.6;
+  const creamSheet = await sharp({
     create: {
       width: W,
       height: H,
       channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: sheetAlpha },
+      background: { r: 253, g: 250, b: 243, alpha: sheetAlpha },
     },
   })
     .png()
     .toBuffer();
 
-  // 4. Composite bg → white sheet → SVG
+  // 4. Composite bg → cream sheet → SVG
   const finalBuffer = await sharp(bgBuffer)
     .resize(W, H, { fit: "cover" })
     .composite([
-      { input: whiteSheet, top: 0, left: 0 },
+      { input: creamSheet, top: 0, left: 0 },
       { input: svgBuffer, top: 0, left: 0 },
     ])
     .png({ quality: 90 })

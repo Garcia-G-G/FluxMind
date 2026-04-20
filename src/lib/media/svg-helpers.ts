@@ -1,9 +1,18 @@
 /**
  * Reusable SVG helpers for the hybrid infographic / slide composition pipeline.
  *
- * All functions here are pure — no IO, no side effects — so they can be
+ * Most functions here are pure — no IO, no side effects — so they can be
  * shared between `compose-infographic.ts` and future slide composers.
+ *
+ * `embeddedFontFace` is the one exception: it reads the bundled Patrick Hand
+ * TTF from disk once and returns a cached CSS @font-face block so composers
+ * can inline handwriting typefaces into their SVG <defs>. librsvg's support
+ * for `@font-face` data URLs varies by version — we include the block so it
+ * works where supported, and fall through to system font stacks where it
+ * doesn't (via the `font-family` stacks emitted by the composers).
  */
+import { readFileSync } from "fs";
+import path from "path";
 
 /**
  * Escapes the five XML-reserved characters so arbitrary user text can safely
@@ -163,4 +172,83 @@ export const arrowheadMarkerDef = (
   const color = escapeXml(accent);
   const safeId = escapeXml(id);
   return `<marker id="${safeId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${color}" /></marker>`;
+};
+
+// ---- Font embedding ----
+//
+// We bundle Patrick Hand (a clean technical-pen handwriting typeface) under
+// `src/lib/media/fonts/` and attempt to embed it as a base64 data URL inside
+// the composed SVG's `<defs><style>` block. Two font-family aliases are
+// registered:
+//
+//  • `FM-Handwritten` — used for callout titles, callout bodies, chart
+//    annotations. Readable hand-lettering feel.
+//  • `FM-Technical`   — used for stat labels, axis ticks, bullet detail.
+//    Same underlying typeface but semantically separates the technical-label
+//    role, so we can later swap to a monospace if needed.
+//
+// librsvg's support for `@font-face` data URLs varies by build. Where it
+// works, the composed PNG picks up real Patrick Hand glyphs. Where it
+// doesn't, the stack falls through to `Patrick Hand, Bradley Hand, Segoe
+// Print, Noteworthy, cursive` (or `Marker Felt, Menlo, monospace` for the
+// technical alias). We pick font-family stacks that look reasonable on
+// macOS, Windows, and common Linux font packages.
+//
+// The result is cached in module scope — we only read the TTF once.
+
+let cachedFontFace: string | null = null;
+
+export const embeddedFontFace = (): string => {
+  if (cachedFontFace !== null) return cachedFontFace;
+  try {
+    const patrick = readFileSync(
+      path.join(
+        process.cwd(),
+        "src/lib/media/fonts/PatrickHand-Regular.ttf",
+      ),
+    );
+    const b64 = patrick.toString("base64");
+    // Both FM-Handwritten and FM-Technical resolve to Patrick Hand — the
+    // stacks on the <text> elements differ so that when librsvg can't load
+    // the embedded font, the fallback cursive vs monospace distinction is
+    // preserved.
+    cachedFontFace = `
+      <style type="text/css"><![CDATA[
+        @font-face {
+          font-family: "FM-Handwritten";
+          src: url("data:font/ttf;base64,${b64}") format("truetype");
+          font-weight: 400;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: "FM-Technical";
+          src: url("data:font/ttf;base64,${b64}") format("truetype");
+          font-weight: 400;
+          font-style: normal;
+        }
+      ]]></style>
+    `;
+  } catch (err) {
+    // If the font file is missing, degrade gracefully — the SVG will just
+    // fall through to the system font stack.
+    console.warn("embeddedFontFace: font file missing, using fallback stacks only:", err);
+    cachedFontFace = "";
+  }
+  return cachedFontFace;
+};
+
+// Font-family stacks consumed by the composers. Defined here so both
+// compose-infographic and compose-slide use identical values.
+export const FONT_HANDWRITTEN =
+  "'FM-Handwritten', 'Patrick Hand', 'Bradley Hand', 'Segoe Print', 'Noteworthy', cursive";
+export const FONT_TECHNICAL =
+  "'FM-Technical', 'Patrick Hand', 'Marker Felt', 'Segoe Print', Menlo, monospace";
+export const FONT_SERIF = "Georgia, 'Times New Roman', serif";
+
+// Grid/graph-paper pattern for the paper-feel base layer. The composers emit
+// this into `<defs>` and then stamp a full-canvas rect filled with the
+// pattern as the first drawn element.
+export const gridPatternDef = (id = "fm-grid"): string => {
+  const safeId = escapeXml(id);
+  return `<pattern id="${safeId}" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0f172a" stroke-width="0.4" opacity="0.07" /></pattern>`;
 };

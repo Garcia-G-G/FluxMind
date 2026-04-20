@@ -53,7 +53,7 @@ const slideSchema = z.object({
   illustrationPrompt: z
     .string()
     .describe(
-      "Visual-only prompt (NO text, NO labels, NO numbers). Describe scenes, objects, icons, metaphors that represent the slide's content. 80-160 words. The AI illustration will be placed BEHIND a text overlay so leave breathing room.",
+      "Visual-only prompt (NO text, NO labels, NO numbers). Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook feel. Describe small illustrated vignettes positioned in specific zones of the canvas (top-left, center-right, bottom, etc.), scenes at different 'points' of a larger picture, with plenty of whitespace around each vignette for text overlay. 80-160 words. Think Leonardo's Codex and old physics textbook diagrams: confident thin ink lines, off-register hand-drawn feel, occasional muted orange or sepia watercolor wash on focal elements.",
     ),
   narrationHint: z.string(),
 });
@@ -156,7 +156,7 @@ You are designing a visual presentation deck that teaches the user about the top
 
 Create ${count} slides (default 6). Each slide uses ONE of 7 hybrid layouts. The AI will draw a pure-visual illustration as the background; all text is rendered by code on top. Therefore:
 
-CRITICAL: The illustrationPrompt must describe ONLY visual elements — scenes, objects, icons, people, metaphors. Absolutely NO text, NO letters, NO numbers, NO labels, NO words, NO typography of any kind. Write 80-160 words. Leave breathing room in the composition because text will be overlaid.
+CRITICAL: The illustrationPrompt must describe ONLY visual elements — scenes, objects, icons, people, metaphors. Absolutely NO text, NO letters, NO numbers, NO labels, NO words, NO typography of any kind. Write 80-160 words. Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook (think Leonardo da Vinci's Codex, old physics textbook diagrams, technical illustrated notebooks). Describe small illustrated vignettes positioned in specific zones of the canvas — scenes at different "points" of a larger picture — leaving whitespace around each for text overlay. Confident thin ink lines, slightly off-register hand-drawn feel, occasional muted orange or sepia watercolor wash on focal elements.
 
 LAYOUTS AVAILABLE and when to use each:
 - title: the opening cover slide. ALWAYS first. Use: title + subtitle only. No bullets/stat/etc.
@@ -174,7 +174,7 @@ Rules:
 - narrationHint: 1-2 sentences the narrator will say about this slide (in ${LANG_NAME}).
 
 EXAMPLE of a good illustrationPrompt (for a 'content' slide about rice thermodynamics):
-"A hand-drawn ink sketch showing a steaming pot of rice on the left, grains of rice arranged in a spiral pattern on the right. Thin black ink lines on cream paper with subtle orange watercolor touches at the steam and the grains. Include a small thermometer icon, a tiny mountain silhouette in the background, and a stylized water droplet. Compose with lots of empty space on the left half so text can be overlaid. No labels, no numbers, no letters — purely illustrative metaphoric objects arranged in a loose circular flow around empty center-left space."
+"A vintage engineering sketchbook page on cream-colored graph paper. In the upper-right vignette, a steaming pot of rice rendered in confident thin ink lines with a soft sepia watercolor wash on the steam. In the lower-left, a small cluster of rice grains arranged in a loose spiral, drawn with slightly off-register hand-drawn lines. In the center-top, a tiny thermometer vignette and a minimalist mountain silhouette. In the bottom-right, a stylized water droplet with faint radial lines suggesting heat. Style reference: Leonardo's Codex, old physics textbooks, technical illustrated notebooks. Leave plenty of open whitespace between vignettes — especially in the left half — for text overlay. No labels, no numbers, no letters, no typography of any kind — purely illustrative metaphoric vignettes positioned at distinct points of the canvas."
 
 Sources:
 ${ctx.sourceContext}`,
