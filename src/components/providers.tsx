@@ -1,29 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
 import { FluxThemeProvider } from "@/components/shared/theme-provider";
 import { LanguageProvider } from "@/lib/i18n/language";
 
+/**
+ * Root-level providers: theme + language. Both are tiny (localStorage reads
+ * on mount, small context) and needed app-wide so theme preference persists
+ * across marketing/auth/app boundaries.
+ *
+ * QueryClient lives in <AppProviders> and only mounts under (app) routes.
+ */
 export const Providers = ({ children }: { children: ReactNode }): ReactNode => {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <FluxThemeProvider>
-        <LanguageProvider>{children}</LanguageProvider>
-      </FluxThemeProvider>
-    </QueryClientProvider>
+    <FluxThemeProvider>
+      <LanguageProvider>{children}</LanguageProvider>
+    </FluxThemeProvider>
   );
 };

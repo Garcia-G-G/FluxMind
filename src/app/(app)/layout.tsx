@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { auth } from "@/lib/auth";
 import { AppShell } from "@/components/layout/app-shell";
+import { AppProviders } from "@/components/app-providers";
 
 const AppLayout = async ({
   children,
@@ -17,7 +18,11 @@ const AppLayout = async ({
     redirect("/login");
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppProviders>
+      <AppShell>{children}</AppShell>
+    </AppProviders>
+  );
 };
 
 export default AppLayout;

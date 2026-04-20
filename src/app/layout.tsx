@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Plus_Jakarta_Sans, JetBrains_Mono, Instrument_Serif } from "next/font/google";
+import { Plus_Jakarta_Sans, Instrument_Serif } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 import "@/styles/theme-tokens.css";
@@ -10,11 +10,7 @@ const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-geist-sans",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 const instrumentSerif = Instrument_Serif({
@@ -22,6 +18,7 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   variable: "--font-display",
   style: ["normal", "italic"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -43,7 +40,7 @@ const RootLayout = ({ children }: { children: ReactNode }): ReactNode => {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <body
-        className={`${jakartaSans.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} antialiased`}
+        className={`${jakartaSans.variable} ${instrumentSerif.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>
