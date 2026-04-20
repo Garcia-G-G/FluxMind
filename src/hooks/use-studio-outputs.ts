@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLanguage, type Language } from "@/lib/i18n/language";
 
 /* ── Fetch existing outputs for a notebook ── */
 export type OutputListItem = {
@@ -29,7 +30,7 @@ export const useOutputs = (notebookId: string) => {
 
 const generateStudioOutput = async (
   endpoint: string,
-  data: { notebookId: string; count?: number; model?: string }
+  data: { notebookId: string; count?: number; model?: string; language: Language }
 ) => {
   const res = await fetch(endpoint, {
     method: "POST",
@@ -46,8 +47,10 @@ const generateStudioOutput = async (
 /* Factory: auto-invalidates outputs query after generation */
 const useGenerate = <T extends { notebookId: string }>(endpoint: string) => {
   const qc = useQueryClient();
+  const { language } = useLanguage();
   return useMutation({
-    mutationFn: (data: T) => generateStudioOutput(endpoint, data),
+    mutationFn: (data: T) =>
+      generateStudioOutput(endpoint, { ...data, language }),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["outputs", vars.notebookId] });
     },

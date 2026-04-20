@@ -15,6 +15,8 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     const body = await request.json();
     const outputId: string | undefined = body?.outputId;
+    const rawLanguage: unknown = body?.language;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
     if (!outputId) {
       return NextResponse.json(
         { error: "outputId required" },
@@ -35,9 +37,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     }
 
     const existing = (row.content ?? {}) as Record<string, unknown>;
+    // Only serve cache if the cached audio matches the requested language.
+    const cachedLanguage = existing.audioLanguage === "es" ? "es" : "en";
     if (
       typeof existing.audioUrl === "string" &&
-      existing.audioUrl.length > 0
+      existing.audioUrl.length > 0 &&
+      cachedLanguage === language
     ) {
       return NextResponse.json({
         audioUrl: existing.audioUrl,
@@ -52,6 +57,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       row.content,
       row.type,
       row.notebookId,
+      language,
     );
 
     const merged: Record<string, unknown> = {
@@ -59,6 +65,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       audioUrl: result.audioUrl,
       audioScript: result.script,
       audioDuration: result.duration,
+      audioLanguage: language,
     };
     await db
       .update(outputs)

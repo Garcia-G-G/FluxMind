@@ -55,7 +55,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     }
 
     const body = await request.json();
-    const { notebookId, count = 15, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      count = 15,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     if (!notebookId) {
       return NextResponse.json({ error: "notebookId required" }, { status: 400 });
@@ -106,7 +114,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: quiz } = await generateObject({
         model: getModel(modelId),
         schema: quizSchema,
-        prompt: `Generate a comprehensive quiz based on the following source material. Create exactly ${count} questions.
+        prompt: `${langInstr}
+
+Generate a comprehensive quiz based on the following source material. Create exactly ${count} questions.
 
 Mix question types:
 - 60% Multiple Choice (4 options labeled A) B) C) D), exactly 1 correct)

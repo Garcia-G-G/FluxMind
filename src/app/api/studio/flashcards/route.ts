@@ -36,7 +36,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     }
 
     const body = await request.json();
-    const { notebookId, count = 20, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      count = 20,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     if (!notebookId) {
       return NextResponse.json({ error: "notebookId required" }, { status: 400 });
@@ -84,7 +92,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: flashcards } = await generateObject({
         model: getModel(modelId),
         schema: flashcardsSchema,
-        prompt: `Generate ${count} flashcards from the following source material.
+        prompt: `${langInstr}
+
+Generate ${count} flashcards from the following source material.
 
 Each flashcard should have:
 - A clear, concise term/question on the front

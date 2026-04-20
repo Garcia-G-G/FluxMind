@@ -80,10 +80,18 @@ export const POST = async (
 
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body as {
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body as {
       notebookId: string;
       model?: string;
+      language?: string;
     };
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages. For any text rendered IN the image (callout boxes, labels, quoted short phrases inside the imagePrompt), write that text in ${LANG_NAME} as well.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) {
@@ -108,7 +116,9 @@ export const POST = async (
       const { object } = await generateObject({
         model: getModel(modelId),
         schema: contentSchema,
-        prompt: `You are a world-class data visualization designer creating content for an AI-generated educational infographic (NotebookLM quality).
+        prompt: `${langInstr}
+
+You are a world-class data visualization designer creating content for an AI-generated educational infographic (NotebookLM quality).
 
 Return:
 - title: a short, punchy headline (max 8 words)

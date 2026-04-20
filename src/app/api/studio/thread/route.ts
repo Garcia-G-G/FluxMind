@@ -25,7 +25,14 @@ export type ThreadContent = z.infer<typeof threadSchema>;
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -41,7 +48,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: thread } = await generateObject({
         model: getModel(modelId),
         schema: threadSchema,
-        prompt: `Create a viral X/Twitter thread from the following source material.
+        prompt: `${langInstr}
+
+Create a viral X/Twitter thread from the following source material.
 
 Rules:
 - First tweet is the HOOK — grab attention with a bold claim, surprising stat, or provocative question. Mark isHook: true.

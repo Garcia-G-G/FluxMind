@@ -6,6 +6,7 @@ import { Search, Bell, Moon, Sun, Settings, Menu, LogOut, User } from "lucide-re
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useFluxTheme } from "@/components/shared/theme-provider";
+import { LanguageToggle } from "@/components/shared/language-toggle";
 
 export const Header = ({
   onOpenCommandPalette,
@@ -107,6 +108,8 @@ export const Header = ({
             {mode === "dark" ? <Moon className="h-[18px] w-[18px]" /> : <Sun className="h-[18px] w-[18px]" />}
           </div>
         </button>
+
+        <LanguageToggle />
 
         <Link
           href="/settings"

@@ -88,11 +88,16 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       notebookId,
       count = 6,
       model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
     } = body as {
       notebookId: string;
       count?: number;
       model?: string;
+      language?: string;
     };
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages. For any text rendered IN the image (callout boxes, labels, quoted short phrases inside the imagePrompt), write that text in ${LANG_NAME} as well.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) {
@@ -117,7 +122,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object } = await generateObject({
         model: getModel(modelId),
         schema: deckSchema,
-        prompt: `You are designing a visual presentation deck that teaches the user about the topic in the sources.
+        prompt: `${langInstr}
+
+You are designing a visual presentation deck that teaches the user about the topic in the sources.
 
 Create ${count} slides (default 6) that each use a DIFFERENT visual layout to best present its content.
 

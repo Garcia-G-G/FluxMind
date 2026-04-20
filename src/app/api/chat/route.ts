@@ -40,12 +40,16 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       notebookId,
       model: modelId = "gpt-4o",
       conversationId,
+      language: rawLanguage = "en",
     } = body as {
       messages: UIMessage[];
       notebookId: string;
       model?: string;
       conversationId?: string;
+      language?: string;
     };
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
 
     if (!notebookId || !messages?.length) {
       return new Response("Missing notebookId or messages", { status: 400 });
@@ -80,7 +84,10 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       console.error("RAG retrieval failed:", ragError);
     }
 
-    const systemPrompt = buildSystemPrompt(chunks);
+    const basePrompt = buildSystemPrompt(chunks);
+    const systemPrompt = `${basePrompt}
+
+IMPORTANT LANGUAGE PREFERENCE: The user has selected ${LANG_NAME} as their preferred language. Unless the user explicitly writes their question in a different language, respond in ${LANG_NAME}. Citations and source titles stay in their original form.`;
 
     // Ensure or create conversation
     let activeConversationId = conversationId;

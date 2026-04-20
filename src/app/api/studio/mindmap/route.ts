@@ -39,7 +39,14 @@ const LEVEL_1_COLORS = [
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -55,7 +62,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: mindMap } = await generateObject({
         model: getModel(modelId),
         schema: mindMapSchema,
-        prompt: `Analyze these sources and create a mind map. Identify the central topic, then 4-7 subtopics, each with 2-4 details. Use IDs like st1, st2 for subtopics and d1, d2 for details.\n\nSources:\n${ctx.sourceContext}`,
+        prompt: `${langInstr}\n\nAnalyze these sources and create a mind map. Identify the central topic, then 4-7 subtopics, each with 2-4 details. Use IDs like st1, st2 for subtopics and d1, d2 for details.\n\nSources:\n${ctx.sourceContext}`,
       });
 
       // Transform to React Flow nodes and edges

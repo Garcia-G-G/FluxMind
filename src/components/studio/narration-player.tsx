@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Play, Pause, Download, Loader2, Sparkles } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/language";
 
 const SPEEDS = [1, 1.5, 2] as const;
 type Speed = (typeof SPEEDS)[number];
@@ -13,6 +14,7 @@ export const NarrationPlayer = ({
   outputId: string;
   existingAudioUrl?: string | null;
 }): React.ReactNode => {
+  const { language } = useLanguage();
   const [audioUrl, setAudioUrl] = useState<string | null>(
     existingAudioUrl ?? null,
   );
@@ -31,7 +33,7 @@ export const NarrationPlayer = ({
       const res = await fetch("/api/studio/narrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outputId }),
+        body: JSON.stringify({ outputId, language }),
       });
       if (!res.ok) {
         const j = (await res

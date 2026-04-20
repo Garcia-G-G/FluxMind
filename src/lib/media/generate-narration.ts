@@ -13,12 +13,31 @@ export type NarrationResult = {
   persisted: boolean; // true if on R2
 };
 
-const buildScriptPrompt = (content: unknown, outputType: string): string => `You are a friendly, engaging narrator explaining a ${outputType} to a curious student. Write a natural-sounding spoken narration (200-350 words) that:
+const buildScriptPrompt = (
+  content: unknown,
+  outputType: string,
+  language: "en" | "es",
+): string => {
+  const LANG_NAME = language === "es" ? "Spanish" : "English";
+  const langInstr = `IMPORTANT: Write the entire narration in ${LANG_NAME}. Every sentence, every word, every verbal connective must be natural, fluent ${LANG_NAME}. Do NOT mix languages. Do NOT translate word-for-word from English — write idiomatic ${LANG_NAME} as a native speaker would narrate.`;
 
-- Opens with a hook like "Let's break down what we're looking at here..." or "Here's something interesting..."
+  const hookExamples =
+    language === "es"
+      ? `"Analicemos lo que estamos viendo aquí..." o "Aquí hay algo interesante..."`
+      : `"Let's break down what we're looking at here..." or "Here's something interesting..."`;
+  const connectiveExamples =
+    language === "es"
+      ? `"Ahora, aquí se pone interesante...", "Entonces, ¿qué significa esto?"`
+      : `"Now here's where it gets interesting...", "So, what does this mean?"`;
+
+  return `${langInstr}
+
+You are a friendly, engaging narrator explaining a ${outputType} to a curious student. Write a natural-sounding spoken narration (200-350 words) in ${LANG_NAME} that:
+
+- Opens with a hook like ${hookExamples}
 - Walks through each section/data point conversationally
 - Highlights the most surprising or important findings (use specific numbers from the content)
-- Uses natural pauses and verbal connectives: "Now here's where it gets interesting...", "So, what does this mean?"
+- Uses natural pauses and verbal connectives: ${connectiveExamples}
 - Sounds like a knowledgeable friend, NOT a textbook
 - Closes with a clear takeaway
 - Avoids filler, corporate-speak, or vague statements
@@ -26,15 +45,17 @@ const buildScriptPrompt = (content: unknown, outputType: string): string => `You
 Content to narrate:
 ${JSON.stringify(content, null, 2).slice(0, 6000)}
 
-Output ONLY the narration text — no stage directions, no speaker labels, no markdown.`;
+Output ONLY the narration text in ${LANG_NAME} — no stage directions, no speaker labels, no markdown.`;
+};
 
 export const generateNarrationScript = async (
   content: unknown,
   outputType: string,
+  language: "en" | "es" = "en",
 ): Promise<string> => {
   const { text } = await generateText({
     model: getModel("gemini-2.5-flash"),
-    prompt: buildScriptPrompt(content, outputType),
+    prompt: buildScriptPrompt(content, outputType, language),
   });
   return text.trim();
 };
@@ -71,9 +92,18 @@ export const generateNarration = async (
   content: unknown,
   outputType: string,
   notebookId: string,
+  language: "en" | "es" = "en",
 ): Promise<NarrationResult> => {
-  const script = await generateNarrationScript(content, outputType);
-  const voiceId = process.env.ELEVENLABS_NARRATOR_VOICE ?? DEFAULT_VOICE;
+  const script = await generateNarrationScript(content, outputType, language);
+  // Allow an optional per-language voice override; fall back to the shared
+  // narrator voice, then the module default. eleven_multilingual_v2 reads
+  // Spanish cleanly on any multilingual voice.
+  const voiceId =
+    (language === "es"
+      ? process.env.ELEVENLABS_NARRATOR_VOICE_ES
+      : process.env.ELEVENLABS_NARRATOR_VOICE_EN) ??
+    process.env.ELEVENLABS_NARRATOR_VOICE ??
+    DEFAULT_VOICE;
   const audioBuffer = await synthesizeSpeech(script, voiceId);
 
   // Rough MP3 duration at ~128kbps (~16KB/sec).

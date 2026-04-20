@@ -18,11 +18,13 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const { query, notebookId } = await request.json();
+    const { query, notebookId, language: rawLanguage = "en" } = await request.json();
 
     if (!query || !notebookId) {
       return new Response("query and notebookId required", { status: 400 });
     }
+
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
 
     // Verify access
     const [notebook] = await db
@@ -59,6 +61,7 @@ export const POST = async (request: NextRequest): Promise<Response> => {
           const report = await runResearchPipeline({
             query,
             sourceContext,
+            language,
             onStep: send,
           });
 

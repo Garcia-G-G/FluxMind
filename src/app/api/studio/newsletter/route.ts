@@ -32,7 +32,14 @@ export type NewsletterContent = z.infer<typeof newsletterSchema>;
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -48,7 +55,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: newsletter } = await generateObject({
         model: getModel(modelId),
         schema: newsletterSchema,
-        prompt: `Create a professional newsletter from the following source material.
+        prompt: `${langInstr}
+
+Create a professional newsletter from the following source material.
 
 Structure:
 - Compelling headline

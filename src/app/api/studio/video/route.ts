@@ -29,7 +29,11 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId } = body;
+    const { notebookId, language: rawLanguage = "en" } = body as {
+      notebookId: string;
+      language?: string;
+    };
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -50,7 +54,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const { generateVideo } = await import("@/lib/video/generate-video");
       // Process async without blocking response
-      generateVideo(notebookId, outputId).catch(console.error);
+      generateVideo(notebookId, outputId, language).catch(console.error);
     } catch {
       console.warn("Video generation module unavailable");
     }

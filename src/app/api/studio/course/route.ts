@@ -43,7 +43,14 @@ export type CourseContent = z.infer<typeof courseSchema>;
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -59,7 +66,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: course } = await generateObject({
         model: getModel(modelId),
         schema: courseSchema,
-        prompt: `Structure the following source material into a mini-course with 5-8 lessons.
+        prompt: `${langInstr}
+
+Structure the following source material into a mini-course with 5-8 lessons.
 
 Each lesson needs:
 - A clear title and learning objective

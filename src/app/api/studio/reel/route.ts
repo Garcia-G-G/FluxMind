@@ -28,7 +28,14 @@ export type ReelContent = z.infer<typeof reelSchema>;
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -44,7 +51,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: reel } = await generateObject({
         model: getModel(modelId),
         schema: reelSchema,
-        prompt: `Create a 30-60 second short-form video script (for TikTok/Reels/Shorts).
+        prompt: `${langInstr}
+
+Create a 30-60 second short-form video script (for TikTok/Reels/Shorts).
 
 Structure:
 - HOOK (0-3 seconds): A single sentence that stops the scroll. Type: "hook".

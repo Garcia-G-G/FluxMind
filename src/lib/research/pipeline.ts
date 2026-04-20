@@ -15,6 +15,7 @@ export type ResearchOptions = {
   query: string;
   sourceContext: string;
   onStep: (step: ResearchStep) => void;
+  language?: "en" | "es";
 };
 
 const planSchema = z.object({
@@ -26,7 +27,11 @@ export const runResearchPipeline = async ({
   query,
   sourceContext,
   onStep,
+  language = "en",
 }: ResearchOptions): Promise<string> => {
+  const LANG_NAME = language === "es" ? "Spanish" : "English";
+  const langInstr = `IMPORTANT: Write the final report, key takeaways, open questions, and all narrative text in ${LANG_NAME}. Do not mix languages. Web search queries may stay in English if that yields better results, but the synthesized report MUST be in ${LANG_NAME}.`;
+
   // Step 1: Plan search queries
   onStep({ type: "plan", message: "Planning research queries...", progress: 5 });
 
@@ -114,7 +119,9 @@ Return search queries and your reasoning.`,
 
   const { text: report } = await generateText({
     model: getModel("gemini-2.5-flash"),
-    prompt: `You are a senior research analyst. Synthesize the following into a comprehensive research report.
+    prompt: `${langInstr}
+
+You are a senior research analyst. Synthesize the following into a comprehensive research report.
 
 ## User's Research Question:
 ${query}

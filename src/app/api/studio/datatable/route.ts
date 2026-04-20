@@ -31,7 +31,14 @@ export type DataTableContent = z.infer<typeof dataTableSchema>;
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, model: modelId = "gemini-2.5-flash" } = body;
+    const {
+      notebookId,
+      model: modelId = "gemini-2.5-flash",
+      language: rawLanguage = "en",
+    } = body;
+    const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -47,7 +54,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: tables } = await generateObject({
         model: getModel(modelId),
         schema: dataTableSchema,
-        prompt: `Extract all structured/tabular data from the following sources. Identify data that can be meaningfully organized in rows and columns. If no explicit tables exist, extract any data that COULD be organized as a table (comparisons, lists with attributes, statistics, timelines). Column types: "text", "number", "date". Cite the source for each table.\n\nSources:\n${ctx.sourceContext}`,
+        prompt: `${langInstr}\n\nExtract all structured/tabular data from the following sources. Identify data that can be meaningfully organized in rows and columns. If no explicit tables exist, extract any data that COULD be organized as a table (comparisons, lists with attributes, statistics, timelines). Column types: "text", "number", "date". Cite the source for each table.\n\nSources:\n${ctx.sourceContext}`,
       });
 
       await db.update(outputs).set({ content: tables as unknown as Record<string, unknown>, status: "ready", updatedAt: new Date() }).where(eq(outputs.id, outputId));

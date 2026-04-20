@@ -31,9 +31,12 @@ const updateProgress = async (
 
 export const generateVideo = async (
   notebookId: string,
-  outputId: string
+  outputId: string,
+  language: "en" | "es" = "en"
 ): Promise<void> => {
   try {
+    const LANG_NAME = language === "es" ? "Spanish" : "English";
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, narration, labels, everything must be in ${LANG_NAME}. Do not mix languages.`;
     await updateProgress(outputId, { status: "generating" });
 
     // Step 1: Fetch sources and generate script
@@ -50,10 +53,12 @@ export const generateVideo = async (
     const { object: script } = await generateObject({
       model: getModel("gemini-2.5-flash"),
       schema: scriptSchema,
-      prompt: `Write a video narration script with 5-7 chapters. Each chapter needs:
+      prompt: `${langInstr}
+
+Write a video narration script with 5-7 chapters. Each chapter needs:
 - title (short, catchy)
 - narration (60-90 words, natural spoken language)
-- imagePrompt (detailed visual description for AI image generation, professional, educational)
+- imagePrompt (detailed visual description for AI image generation, professional, educational — any text rendered IN the image should also be in ${LANG_NAME})
 
 Sources:\n${sourceContext}`,
     });

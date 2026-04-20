@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/lib/i18n/language";
 
 type QuizAttempt = {
   id: string;
@@ -107,6 +108,7 @@ export const useUpdateFlashcardProgress = () => {
 };
 
 export const useGenerateQuiz = () => {
+  const { language } = useLanguage();
   return useMutation({
     mutationFn: async (data: {
       notebookId: string;
@@ -116,7 +118,7 @@ export const useGenerateQuiz = () => {
       const res = await fetch("/api/studio/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, language }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -128,6 +130,7 @@ export const useGenerateQuiz = () => {
 };
 
 export const useGenerateFlashcards = () => {
+  const { language } = useLanguage();
   return useMutation({
     mutationFn: async (data: {
       notebookId: string;
@@ -137,7 +140,7 @@ export const useGenerateFlashcards = () => {
       const res = await fetch("/api/studio/flashcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, language }),
       });
       if (!res.ok) {
         const err = await res.json();

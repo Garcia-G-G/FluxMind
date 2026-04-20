@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { FluxThemeProvider } from "@/components/shared/theme-provider";
+import { LanguageProvider } from "@/lib/i18n/language";
 
 export const Providers = ({ children }: { children: ReactNode }): ReactNode => {
   const [queryClient] = useState(
@@ -20,7 +21,9 @@ export const Providers = ({ children }: { children: ReactNode }): ReactNode => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <FluxThemeProvider>{children}</FluxThemeProvider>
+      <FluxThemeProvider>
+        <LanguageProvider>{children}</LanguageProvider>
+      </FluxThemeProvider>
     </QueryClientProvider>
   );
 };
