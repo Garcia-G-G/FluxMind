@@ -1,35 +1,41 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
 
+/**
+ * BreathingIcon — static styled icon tile. No animations for performance.
+ */
 export const BreathingIcon = ({
   icon: Icon,
-  size = 36,
+  accent,
+  size = 38,
   className,
 }: {
   icon: LucideIcon;
+  accent: string;
   size?: number;
   className?: string;
 }): React.ReactNode => {
-  const iconSize = size * 0.55;
+  const iconSize = size * 0.48;
+  const radius = size * 0.28;
 
   return (
     <div
-      className={cn("relative inline-flex items-center justify-center", className)}
+      className={className}
       style={{
         width: size,
         height: size,
-        animation: "breathingScale 4s ease-in-out infinite",
+        borderRadius: radius,
+        background: `${accent}12`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
       }}
     >
       <Icon
-        style={{
-          width: iconSize,
-          height: iconSize,
-          animation: "innerGlowPulse 4s ease-in-out infinite",
-        }}
-        className="text-white"
+        style={{ width: iconSize, height: iconSize, color: accent }}
+        strokeWidth={1.8}
       />
     </div>
   );
