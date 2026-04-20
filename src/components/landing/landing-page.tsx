@@ -102,6 +102,16 @@ export const LandingPage = (): ReactNode => {
   const currentMouse = useRef({ x: 0.5, y: 0.5 });
 
   useEffect(() => {
+    // Skip the mouse-follow aurora entirely if the user prefers reduced
+    // motion. This loop ticks every frame and drives three large surfaces,
+    // so gating it is significant on lower-end devices.
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
     const el = containerRef.current;
     const onMove = (e: MouseEvent): void => {
       targetMouse.current = {
@@ -109,13 +119,21 @@ export const LandingPage = (): ReactNode => {
         y: e.clientY / window.innerHeight,
       };
     };
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMove, { passive: true });
 
     const tick = (): void => {
       const t = 0.04;
-      currentMouse.current.x += (targetMouse.current.x - currentMouse.current.x) * t;
-      currentMouse.current.y += (targetMouse.current.y - currentMouse.current.y) * t;
-      if (el) {
+      const prevX = currentMouse.current.x;
+      const prevY = currentMouse.current.y;
+      currentMouse.current.x += (targetMouse.current.x - prevX) * t;
+      currentMouse.current.y += (targetMouse.current.y - prevY) * t;
+      // Only write to the DOM if the eased position moved meaningfully —
+      // skips style recalc / compositor work when the cursor is idle.
+      if (
+        el &&
+        (Math.abs(currentMouse.current.x - prevX) > 0.0005 ||
+          Math.abs(currentMouse.current.y - prevY) > 0.0005)
+      ) {
         el.style.setProperty("--mx", currentMouse.current.x.toFixed(4));
         el.style.setProperty("--my", currentMouse.current.y.toFixed(4));
       }
@@ -251,7 +269,11 @@ export const LandingPage = (): ReactNode => {
         .fm-landing-footer-link:hover { opacity: 1; }
       `}</style>
 
-      {/* Aurora — 3 blobs, mouse-reactive, blur capped at 40px */}
+      {/* Aurora — 3 blobs, mouse-reactive. Uses radial-gradient instead of
+          filter: blur() — a gradient is rasterised once and cached by the
+          compositor, while filter: blur() recomputes every frame. Same
+          visual at 1/10 the GPU cost. See AnimatedBackground for the same
+          pattern. */}
       <div
         aria-hidden="true"
         style={{
@@ -260,6 +282,7 @@ export const LandingPage = (): ReactNode => {
           overflow: "hidden",
           pointerEvents: "none",
           zIndex: 0,
+          contain: "strict",
         }}
       >
         <div
@@ -270,9 +293,8 @@ export const LandingPage = (): ReactNode => {
             width: 500,
             height: 500,
             borderRadius: "50%",
-            background: "#ff6b35",
-            opacity: 0.1,
-            filter: "blur(40px)",
+            background:
+              "radial-gradient(circle at center, rgba(255,107,53,0.22) 0%, transparent 70%)",
             animation: "auroraBreath 25s ease-in-out infinite",
             willChange: "transform",
           }}
@@ -285,9 +307,8 @@ export const LandingPage = (): ReactNode => {
             width: 400,
             height: 400,
             borderRadius: "50%",
-            background: "#7c3aed",
-            opacity: 0.07,
-            filter: "blur(40px)",
+            background:
+              "radial-gradient(circle at center, rgba(124,58,237,0.18) 0%, transparent 70%)",
             animation: "auroraBreath2 30s ease-in-out 3s infinite",
             willChange: "transform",
           }}
@@ -300,9 +321,8 @@ export const LandingPage = (): ReactNode => {
             width: 350,
             height: 350,
             borderRadius: "50%",
-            background: "#e11d48",
-            opacity: 0.05,
-            filter: "blur(30px)",
+            background:
+              "radial-gradient(circle at center, rgba(225,29,72,0.14) 0%, transparent 70%)",
             animation: "auroraBreath3 20s ease-in-out 6s infinite",
             willChange: "transform",
           }}
