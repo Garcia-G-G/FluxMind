@@ -16,7 +16,7 @@ const newsletterSchema = z.object({
     z.object({
       title: z.string(),
       body: z.string(),
-      pullQuote: z.string().optional(),
+      pullQuote: z.string().nullable(),
     })
   ),
   keyTakeaways: z.array(z.string()),

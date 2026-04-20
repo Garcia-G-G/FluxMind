@@ -1,212 +1,298 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Check, X, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { PLANS, type PlanId } from "@/lib/billing/plans";
+import { Check } from "lucide-react";
+import { FluxLogo } from "@/components/shared/flux-logo";
+import type { CSSProperties } from "react";
 
-const comparisonFeatures = [
-  { name: "Notebooks", key: "notebooks" as const },
-  { name: "Sources per notebook", key: "sourcesPerNotebook" as const },
-  { name: "Chat messages/day", key: "chatPerDay" as const },
-  { name: "Studio outputs/day", key: "studioOutputsPerDay" as const },
-  { name: "Deep Research/month", key: "deepResearchPerMonth" as const },
-  { name: "Storage", key: "storageMB" as const },
+type Plan = {
+  id: "free" | "pro" | "team";
+  name: string;
+  price: string;
+  period: string;
+  accent: string;
+  features: string[];
+  cta: string;
+  highlighted: boolean;
+  cardStyle: CSSProperties;
+};
+
+const PLANS: Plan[] = [
+  {
+    id: "free",
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    accent: "#ff6b35",
+    features: [
+      "3 notebooks",
+      "50 sources",
+      "All AI models",
+      "All studio outputs",
+      "RAG chat",
+    ],
+    cta: "Get started",
+    highlighted: false,
+    cardStyle: {
+      background: "rgba(12,12,18,0.88)",
+      border: "1px solid rgba(255,255,255,0.05)",
+    },
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "$15",
+    period: "/month",
+    accent: "#7c3aed",
+    features: [
+      "Unlimited notebooks",
+      "500 sources",
+      "Priority processing",
+      "API access",
+      "Custom branding",
+      "Advanced analytics",
+    ],
+    cta: "Start 7-day trial",
+    highlighted: true,
+    cardStyle: {
+      background: "rgba(124,58,237,0.08)",
+      border: "1px solid rgba(124,58,237,0.2)",
+    },
+  },
+  {
+    id: "team",
+    name: "Team",
+    price: "$12",
+    period: "/user/month",
+    accent: "#2563eb",
+    features: [
+      "Everything in Pro",
+      "Real-time collaboration",
+      "Shared notebooks",
+      "Admin dashboard",
+      "SSO",
+      "Priority support",
+    ],
+    cta: "Contact sales",
+    highlighted: false,
+    cardStyle: {
+      background: "rgba(12,12,18,0.88)",
+      border: "1px solid rgba(255,255,255,0.05)",
+    },
+  },
 ];
 
-const booleanFeatures = [
-  { name: "RAG-powered chat", free: true, pro: true, ultra: true },
-  { name: "All source types", free: true, pro: true, ultra: true },
-  { name: "Quiz & Flashcards", free: true, pro: true, ultra: true },
-  { name: "Claude & GPT models", free: false, pro: true, ultra: true },
-  { name: "Deep Research", free: false, pro: true, ultra: true },
-  { name: "Real-time collaboration", free: false, pro: true, ultra: true },
-  { name: "Priority support", free: false, pro: false, ultra: true },
-  { name: "API access", free: false, pro: false, ultra: true },
-];
-
-const formatLimit = (value: number, key: string): string => {
-  if (value === -1) return "Unlimited";
-  if (value === 0) return "—";
-  if (key === "storageMB") {
-    return value >= 1000 ? `${value / 1000}GB` : `${value}MB`;
-  }
-  return String(value);
+const priceStyle: CSSProperties = {
+  fontSize: 40,
+  fontWeight: 700,
+  letterSpacing: "-0.03em",
+  color: "white",
+  lineHeight: 1,
 };
 
 const PricingPage = (): React.ReactNode => {
-  const [annual, setAnnual] = useState(false);
-
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen relative"
+      style={{ background: "#08080c" }}
+    >
+      <style>{`
+        .fm-pricing-cta-solid { transition: filter 0.2s, transform 0.2s; }
+        .fm-pricing-cta-solid:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .fm-pricing-cta-outline { transition: background 0.2s, transform 0.2s, border-color 0.2s; }
+        .fm-pricing-cta-outline:hover { background: rgba(255,255,255,0.04); transform: translateY(-1px); border-color: rgba(255,255,255,0.12); }
+        .fm-pricing-nav-link { color: rgba(255,255,255,0.35); transition: color 0.2s; }
+        .fm-pricing-nav-link:hover { color: rgba(255,255,255,0.7); }
+      `}</style>
+
       {/* Nav */}
-      <nav className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 h-14">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">F</span>
-            </div>
-            <span className="font-semibold">FluxMind</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">Log in</Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Get Started</Button>
-            </Link>
-          </div>
-        </div>
+      <nav className="flex items-center justify-between px-8 py-6">
+        <Link href="/" className="flex items-center" style={{ gap: 10 }}>
+          <FluxLogo size={28} />
+          <span
+            style={{
+              color: "white",
+              fontSize: 15,
+              fontWeight: 500,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            FluxMind
+          </span>
+        </Link>
+        <Link
+          href="/"
+          className="fm-pricing-nav-link"
+          style={{ fontSize: 13 }}
+        >
+          ← Back
+        </Link>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-4 py-16">
-        <h1 className="text-3xl font-bold text-center mb-2">Pricing</h1>
-        <p className="text-center text-muted-foreground mb-8">
-          Start free, upgrade as you grow
-        </p>
-
-        {/* Annual toggle */}
-        <div className="flex items-center justify-center gap-3 mb-10">
-          <span className={`text-sm ${!annual ? "font-medium" : "text-muted-foreground"}`}>
-            Monthly
-          </span>
-          <button
-            onClick={() => setAnnual(!annual)}
-            className={`relative h-6 w-11 rounded-full transition-colors ${
-              annual ? "bg-primary" : "bg-muted"
-            }`}
+      {/* Hero */}
+      <section className="max-w-6xl mx-auto px-8 pt-12 pb-14 text-center">
+        <h1
+          style={{
+            fontSize: 64,
+            lineHeight: 1.05,
+            letterSpacing: "-0.045em",
+            margin: 0,
+          }}
+        >
+          <span style={{ fontWeight: 700, color: "white" }}>
+            Simple pricing,
+          </span>{" "}
+          <span
+            style={{ fontWeight: 300, color: "rgba(255,255,255,0.25)" }}
           >
-            <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                annual ? "translate-x-5.5 left-0" : "left-0.5"
-              }`}
-              style={{ transform: annual ? "translateX(22px)" : "translateX(0)" }}
-            />
-          </button>
-          <span className={`text-sm ${annual ? "font-medium" : "text-muted-foreground"}`}>
-            Annual{" "}
-            <span className="text-xs text-green-600 font-medium">Save 20%</span>
+            powerful tools.
           </span>
-        </div>
+        </h1>
+        <p
+          style={{
+            color: "rgba(255,255,255,0.4)",
+            fontSize: 16,
+            fontWeight: 380,
+            marginTop: 24,
+            maxWidth: 520,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          Start free. Upgrade when you need more.
+        </p>
+      </section>
 
-        {/* Plan cards */}
-        <div className="grid gap-4 sm:grid-cols-3 mb-16">
-          {(Object.entries(PLANS) as [PlanId, (typeof PLANS)[PlanId]][]).map(
-            ([planId, plan]) => {
-              const monthlyPrice = annual
-                ? Math.round(plan.price * 0.8)
-                : plan.price;
-              return (
+      {/* Plans */}
+      <section className="max-w-6xl mx-auto px-8 pb-20">
+        <div className="grid gap-5 md:grid-cols-3">
+          {PLANS.map((plan) => (
+            <div
+              key={plan.id}
+              className="relative overflow-hidden"
+              style={{
+                ...plan.cardStyle,
+                borderRadius: 16,
+                padding: "32px 28px",
+              }}
+            >
+              {plan.highlighted && (
                 <div
-                  key={planId}
-                  className={`rounded-xl border p-6 ${
-                    planId === "pro"
-                      ? "border-primary ring-1 ring-primary"
-                      : "border-border"
-                  }`}
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 2,
+                    background: `linear-gradient(90deg, ${plan.accent}, transparent)`,
+                  }}
+                />
+              )}
+
+              <div style={{ marginBottom: 24 }}>
+                <p
+                  style={{
+                    color: plan.accent,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    margin: 0,
+                  }}
                 >
-                  {planId === "pro" && (
-                    <p className="text-xs font-medium text-primary mb-2">
-                      Most Popular
-                    </p>
-                  )}
-                  <h3 className="text-lg font-bold">{plan.name}</h3>
-                  <p className="text-3xl font-bold mt-2 mb-1">
-                    {monthlyPrice === 0 ? "$0" : `$${monthlyPrice / 100}`}
-                    {monthlyPrice > 0 && (
-                      <span className="text-sm font-normal text-muted-foreground">
-                        /mo
-                      </span>
-                    )}
-                  </p>
-                  {annual && plan.price > 0 && (
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Billed ${Math.round((monthlyPrice / 100) * 12)}/year
-                    </p>
-                  )}
-                  {!annual && <div className="mb-4" />}
-                  <Link href="/register">
-                    <Button
-                      className="w-full"
-                      variant={planId === "pro" ? "default" : "outline"}
-                    >
-                      {plan.price === 0 ? "Get Started" : "Start Free Trial"}
-                    </Button>
-                  </Link>
+                  {plan.name}
+                </p>
+                <div
+                  className="flex items-baseline"
+                  style={{ gap: 6, marginTop: 12 }}
+                >
+                  <span style={priceStyle}>{plan.price}</span>
+                  <span
+                    style={{
+                      color: "rgba(255,255,255,0.4)",
+                      fontSize: 14,
+                      fontWeight: 400,
+                    }}
+                  >
+                    {plan.period}
+                  </span>
                 </div>
-              );
-            }
-          )}
+              </div>
+
+              <ul
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                  marginBottom: 28,
+                  padding: 0,
+                  listStyle: "none",
+                }}
+              >
+                {plan.features.map((feature) => (
+                  <li
+                    key={feature}
+                    className="flex items-start"
+                    style={{ gap: 10, fontSize: 14 }}
+                  >
+                    <Check
+                      className="h-4 w-4 shrink-0"
+                      style={{ color: plan.accent, marginTop: 2 }}
+                    />
+                    <span style={{ color: "rgba(255,255,255,0.75)" }}>
+                      {feature}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href="/"
+                className={
+                  plan.highlighted
+                    ? "fm-pricing-cta-solid"
+                    : "fm-pricing-cta-outline"
+                }
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  padding: "11px 0",
+                  borderRadius: 10,
+                  textDecoration: "none",
+                  ...(plan.highlighted
+                    ? {
+                        background: plan.accent,
+                        color: "white",
+                        border: `1px solid ${plan.accent}`,
+                      }
+                    : {
+                        background: "transparent",
+                        color: "white",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }),
+                }}
+              >
+                {plan.cta}
+              </Link>
+            </div>
+          ))}
         </div>
 
-        {/* Comparison table */}
-        <h2 className="text-xl font-bold text-center mb-6">Feature comparison</h2>
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left p-3 font-medium">Feature</th>
-                <th className="text-center p-3 font-medium">Free</th>
-                <th className="text-center p-3 font-medium text-primary">Pro</th>
-                <th className="text-center p-3 font-medium">Ultra</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparisonFeatures.map((f) => (
-                <tr key={f.name} className="border-b border-border last:border-0">
-                  <td className="p-3 text-muted-foreground">{f.name}</td>
-                  <td className="p-3 text-center">
-                    {formatLimit(PLANS.free.limits[f.key], f.key)}
-                  </td>
-                  <td className="p-3 text-center font-medium">
-                    {formatLimit(PLANS.pro.limits[f.key], f.key)}
-                  </td>
-                  <td className="p-3 text-center">
-                    {formatLimit(PLANS.ultra.limits[f.key], f.key)}
-                  </td>
-                </tr>
-              ))}
-              {booleanFeatures.map((f) => (
-                <tr key={f.name} className="border-b border-border last:border-0">
-                  <td className="p-3 text-muted-foreground">{f.name}</td>
-                  <td className="p-3 text-center">
-                    {f.free ? (
-                      <Check className="h-4 w-4 text-green-500 mx-auto" />
-                    ) : (
-                      <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                    )}
-                  </td>
-                  <td className="p-3 text-center">
-                    {f.pro ? (
-                      <Check className="h-4 w-4 text-green-500 mx-auto" />
-                    ) : (
-                      <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                    )}
-                  </td>
-                  <td className="p-3 text-center">
-                    {f.ultra ? (
-                      <Check className="h-4 w-4 text-green-500 mx-auto" />
-                    ) : (
-                      <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center mt-16">
-          <h2 className="text-xl font-bold mb-3">Ready to get started?</h2>
-          <Link href="/register">
-            <Button size="lg" className="gap-2">
-              Get Started Free <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-      </div>
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 40,
+            fontSize: 13,
+            color: "rgba(255,255,255,0.25)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Open beta · Free while in preview
+        </p>
+      </section>
     </div>
   );
 };

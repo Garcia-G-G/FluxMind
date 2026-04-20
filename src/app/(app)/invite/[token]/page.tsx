@@ -42,11 +42,7 @@ const InvitePage = ({
     <div className="max-w-md mx-auto py-20">
       <GlassCard padding="lg">
         <div className="flex flex-col items-center text-center">
-          <OrbitalIcon
-            icon={Users}
-            size={48}
-            glowColor="var(--fm-glow-violet)"
-          />
+          <OrbitalIcon icon={Users} size={48} accent="#7c3aed" />
           <h2
             className="text-xl font-semibold mt-4"
             style={{

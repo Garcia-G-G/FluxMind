@@ -1,43 +1,42 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
 
+/**
+ * RotatingBorderIcon — static styled icon tile. No animations for performance.
+ */
 export const RotatingBorderIcon = ({
   icon: Icon,
-  size = 44,
+  accent,
+  size = 36,
   className,
 }: {
   icon: LucideIcon;
+  accent: string;
   size?: number;
   className?: string;
 }): React.ReactNode => {
-  const iconSize = size * 0.45;
-  const innerSize = size - 4;
+  const iconSize = size * 0.48;
+  const radius = size * 0.28;
 
   return (
     <div
-      className={cn("relative inline-flex items-center justify-center rounded-xl", className)}
+      className={className}
       style={{
         width: size,
         height: size,
-        background: "conic-gradient(from var(--angle, 0deg), #ff6b35, #e11d48, #7c3aed, #2563eb, #ff6b35)",
-        animation: "rotateBorder 6s linear infinite",
+        borderRadius: radius,
+        background: `${accent}12`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
       }}
     >
-      <div
-        className="flex items-center justify-center rounded-[10px]"
-        style={{
-          width: innerSize,
-          height: innerSize,
-          background: "var(--fm-surface, #1a1a2e)",
-        }}
-      >
-        <Icon
-          style={{ width: iconSize, height: iconSize }}
-          className="text-white"
-        />
-      </div>
+      <Icon
+        style={{ width: iconSize, height: iconSize, color: accent }}
+        strokeWidth={1.8}
+      />
     </div>
   );
 };

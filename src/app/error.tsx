@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "motion/react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { GlassCard } from "@/components/shared/glass-card";
 
@@ -12,12 +11,7 @@ const ErrorPage = ({
 }): React.ReactNode => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4 }}
-        className="max-w-md w-full"
-      >
+      <div className="max-w-md w-full fm-fade-in">
         <GlassCard padding="lg">
           <div className="flex flex-col items-center text-center">
             <AlertTriangle
@@ -52,7 +46,7 @@ const ErrorPage = ({
             </button>
           </div>
         </GlassCard>
-      </motion.div>
+      </div>
     </div>
   );
 };

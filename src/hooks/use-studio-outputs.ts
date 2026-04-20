@@ -1,6 +1,31 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+/* ── Fetch existing outputs for a notebook ── */
+export type OutputListItem = {
+  id: string;
+  type: string;
+  title: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  content: Record<string, unknown> | null;
+  fileUrl: string | null;
+  thumbnailUrl: string | null;
+};
+
+export const useOutputs = (notebookId: string) => {
+  return useQuery<OutputListItem[]>({
+    queryKey: ["outputs", notebookId],
+    queryFn: async () => {
+      const res = await fetch(`/api/outputs?notebookId=${notebookId}`);
+      if (!res.ok) throw new Error("Failed to fetch outputs");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+};
 
 const generateStudioOutput = async (
   endpoint: string,
@@ -18,72 +43,34 @@ const generateStudioOutput = async (
   return res.json();
 };
 
-export const useGenerateSlides = () => {
+/* Factory: auto-invalidates outputs query after generation */
+const useGenerate = <T extends { notebookId: string }>(endpoint: string) => {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { notebookId: string; count?: number; model?: string }) =>
-      generateStudioOutput("/api/studio/slides", data),
+    mutationFn: (data: T) => generateStudioOutput(endpoint, data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["outputs", vars.notebookId] });
+    },
   });
 };
 
-export const useGenerateInfographic = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/infographic", data),
-  });
-};
-
-export const useGenerateDataTable = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/datatable", data),
-  });
-};
-
-export const useGenerateThread = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/thread", data),
-  });
-};
-
-export const useGenerateNewsletter = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/newsletter", data),
-  });
-};
-
-export const useGenerateReel = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/reel", data),
-  });
-};
-
-export const useGenerateCourse = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/course", data),
-  });
-};
-
-export const useGenerateMindMap = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string; model?: string }) =>
-      generateStudioOutput("/api/studio/mindmap", data),
-  });
-};
-
-export const useGenerateAudio = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string }) =>
-      generateStudioOutput("/api/studio/audio", data),
-  });
-};
-
-export const useGenerateVideo = () => {
-  return useMutation({
-    mutationFn: (data: { notebookId: string }) =>
-      generateStudioOutput("/api/studio/video", data),
-  });
-};
+export const useGenerateSlides = () =>
+  useGenerate<{ notebookId: string; count?: number; model?: string }>("/api/studio/slides");
+export const useGenerateInfographic = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/infographic");
+export const useGenerateDataTable = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/datatable");
+export const useGenerateThread = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/thread");
+export const useGenerateNewsletter = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/newsletter");
+export const useGenerateReel = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/reel");
+export const useGenerateCourse = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/course");
+export const useGenerateMindMap = () =>
+  useGenerate<{ notebookId: string; model?: string }>("/api/studio/mindmap");
+export const useGenerateAudio = () =>
+  useGenerate<{ notebookId: string }>("/api/studio/audio");
+export const useGenerateVideo = () =>
+  useGenerate<{ notebookId: string }>("/api/studio/video");

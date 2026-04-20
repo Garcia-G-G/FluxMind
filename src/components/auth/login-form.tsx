@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
+
 import { Loader2, LogIn } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -67,14 +67,10 @@ export const LoginForm = (): React.ReactNode => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-    >
+    <div className="fm-fade-in">
       <GlassCard padding="lg">
         <div className="flex flex-col items-center mb-6">
-          <OrbitalIcon icon={LogIn} size={48} glowColor="var(--fm-glow-violet)" />
+          <OrbitalIcon icon={LogIn} size={48} accent="#7c3aed" />
           <h2
             className="text-xl font-semibold mt-4"
             style={{
@@ -201,6 +197,6 @@ export const LoginForm = (): React.ReactNode => {
           </Link>
         </p>
       </GlassCard>
-    </motion.div>
+    </div>
   );
 };

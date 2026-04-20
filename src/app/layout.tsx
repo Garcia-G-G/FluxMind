@@ -1,25 +1,33 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono, Instrument_Serif } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
+import "@/styles/theme-tokens.css";
 import "@/styles/animations.css";
 
-const geistSans = Geist({
+const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-geist-sans",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
   subsets: ["latin"],
+  variable: "--font-display",
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
   title: "FluxMind",
   description: "AI-powered knowledge intelligence platform",
   manifest: "/manifest.json",
-  themeColor: "#7c3aed",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -27,11 +35,15 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
+};
+
 const RootLayout = ({ children }: { children: ReactNode }): ReactNode => {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${jakartaSans.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

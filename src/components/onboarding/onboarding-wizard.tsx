@@ -56,7 +56,7 @@ export const OnboardingWizard = (): React.ReactNode => {
   const firstName = session?.user?.name?.split(" ")[0] ?? "there";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
       <div className="w-full max-w-lg px-4">
         {/* Step indicators */}
         <div className="flex items-center justify-center gap-2 mb-6">

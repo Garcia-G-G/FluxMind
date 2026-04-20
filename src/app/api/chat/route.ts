@@ -38,7 +38,7 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     const {
       messages,
       notebookId,
-      model: modelId = "gemini-2.5-flash",
+      model: modelId = "gpt-4o",
       conversationId,
     } = body as {
       messages: UIMessage[];

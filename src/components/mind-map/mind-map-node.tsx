@@ -32,7 +32,6 @@ export const MindMapNode = memo(({
           minWidth: style.minWidth,
           padding: style.padding,
           background: "var(--fm-glass-bg)",
-          backdropFilter: "blur(20px)",
           border: "1px solid var(--fm-glass-border)",
           borderRadius: 14,
           borderTop: `3px solid ${data.color}`,
@@ -47,7 +46,6 @@ export const MindMapNode = memo(({
               width: data.level === 0 ? 10 : 8,
               height: data.level === 0 ? 10 : 8,
               background: data.color,
-              animation: "breathingScale 3s ease-in-out infinite",
             }}
           />
           <p

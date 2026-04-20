@@ -62,7 +62,6 @@ export const UserMenu = (): React.ReactNode => {
         className="w-56"
         style={{
           background: "var(--fm-glass-bg)",
-          backdropFilter: "blur(20px)",
           border: "1px solid var(--fm-glass-border)",
         }}
       >

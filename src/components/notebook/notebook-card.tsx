@@ -41,19 +41,19 @@ export const NotebookCard = ({
   return (
     <Link href={`/notebook/${notebook.id}`} className="block group">
       <GlassCard hover padding="md" className="relative overflow-hidden">
-        {/* Color bar at top */}
+        {/* Top accent line */}
         <div
-          className="absolute top-0 left-0 right-0 h-[3px]"
-          style={{ background: notebook.color ?? "var(--fm-accent-violet)" }}
+          className="absolute top-0 left-0 right-0 h-[2px]"
+          style={{ background: `linear-gradient(90deg, ${notebook.color ?? "var(--fm-accent-violet)"}, transparent)` }}
         />
 
         <div className="flex items-start gap-3 pt-1">
-          <BreathingIcon icon={BookOpen} size={32} />
+          <BreathingIcon icon={BookOpen} size={36} accent={notebook.color ?? "#7c3aed"} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
               <h3
-                className="font-semibold text-base truncate"
+                className="font-display text-lg font-normal truncate"
                 style={{ color: "var(--fm-text)" }}
               >
                 {notebook.title}

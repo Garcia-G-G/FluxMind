@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "motion/react";
 import { Home } from "lucide-react";
 
 const NotFoundPage = (): React.ReactNode => {
@@ -9,9 +8,9 @@ const NotFoundPage = (): React.ReactNode => {
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
       {/* Floating orbs */}
       {[
-        { size: 300, top: "10%", left: "15%", color: "var(--fm-blob1)", dur: "20s" },
-        { size: 200, top: "60%", right: "10%", color: "var(--fm-blob2)", dur: "25s" },
-        { size: 250, bottom: "15%", left: "50%", color: "var(--fm-blob3)", dur: "30s" },
+        { size: 300, top: "10%", left: "15%", color: "var(--fm-blob1)" },
+        { size: 200, top: "60%", right: "10%", color: "var(--fm-blob2)" },
+        { size: 250, bottom: "15%", left: "50%", color: "var(--fm-blob3)" },
       ].map((orb, i) => (
         <div
           key={i}
@@ -24,18 +23,12 @@ const NotFoundPage = (): React.ReactNode => {
             right: (orb as Record<string, unknown>).right as string | undefined,
             bottom: (orb as Record<string, unknown>).bottom as string | undefined,
             background: orb.color,
-            filter: "blur(80px)",
-            animation: `blob${i + 1} ${orb.dur} ease-in-out infinite`,
+            filter: "blur(40px)",
           }}
         />
       ))}
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, type: "spring" }}
-        className="text-center relative z-10"
-      >
+      <div className="text-center relative z-10 fm-fade-in">
         <h1
           className="text-8xl font-bold mb-4"
           style={{
@@ -67,7 +60,7 @@ const NotFoundPage = (): React.ReactNode => {
             Go Home
           </button>
         </Link>
-      </motion.div>
+      </div>
     </div>
   );
 };

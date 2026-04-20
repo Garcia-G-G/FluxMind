@@ -6,7 +6,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -36,14 +35,28 @@ export const DeleteNotebookDialog = ({
             associated with this notebook. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            style={{
+              borderRadius: 10,
+              background: "transparent",
+              border: "1px solid var(--fm-surface-border)",
+              color: "var(--fm-text-secondary)",
+            }}
+          >
             Cancel
           </Button>
           <Button
             variant="destructive"
             onClick={onConfirm}
             disabled={isDeleting}
+            style={{
+              borderRadius: 10,
+              background: "var(--fm-error, #e11d48)",
+              color: "white",
+            }}
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -51,7 +64,7 @@ export const DeleteNotebookDialog = ({
               "Delete"
             )}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

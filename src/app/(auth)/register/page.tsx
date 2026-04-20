@@ -1,7 +1,7 @@
-import { RegisterForm } from "@/components/auth/register-form";
+import { redirect } from "next/navigation";
 
-const RegisterPage = (): React.ReactNode => {
-  return <RegisterForm />;
+const Page = (): React.ReactNode => {
+  redirect("/");
 };
 
-export default RegisterPage;
+export default Page;

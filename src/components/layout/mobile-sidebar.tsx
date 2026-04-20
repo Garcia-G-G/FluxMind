@@ -14,8 +14,8 @@ import {
 
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
-  { href: "/dashboard", icon: BookOpen, label: "All Notebooks" },
-  { href: "/dashboard", icon: Compass, label: "Explore" },
+  { href: "/dashboard?view=all", icon: BookOpen, label: "All Notebooks" },
+  { href: "/dashboard?view=recent", icon: Compass, label: "Recent" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 

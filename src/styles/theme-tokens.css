@@ -1,0 +1,93 @@
+/* FluxMind Theme Tokens — CSS-only, no JS setProperty calls */
+/* Toggle via document.documentElement.dataset.theme = "light" | "dark" */
+
+:root,
+[data-theme="dark"] {
+  --fm-bg: #08080c;
+  --fm-bg-secondary: #0f0f15;
+  --fm-bg-tertiary: #16161f;
+  --fm-surface: rgba(255,255,255,0.06);
+  --fm-surface-hover: rgba(255,255,255,0.08);
+  --fm-surface-border: rgba(255,255,255,0.08);
+  --fm-glass-bg: rgba(255,255,255,0.06);
+  --fm-glass-border: rgba(255,255,255,0.08);
+  --fm-text: #ffffff;
+  --fm-text-secondary: rgba(255,255,255,0.7);
+  --fm-text-tertiary: rgba(255,255,255,0.4);
+  --fm-accent-orange: #ff6b35;
+  --fm-accent-rose: #e11d48;
+  --fm-accent-violet: #7c3aed;
+  --fm-accent-blue: #2563eb;
+  --fm-accent-gradient: linear-gradient(135deg, #ff6b35, #e11d48, #7c3aed);
+  --fm-accent-gradient-text: linear-gradient(90deg, #ff6b35, #e11d48, #7c3aed, #2563eb, #ff6b35);
+  --fm-success: #22c55e;
+  --fm-warning: #eab308;
+  --fm-error: #ef4444;
+  --fm-info: #3b82f6;
+  --fm-sidebar-bg: rgba(255,255,255,0.03);
+  --fm-sidebar-border: rgba(255,255,255,0.06);
+  --fm-header-bg: rgba(10,8,14,0.7);
+  --fm-header-border: rgba(255,255,255,0.06);
+  --fm-input-bg: rgba(255,255,255,0.04);
+  --fm-input-border: rgba(255,255,255,0.06);
+  --fm-input-focus-border: #7c3aed;
+  --fm-card-shadow: none;
+  --fm-glow-orange: rgba(255,107,53,0.3);
+  --fm-glow-rose: rgba(225,29,72,0.3);
+  --fm-glow-violet: rgba(124,58,237,0.3);
+  --fm-glow-blue: rgba(37,99,235,0.3);
+  /* Blob colors & opacities */
+  --fm-blob-c1: #ff6b35;
+  --fm-blob-c2: #7c3aed;
+  --fm-blob-c3: #2563eb;
+  --fm-blob-c4: #e11d48;
+  --fm-blob-o1: 0.14;
+  --fm-blob-o2: 0.12;
+  --fm-blob-o3: 0.12;
+  --fm-blob-o4: 0.10;
+}
+
+[data-theme="light"] {
+  --fm-bg: #f8f7f4;
+  --fm-bg-secondary: #f0efe9;
+  --fm-bg-tertiary: #e8e7e0;
+  --fm-surface: rgba(255,255,255,0.7);
+  --fm-surface-hover: rgba(0,0,0,0.04);
+  --fm-surface-border: rgba(0,0,0,0.06);
+  --fm-glass-bg: rgba(255,255,255,0.7);
+  --fm-glass-border: rgba(0,0,0,0.06);
+  --fm-text: #1a1a2e;
+  --fm-text-secondary: rgba(26,26,46,0.7);
+  --fm-text-tertiary: rgba(26,26,46,0.4);
+  --fm-accent-orange: #ff6b35;
+  --fm-accent-rose: #e11d48;
+  --fm-accent-violet: #7c3aed;
+  --fm-accent-blue: #2563eb;
+  --fm-accent-gradient: linear-gradient(135deg, #ff6b35, #e11d48, #7c3aed);
+  --fm-accent-gradient-text: linear-gradient(90deg, #e85d2a, #d0163d, #6a2ec8, #1d55d0, #e85d2a);
+  --fm-success: #16a34a;
+  --fm-warning: #ca8a04;
+  --fm-error: #dc2626;
+  --fm-info: #2563eb;
+  --fm-sidebar-bg: rgba(255,255,255,0.65);
+  --fm-sidebar-border: rgba(0,0,0,0.06);
+  --fm-header-bg: rgba(255,255,255,0.7);
+  --fm-header-border: rgba(0,0,0,0.06);
+  --fm-input-bg: rgba(0,0,0,0.03);
+  --fm-input-border: rgba(0,0,0,0.06);
+  --fm-input-focus-border: #7c3aed;
+  --fm-card-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  --fm-glow-orange: rgba(255,107,53,0.15);
+  --fm-glow-rose: rgba(225,29,72,0.15);
+  --fm-glow-violet: rgba(124,58,237,0.15);
+  --fm-glow-blue: rgba(37,99,235,0.15);
+  /* Blob colors & opacities (softer in light mode) */
+  --fm-blob-c1: #ffb899;
+  --fm-blob-c2: #b49cee;
+  --fm-blob-c3: #93b4f6;
+  --fm-blob-c4: #f48ca1;
+  --fm-blob-o1: 0.05;
+  --fm-blob-o2: 0.04;
+  --fm-blob-o3: 0.04;
+  --fm-blob-o4: 0.05;
+}

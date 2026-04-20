@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FluxMind — Logo Options</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08080c;
+    color: white;
+    font-family: -apple-system, 'Inter', 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 60px 40px;
+  }
+  h1 {
+    font-size: 48px;
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  h1 span { font-weight: 700; }
+  .subtitle {
+    color: rgba(255,255,255,0.4);
+    font-size: 16px;
+    margin-bottom: 60px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+    max-width: 1400px;
+  }
+  .card {
+    background: rgba(12,12,18,0.85);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 32px;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+    cursor: pointer;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255,107,53,0.3);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card-number {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+  }
+  .card-name {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 4px;
+  }
+  .card-desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+    margin-top: 16px;
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+  }
+  .logo-text {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .logo-preview {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+</style>
+</head>
+<body>
+
+<h1><span>FluxMind</span> Logo Options</h1>
+<p class="subtitle">10 concepts — pick your favorites and I'll refine them</p>
+
+<div class="grid">
+
+  <!-- Option 1: Neural Spark -->
+  <div class="card">
+    <div class="card-number">Option 01</div>
+    <div class="card-name">Neural Spark</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ff6b35"/>
+            <stop offset="100%" stop-color="#e11d48"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#g1)"/>
+        <!-- Three connected nodes forming a mind/spark -->
+        <circle cx="32" cy="20" r="4" fill="white" opacity="0.95"/>
+        <circle cx="22" cy="40" r="3.5" fill="white" opacity="0.7"/>
+        <circle cx="42" cy="40" r="3.5" fill="white" opacity="0.7"/>
+        <line x1="32" y1="24" x2="22" y2="36.5" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        <line x1="32" y1="24" x2="42" y2="36.5" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        <line x1="25.5" y1="40" x2="38.5" y2="40" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+        <!-- Spark rays from top node -->
+        <line x1="32" y1="14" x2="32" y2="10" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+        <line x1="37" y1="16" x2="40" y2="13" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <line x1="27" y1="16" x2="24" y2="13" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#g1)"/>
+        <circle cx="32" cy="20" r="4" fill="white" opacity="0.95"/>
+        <circle cx="22" cy="40" r="3.5" fill="white" opacity="0.7"/>
+        <circle cx="42" cy="40" r="3.5" fill="white" opacity="0.7"/>
+        <line x1="32" y1="24" x2="22" y2="36.5" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        <line x1="32" y1="24" x2="42" y2="36.5" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        <line x1="25.5" y1="40" x2="38.5" y2="40" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+        <line x1="32" y1="14" x2="32" y2="10" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+        <line x1="37" y1="16" x2="40" y2="13" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <line x1="27" y1="16" x2="24" y2="13" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Three neural nodes connected — represents knowledge linking with a spark of insight at the top.</div>
+  </div>
+
+  <!-- Option 2: Flow Wave -->
+  <div class="card">
+    <div class="card-number">Option 02</div>
+    <div class="card-name">Flow Wave</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g2" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#7c3aed"/>
+            <stop offset="100%" stop-color="#e11d48"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#g2)"/>
+        <!-- Three flowing wave lines -->
+        <path d="M14 24 C22 18, 30 30, 38 24 C46 18, 50 28, 50 24" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+        <path d="M14 32 C22 26, 30 38, 38 32 C46 26, 50 36, 50 32" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.65"/>
+        <path d="M14 40 C22 34, 30 46, 38 40 C46 34, 50 44, 50 40" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#g2)"/>
+        <path d="M14 24 C22 18, 30 30, 38 24 C46 18, 50 28, 50 24" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+        <path d="M14 32 C22 26, 30 38, 38 32 C46 26, 50 36, 50 32" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.65"/>
+        <path d="M14 40 C22 34, 30 46, 38 40 C46 34, 50 44, 50 40" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Three flowing waves with decreasing opacity — represents the "flux" of information streaming through layers.</div>
+  </div>
+
+  <!-- Option 3: Infinity Brain -->
+  <div class="card">
+    <div class="card-number">Option 03</div>
+    <div class="card-name">Infinity Mind</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g3" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ff6b35"/>
+            <stop offset="50%" stop-color="#e11d48"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <!-- Infinity symbol made of gradient -->
+        <path d="M20 32 C20 26, 26 22, 32 28 C38 34, 44 26, 44 32 C44 38, 38 42, 32 36 C26 30, 20 38, 20 32 Z" stroke="url(#g3)" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <!-- Small dot at center -->
+        <circle cx="32" cy="32" r="2.5" fill="url(#g3)"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <path d="M20 32 C20 26, 26 22, 32 28 C38 34, 44 26, 44 32 C44 38, 38 42, 32 36 C26 30, 20 38, 20 32 Z" stroke="url(#g3)" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="2.5" fill="url(#g3)"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Infinity loop with gradient stroke on dark background — represents endless knowledge flow. The dot is the "mind" at the center.</div>
+  </div>
+
+  <!-- Option 4: Prism -->
+  <div class="card">
+    <div class="card-number">Option 04</div>
+    <div class="card-name">Prism</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g4a" x1="20" y1="12" x2="44" y2="52" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ff6b35"/>
+            <stop offset="100%" stop-color="#e11d48"/>
+          </linearGradient>
+          <linearGradient id="g4b" x1="32" y1="12" x2="32" y2="52" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#e11d48" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.8"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#g4a)"/>
+        <!-- Abstract triangular prism shape -->
+        <polygon points="32,14 48,46 16,46" fill="none" stroke="white" stroke-width="2.5" stroke-linejoin="round" opacity="0.9"/>
+        <!-- Inner triangle -->
+        <polygon points="32,24 40,42 24,42" fill="white" opacity="0.15"/>
+        <!-- Light beam through prism -->
+        <line x1="12" y1="34" x2="28" y2="34" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+        <line x1="36" y1="30" x2="52" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <line x1="36" y1="34" x2="52" y2="34" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="36" y1="38" x2="52" y2="46" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.2"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#g4a)"/>
+        <polygon points="32,14 48,46 16,46" fill="none" stroke="white" stroke-width="2.5" stroke-linejoin="round" opacity="0.9"/>
+        <polygon points="32,24 40,42 24,42" fill="white" opacity="0.15"/>
+        <line x1="12" y1="34" x2="28" y2="34" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+        <line x1="36" y1="30" x2="52" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <line x1="36" y1="34" x2="52" y2="34" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="36" y1="38" x2="52" y2="46" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.2"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Knowledge enters as a beam, passes through the prism mind, and splits into multiple insights.</div>
+  </div>
+
+  <!-- Option 5: Orbit -->
+  <div class="card">
+    <div class="card-number">Option 05</div>
+    <div class="card-name">Orbit</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g5" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#2563eb"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#g5)"/>
+        <!-- Center circle -->
+        <circle cx="32" cy="32" r="6" fill="white" opacity="0.9"/>
+        <!-- Orbital rings -->
+        <ellipse cx="32" cy="32" rx="18" ry="8" fill="none" stroke="white" stroke-width="1.8" opacity="0.5" transform="rotate(-30 32 32)"/>
+        <ellipse cx="32" cy="32" rx="18" ry="8" fill="none" stroke="white" stroke-width="1.8" opacity="0.35" transform="rotate(30 32 32)"/>
+        <ellipse cx="32" cy="32" rx="18" ry="8" fill="none" stroke="white" stroke-width="1.8" opacity="0.2" transform="rotate(90 32 32)"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#g5)"/>
+        <circle cx="32" cy="32" r="6" fill="white" opacity="0.9"/>
+        <ellipse cx="32" cy="32" rx="18" ry="8" fill="none" stroke="white" stroke-width="1.8" opacity="0.5" transform="rotate(-30 32 32)"/>
+        <ellipse cx="32" cy="32" rx="18" ry="8" fill="none" stroke="white" stroke-width="1.8" opacity="0.35" transform="rotate(30 32 32)"/>
+        <ellipse cx="32" cy="32" rx="18" ry="8" fill="none" stroke="white" stroke-width="1.8" opacity="0.2" transform="rotate(90 32 32)"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Atom-like orbital rings around a central mind — ideas orbiting a core intelligence.</div>
+  </div>
+
+  <!-- Option 6: Stacked Layers -->
+  <div class="card">
+    <div class="card-number">Option 06</div>
+    <div class="card-name">Stack</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g6" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ff6b35"/>
+            <stop offset="100%" stop-color="#f59e0b"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#g6)"/>
+        <!-- Three stacked rounded rectangles -->
+        <rect x="16" y="16" width="32" height="8" rx="4" fill="white" opacity="0.9"/>
+        <rect x="20" y="28" width="28" height="8" rx="4" fill="white" opacity="0.6"/>
+        <rect x="24" y="40" width="24" height="8" rx="4" fill="white" opacity="0.35"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#g6)"/>
+        <rect x="16" y="16" width="32" height="8" rx="4" fill="white" opacity="0.9"/>
+        <rect x="20" y="28" width="28" height="8" rx="4" fill="white" opacity="0.6"/>
+        <rect x="24" y="40" width="24" height="8" rx="4" fill="white" opacity="0.35"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Layered knowledge stacks — sources compile into understanding. Simple, clean, Stripe-like.</div>
+  </div>
+
+  <!-- Option 7: Compass/Focus -->
+  <div class="card">
+    <div class="card-number">Option 07</div>
+    <div class="card-name">Focus</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g7" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#e11d48"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#g7)"/>
+        <!-- Target/focus rings -->
+        <circle cx="32" cy="32" r="18" fill="none" stroke="white" stroke-width="1.5" opacity="0.25"/>
+        <circle cx="32" cy="32" r="12" fill="none" stroke="white" stroke-width="1.8" opacity="0.45"/>
+        <circle cx="32" cy="32" r="5" fill="white" opacity="0.9"/>
+        <!-- Crosshair lines (subtle) -->
+        <line x1="32" y1="10" x2="32" y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="32" y1="46" x2="32" y2="54" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="10" y1="32" x2="18" y2="32" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="46" y1="32" x2="54" y2="32" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#g7)"/>
+        <circle cx="32" cy="32" r="18" fill="none" stroke="white" stroke-width="1.5" opacity="0.25"/>
+        <circle cx="32" cy="32" r="12" fill="none" stroke="white" stroke-width="1.8" opacity="0.45"/>
+        <circle cx="32" cy="32" r="5" fill="white" opacity="0.9"/>
+        <line x1="32" y1="10" x2="32" y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="32" y1="46" x2="32" y2="54" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="10" y1="32" x2="18" y2="32" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="46" y1="32" x2="54" y2="32" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Focused intelligence — concentric rings narrowing to the insight. Clean and purposeful.</div>
+  </div>
+
+  <!-- Option 8: Bolt/Lightning -->
+  <div class="card">
+    <div class="card-number">Option 08</div>
+    <div class="card-name">Bolt</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g8" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#ff6b35"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <!-- Lightning bolt -->
+        <path d="M36 10 L24 32 L32 32 L28 54 L44 28 L34 28 Z" fill="url(#g8)" opacity="0.95"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <path d="M36 10 L24 32 L32 32 L28 54 L44 28 L34 28 Z" fill="url(#g8)" opacity="0.95"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Lightning bolt on dark — instant insight, fast intelligence. Bold and energetic.</div>
+  </div>
+
+  <!-- Option 9: Ripple -->
+  <div class="card">
+    <div class="card-number">Option 09</div>
+    <div class="card-name">Ripple</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g9" x1="0" y1="32" x2="64" y2="32" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ff6b35"/>
+            <stop offset="50%" stop-color="#e11d48"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <!-- Concentric arcs radiating from bottom-left -->
+        <path d="M10 54 A 12 12 0 0 1 22 42" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+        <path d="M10 54 A 22 22 0 0 1 32 32" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.65"/>
+        <path d="M10 54 A 32 32 0 0 1 42 22" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+        <path d="M10 54 A 42 42 0 0 1 52 12" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.2"/>
+        <!-- Source dot -->
+        <circle cx="10" cy="54" r="3" fill="url(#g9)"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <path d="M10 54 A 12 12 0 0 1 22 42" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+        <path d="M10 54 A 22 22 0 0 1 32 32" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.65"/>
+        <path d="M10 54 A 32 32 0 0 1 42 22" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+        <path d="M10 54 A 42 42 0 0 1 52 12" stroke="url(#g9)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.2"/>
+        <circle cx="10" cy="54" r="3" fill="url(#g9)"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Knowledge ripples outward from a single source — one idea expanding into many. Gradient arcs on dark.</div>
+  </div>
+
+  <!-- Option 10: Vortex -->
+  <div class="card">
+    <div class="card-number">Option 10</div>
+    <div class="card-name">Vortex</div>
+    <div class="logo-preview">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g10" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ff6b35"/>
+            <stop offset="40%" stop-color="#e11d48"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <!-- Spiral vortex -->
+        <path d="M32 32 C32 28, 36 26, 38 28 C40 30, 40 36, 36 38 C32 40, 26 38, 24 34 C22 30, 24 22, 30 20 C36 18, 44 22, 46 30 C48 38, 42 48, 32 48" stroke="url(#g10)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <!-- Center dot -->
+        <circle cx="32" cy="32" r="2" fill="#ff6b35"/>
+      </svg>
+    </div>
+    <div class="logo-row">
+      <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="#0f0f15"/>
+        <path d="M32 32 C32 28, 36 26, 38 28 C40 30, 40 36, 36 38 C32 40, 26 38, 24 34 C22 30, 24 22, 30 20 C36 18, 44 22, 46 30 C48 38, 42 48, 32 48" stroke="url(#g10)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="32" cy="32" r="2" fill="#ff6b35"/>
+      </svg>
+      <span class="logo-text">FluxMind</span>
+    </div>
+    <div class="card-desc">Spiral vortex with gradient — knowledge spiraling inward to insight. Dark background, elegant and modern.</div>
+  </div>
+
+</div>
+
+</body>
+</html>

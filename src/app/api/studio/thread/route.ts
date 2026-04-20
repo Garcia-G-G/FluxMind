@@ -14,8 +14,8 @@ const threadSchema = z.object({
     z.object({
       id: z.string(),
       text: z.string(),
-      isHook: z.boolean().optional(),
-      isCTA: z.boolean().optional(),
+      isHook: z.boolean().nullable(),
+      isCTA: z.boolean().nullable(),
     })
   ),
 });

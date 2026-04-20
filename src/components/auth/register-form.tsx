@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "motion/react";
+
 import { Loader2, UserPlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -84,14 +84,11 @@ export const RegisterForm = (): React.ReactNode => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+    <div className="fm-fade-in"
     >
       <GlassCard padding="lg">
         <div className="flex flex-col items-center mb-6">
-          <OrbitalIcon icon={UserPlus} size={48} glowColor="var(--fm-glow-orange)" />
+          <OrbitalIcon icon={UserPlus} size={48} accent="#ff6b35" />
           <h2
             className="text-xl font-semibold mt-4"
             style={{
@@ -166,6 +163,6 @@ export const RegisterForm = (): React.ReactNode => {
           </Link>
         </p>
       </GlassCard>
-    </motion.div>
+    </div>
   );
 };

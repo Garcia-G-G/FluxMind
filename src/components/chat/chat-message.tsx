@@ -4,7 +4,6 @@ import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy, Check, RotateCcw } from "lucide-react";
-import { motion } from "motion/react";
 import { Citation, type CitationData } from "@/components/chat/citation";
 
 const CITATION_REGEX = /\[Source:\s*"([^"]+)"(?:\s*p\.(\d+))?\]/g;
@@ -51,12 +50,7 @@ export const ChatMessage = memo(({
 
   if (role === "user") {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex justify-end"
-      >
+      <div className="flex justify-end fm-fade-in">
         <div
           className="max-w-[80%] px-4 py-2.5 text-sm text-white"
           style={{
@@ -66,7 +60,7 @@ export const ChatMessage = memo(({
         >
           {content}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -74,12 +68,7 @@ export const ChatMessage = memo(({
   const cleanContent = stripCitations(content);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="flex gap-3 group"
-    >
+    <div className="flex gap-3 group fm-fade-in">
       {/* AI avatar */}
       <div
         className="h-7 w-7 rounded-full p-[2px] shrink-0 mt-0.5"
@@ -97,7 +86,6 @@ export const ChatMessage = memo(({
         className="flex-1 min-w-0 max-w-[80%] px-4 py-3"
         style={{
           background: "var(--fm-glass-bg)",
-          backdropFilter: "blur(20px)",
           border: "1px solid var(--fm-glass-border)",
           borderRadius: "20px 20px 20px 6px",
         }}
@@ -179,7 +167,7 @@ export const ChatMessage = memo(({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 });
 

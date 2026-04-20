@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Upload, X, FileText, Loader2, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { useUploadSource } from "@/hooks/use-sources";
 
@@ -193,14 +192,11 @@ const UploadList = ({
 
   return (
     <div className="mt-2 space-y-1">
-      <AnimatePresence>
         {uploads.map((u, i) => (
-          <motion.div
+          <div
             key={`${u.file.name}-${i}`}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-muted"
+            className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-muted fm-stagger-item"
+            style={{ animationDelay: `${i * 30}ms` }}
           >
             {u.status === "uploading" && (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
@@ -220,9 +216,8 @@ const UploadList = ({
                 </button>
               </>
             )}
-          </motion.div>
+          </div>
         ))}
-      </AnimatePresence>
     </div>
   );
 };

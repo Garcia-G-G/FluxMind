@@ -62,7 +62,6 @@ export const ChatInput = ({
         className="flex items-end gap-2 max-w-3xl mx-auto px-4 py-3 rounded-2xl"
         style={{
           background: "var(--fm-glass-bg)",
-          backdropFilter: "blur(20px)",
           border: "1px solid var(--fm-glass-border)",
         }}
       >

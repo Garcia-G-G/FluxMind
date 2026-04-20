@@ -47,6 +47,8 @@ export const ThreadPreview = ({
     const newTweet: Tweet = {
       id: `t${Date.now()}`,
       text: "New tweet...",
+      isHook: null,
+      isCTA: null,
     };
     setTweets((prev) => [
       ...prev.slice(0, index + 1),

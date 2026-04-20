@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { CommandPalette } from "@/components/layout/command-palette";
+import { AnimatedBackground } from "@/components/shared/animated-background";
+
+const CommandPalette = dynamic(
+  () => import("@/components/layout/command-palette").then((m) => m.CommandPalette),
+  { ssr: false },
+);
 
 export const AppShell = ({
   children,
@@ -28,26 +34,30 @@ export const AppShell = ({
   const sidebarWidth = sidebarCollapsed ? 60 : 240;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--fm-bg)" }}>
+    <div className="min-h-screen relative" style={{ background: "var(--fm-bg)" }}>
+      <AnimatedBackground />
       <Sidebar
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
       />
       <div
-        className="hidden md:flex flex-col min-h-screen transition-[padding-left] duration-200 ease-in-out"
-        style={{ paddingLeft: sidebarWidth }}
+        className="flex flex-col min-h-screen transition-[padding-left] duration-200 ease-in-out"
+        style={{ paddingLeft: `var(--fm-sidebar-pad, 0px)` }}
       >
+        <style>{`
+          @media (min-width: 768px) {
+            :root { --fm-sidebar-pad: ${sidebarWidth}px; }
+          }
+        `}</style>
         <Header
           onOpenCommandPalette={() => setCommandOpen(true)}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
-      <div className="md:hidden flex flex-col min-h-screen">
-        <Header onOpenCommandPalette={() => setCommandOpen(true)} />
-        <main className="flex-1 p-4">{children}</main>
-      </div>
-      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+      {commandOpen && (
+        <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+      )}
     </div>
   );
 };

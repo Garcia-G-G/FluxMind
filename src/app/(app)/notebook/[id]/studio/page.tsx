@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, type ComponentProps } from "react";
+import dynamic from "next/dynamic";
 import {
   HelpCircle,
   Layers,
@@ -17,23 +18,54 @@ import {
   GraduationCap,
   Network,
   Film,
+  Clock,
+  ChevronRight,
+  Eye,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RotatingBorderIcon } from "@/components/shared/rotating-border-icon";
 import { QuizView } from "@/components/studio/quiz-view";
 import { FlashcardView } from "@/components/studio/flashcard-view";
 import { StudyStats } from "@/components/studio/study-stats";
-import { SlideViewer } from "@/components/studio/slide-viewer";
-import { InfographicViewer } from "@/components/studio/infographic-viewer";
 import { DataTableView } from "@/components/studio/data-table-view";
-import { DeepResearch } from "@/components/studio/deep-research";
 import { ThreadPreview } from "@/components/studio/thread-preview";
 import { NewsletterPreview } from "@/components/studio/newsletter-preview";
 import { ReelScriptView } from "@/components/studio/reel-script-view";
-import { CourseView } from "@/components/studio/course-view";
-import { MindMapCanvas } from "@/components/mind-map/mind-map-canvas";
-import { VideoPlayer } from "@/components/video/video-player";
+
+const ViewerFallback = (): React.ReactNode => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="h-5 w-5 animate-spin" />
+  </div>
+);
+
+const SlideViewer = dynamic(
+  () => import("@/components/studio/slide-viewer").then((m) => m.SlideViewer),
+  { ssr: false, loading: ViewerFallback },
+);
+const InfographicViewer = dynamic(
+  () => import("@/components/studio/infographic-viewer").then((m) => m.InfographicViewer),
+  { ssr: false, loading: ViewerFallback },
+);
+const DeepResearch = dynamic(
+  () => import("@/components/studio/deep-research").then((m) => m.DeepResearch),
+  { ssr: false, loading: ViewerFallback },
+);
+const CourseView = dynamic(
+  () => import("@/components/studio/course-view").then((m) => m.CourseView),
+  { ssr: false, loading: ViewerFallback },
+);
+const MindMapCanvas = dynamic(
+  () => import("@/components/mind-map/mind-map-canvas").then((m) => m.MindMapCanvas),
+  { ssr: false, loading: ViewerFallback },
+);
+const VideoPlayer = dynamic(
+  () => import("@/components/video/video-player").then((m) => m.VideoPlayer),
+  { ssr: false, loading: ViewerFallback },
+);
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
 import {
+  useOutputs,
   useGenerateSlides,
   useGenerateInfographic,
   useGenerateDataTable,
@@ -44,6 +76,7 @@ import {
   useGenerateMindMap,
   useGenerateVideo,
 } from "@/hooks/use-studio-outputs";
+import type { OutputListItem } from "@/hooks/use-studio-outputs";
 import type { SlidesContent } from "@/app/api/studio/slides/route";
 import type { InfographicContent } from "@/app/api/studio/infographic/route";
 import type { DataTableContent } from "@/app/api/studio/datatable/route";
@@ -51,6 +84,18 @@ import type { ThreadContent } from "@/app/api/studio/thread/route";
 import type { NewsletterContent } from "@/app/api/studio/newsletter/route";
 import type { ReelContent } from "@/app/api/studio/reel/route";
 import type { CourseContent } from "@/app/api/studio/course/route";
+
+const formatTimeAgo = (dateStr: string): string => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
 
 type StudioTab =
   | "overview"
@@ -76,6 +121,7 @@ const StudioPage = ({
 }): React.ReactNode => {
   const { id: notebookId } = use(params);
   const [activeTab, setActiveTab] = useState<StudioTab>("overview");
+  const { data: savedOutputs } = useOutputs(notebookId);
 
   // All generators
   const generateQuiz = useGenerateQuiz();
@@ -102,6 +148,50 @@ const StudioPage = ({
   const [courseData, setCourseData] = useState<OutputData<CourseContent> | null>(null);
   const [mindMapData, setMindMapData] = useState<OutputData<{ nodes: unknown[]; edges: unknown[] }> | null>(null);
   const [videoData, setVideoData] = useState<OutputData<{ fileUrl?: string; chapters?: unknown[]; status: string }> | null>(null);
+
+  /* Map output type → StudioTab */
+  const typeToTab: Record<string, StudioTab> = {
+    quiz: "quiz", flashcards: "flashcards", slides: "slides",
+    infographic: "infographic", data_table: "datatable",
+    thread: "thread", newsletter: "newsletter", course: "course",
+    mindmap: "mindmap", video: "video", research_report: "research",
+  };
+
+  const typeIcon: Record<string, { icon: LucideIcon; color: string }> = {
+    quiz: { icon: HelpCircle, color: "#7c3aed" },
+    flashcards: { icon: Layers, color: "#2563eb" },
+    slides: { icon: Presentation, color: "#ff6b35" },
+    infographic: { icon: Image, color: "#e11d48" },
+    data_table: { icon: Table, color: "#2563eb" },
+    thread: { icon: MessageCircle, color: "#2563eb" },
+    newsletter: { icon: Mail, color: "#7c3aed" },
+    course: { icon: GraduationCap, color: "#e11d48" },
+    mindmap: { icon: Network, color: "#7c3aed" },
+    video: { icon: Film, color: "#ff6b35" },
+    research_report: { icon: Search, color: "#7c3aed" },
+  };
+
+  /* Open a saved output by loading its content into state */
+  const openSavedOutput = (output: OutputListItem): void => {
+    const tab = typeToTab[output.type];
+    if (!tab || !output.content) return;
+
+    const data = { id: output.id, title: output.title, ...output.content } as never;
+
+    switch (output.type) {
+      case "quiz": setQuizData(data); break;
+      case "flashcards": setFlashcardData(data); break;
+      case "slides": setSlidesData(data); break;
+      case "infographic": setInfographicData(data); break;
+      case "data_table": setDataTableData(data); break;
+      case "thread": setThreadData(data); break;
+      case "newsletter": setNewsletterData(data); break;
+      case "course": setCourseData(data); break;
+      case "mindmap": setMindMapData(data); break;
+      case "video": setVideoData(data); break;
+    }
+    setActiveTab(tab);
+  };
 
   const generate = async <T,>(
     type: StudioTab,
@@ -154,16 +244,27 @@ const StudioPage = ({
     if (activeTab === "course" && courseData)
       return wrap(courseData.title, <CourseView course={courseData as CourseContent} />);
     if (activeTab === "video" && videoData)
-      return wrap(videoData.title, <VideoPlayer fileUrl={(videoData as Record<string, unknown>).fileUrl as string ?? null} title={videoData.title} status={videoData.status ?? "ready"} chapters={(videoData as Record<string, unknown>).chapters as Parameters<typeof VideoPlayer>[0]["chapters"]} />);
+      return wrap(videoData.title, <VideoPlayer fileUrl={(videoData as Record<string, unknown>).fileUrl as string ?? null} title={videoData.title} status={videoData.status ?? "ready"} chapters={(videoData as Record<string, unknown>).chapters as ComponentProps<typeof VideoPlayer>["chapters"]} />);
     if (activeTab === "mindmap" && mindMapData)
-      return wrap(mindMapData.title, <MindMapCanvas data={mindMapData as { nodes: Parameters<typeof MindMapCanvas>[0]["data"]["nodes"]; edges: Parameters<typeof MindMapCanvas>[0]["data"]["edges"] }} />);
+      return wrap(mindMapData.title, <MindMapCanvas data={mindMapData as { nodes: ComponentProps<typeof MindMapCanvas>["data"]["nodes"]; edges: ComponentProps<typeof MindMapCanvas>["data"]["edges"] }} />);
     if (activeTab === "research")
       return <div><div className="flex justify-end mb-4">{backBtn}</div><DeepResearch notebookId={notebookId} /></div>;
 
-    setActiveTab("overview");
+    // Data not yet loaded for this tab — show loading or go back
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium" style={{ color: "var(--fm-text)" }}>Loading...</h2>
+          {backBtn}
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--fm-text-tertiary)" }} />
+        </div>
+      </div>
+    );
   }
 
-  // Studio card helper
+  // Studio card — clean minimal design
   const StudioCard = ({
     icon: Icon,
     title,
@@ -173,8 +274,9 @@ const StudioPage = ({
     error,
     hasData,
     tab,
+    accent = "var(--fm-accent-orange)",
   }: {
-    icon: React.ElementType;
+    icon: LucideIcon;
     title: string;
     description: string;
     onGenerate: () => void;
@@ -182,33 +284,113 @@ const StudioPage = ({
     error: Error | null;
     hasData: boolean;
     tab: StudioTab;
+    accent?: string;
   }): React.ReactNode => (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon className="h-4 w-4 text-primary" />
-        <h3 className="font-medium text-sm">{title}</h3>
+    <div
+      className="group relative overflow-hidden rounded-2xl p-5 transition-transform duration-300 hover:-translate-y-1"
+      style={{
+        background: "var(--fm-glass-bg)",
+        border: "1px solid var(--fm-glass-border)",
+      }}
+    >
+      {/* Top accent line */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px]"
+        style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }}
+      />
+      <div className="flex items-start gap-3">
+        <div
+          className="shrink-0 flex items-center justify-center rounded-lg"
+          style={{
+            width: 36,
+            height: 36,
+            background: `color-mix(in srgb, ${accent} 12%, transparent)`,
+          }}
+        >
+          <Icon style={{ width: 18, height: 18, color: accent }} strokeWidth={1.8} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3
+            className="font-medium text-sm leading-tight"
+            style={{ color: "var(--fm-text)" }}
+          >
+            {title}
+          </h3>
+          <p
+            className="text-xs mt-1 leading-relaxed"
+            style={{ color: "var(--fm-text-tertiary)" }}
+          >
+            {description}
+          </p>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground mb-3">{description}</p>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={onGenerate} disabled={isPending} className="gap-1.5 h-7 text-xs">
-          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+
+      <div className="flex items-center gap-2 mt-4">
+        <button
+          onClick={onGenerate}
+          disabled={isPending}
+          className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white rounded-lg transition-opacity disabled:opacity-50"
+          style={{ background: accent }}
+        >
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Wand2 className="h-3.5 w-3.5" />
+          )}
           Generate
-        </Button>
+        </button>
         {hasData && (
-          <Button size="sm" variant="outline" onClick={() => setActiveTab(tab)} className="h-7 text-xs">
+          <button
+            onClick={() => setActiveTab(tab)}
+            className="flex items-center h-8 px-3.5 text-xs font-medium rounded-lg transition-colors"
+            style={{
+              background: "var(--fm-bg-tertiary)",
+              color: "var(--fm-text-secondary)",
+            }}
+          >
             View
-          </Button>
+          </button>
         )}
       </div>
-      {error && <p className="text-xs text-destructive mt-1.5">{error.message}</p>}
+
+      {error && (
+        <p
+          className="text-xs mt-3 px-2 py-1.5 rounded-md"
+          style={{
+            color: "var(--fm-error, #ef4444)",
+            background: "color-mix(in srgb, var(--fm-error, #ef4444) 8%, transparent)",
+          }}
+        >
+          {error.message}
+        </p>
+      )}
+    </div>
+  );
+
+  const SectionHeader = ({ label }: { label: string }): React.ReactNode => (
+    <div className="mb-3 mt-6">
+      <span
+        className="text-xs font-medium uppercase tracking-wide"
+        style={{ color: "var(--fm-text-tertiary)" }}
+      >
+        {label}
+      </span>
     </div>
   );
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h2 className="text-xl font-semibold mb-1">Studio</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Generate study materials, presentations, and content from your sources
+      <h2
+        className="font-display text-3xl font-normal tracking-tight mb-1.5"
+        style={{ color: "var(--fm-text)" }}
+      >
+        Studio
+      </h2>
+      <p
+        className="text-sm mb-8"
+        style={{ color: "var(--fm-text-tertiary)" }}
+      >
+        Generate study materials, presentations, and content from your sources.
       </p>
 
       {(quizData || flashcardData) && (
@@ -222,78 +404,182 @@ const StudioPage = ({
       )}
 
       {/* Study section */}
-      <h3 className="text-sm font-medium text-muted-foreground mb-2">Study</h3>
+      <SectionHeader label="Study" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={HelpCircle} title="Quiz" tab="quiz"
+        <StudioCard icon={HelpCircle} title="Quiz" tab="quiz" accent="var(--fm-accent-violet)"
           description="MC, T/F, and free response questions."
           onGenerate={() => generate("quiz", generateQuiz.mutateAsync, setQuizData)}
           isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData} />
-        <StudioCard icon={Layers} title="Flashcards" tab="flashcards"
+        <StudioCard icon={Layers} title="Flashcards" tab="flashcards" accent="var(--fm-accent-blue)"
           description="Spaced repetition flashcards."
           onGenerate={() => generate("flashcards", generateFlashcards.mutateAsync, setFlashcardData)}
           isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData} />
-        <StudioCard icon={GraduationCap} title="Mini-Course" tab="course"
+        <StudioCard icon={GraduationCap} title="Mini-Course" tab="course" accent="var(--fm-accent-rose)"
           description="Structured lessons with quizzes."
           onGenerate={() => generate("course", generateCourse.mutateAsync, setCourseData)}
           isPending={generateCourse.isPending} error={generateCourse.error} hasData={!!courseData} />
       </div>
 
       {/* Visual section */}
-      <h3 className="text-sm font-medium text-muted-foreground mb-2">Visual</h3>
+      <SectionHeader label="Visual" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={Presentation} title="Slide Deck" tab="slides"
+        <StudioCard icon={Presentation} title="Slide Deck" tab="slides" accent="var(--fm-accent-orange)"
           description="Presentation with multiple layouts."
           onGenerate={() => generate("slides", generateSlides.mutateAsync, setSlidesData)}
           isPending={generateSlides.isPending} error={generateSlides.error} hasData={!!slidesData} />
-        <StudioCard icon={Image} title="Infographic" tab="infographic"
+        <StudioCard icon={Image} title="Infographic" tab="infographic" accent="var(--fm-accent-rose)"
           description="Stats, timelines, and comparisons."
           onGenerate={() => generate("infographic", generateInfographic.mutateAsync, setInfographicData)}
           isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData} />
-        <StudioCard icon={Table} title="Data Tables" tab="datatable"
+        <StudioCard icon={Table} title="Data Tables" tab="datatable" accent="var(--fm-accent-blue)"
           description="Extract tabular data from sources."
           onGenerate={() => generate("datatable", generateDataTable.mutateAsync, setDataTableData)}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
-        <StudioCard icon={Network} title="Mind Map" tab="mindmap"
+        <StudioCard icon={Network} title="Mind Map" tab="mindmap" accent="var(--fm-accent-violet)"
           description="Explorable knowledge graph from sources."
           onGenerate={() => generate("mindmap", generateMindMap.mutateAsync, setMindMapData)}
           isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
-        <StudioCard icon={Film} title="Video Overview" tab="video"
+        <StudioCard icon={Film} title="Video Overview" tab="video" accent="var(--fm-accent-orange)"
           description="AI-narrated video with generated visuals."
           onGenerate={() => generate("video", generateVideoOverview.mutateAsync, setVideoData)}
           isPending={generateVideoOverview.isPending} error={generateVideoOverview.error} hasData={!!videoData} />
       </div>
 
       {/* Content section */}
-      <h3 className="text-sm font-medium text-muted-foreground mb-2">Content</h3>
+      <SectionHeader label="Content" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={MessageCircle} title="X Thread" tab="thread"
+        <StudioCard icon={MessageCircle} title="X Thread" tab="thread" accent="var(--fm-accent-blue)"
           description="Viral thread with hook and CTA."
           onGenerate={() => generate("thread", generateThread.mutateAsync, setThreadData)}
           isPending={generateThread.isPending} error={generateThread.error} hasData={!!threadData} />
-        <StudioCard icon={Mail} title="Newsletter" tab="newsletter"
+        <StudioCard icon={Mail} title="Newsletter" tab="newsletter" accent="var(--fm-accent-violet)"
           description="Professional email newsletter."
           onGenerate={() => generate("newsletter", generateNewsletter.mutateAsync, setNewsletterData)}
           isPending={generateNewsletter.isPending} error={generateNewsletter.error} hasData={!!newsletterData} />
-        <StudioCard icon={Video} title="Reel Script" tab="reel"
+        <StudioCard icon={Video} title="Reel Script" tab="reel" accent="var(--fm-accent-rose)"
           description="30-60s short-form video script."
           onGenerate={() => generate("reel", generateReel.mutateAsync, setReelData)}
           isPending={generateReel.isPending} error={generateReel.error} hasData={!!reelData} />
       </div>
 
-      {/* Deep Research */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center gap-2 mb-1.5">
-          <Globe className="h-4 w-4 text-primary" />
-          <h3 className="font-medium text-sm">Deep Research</h3>
+      {/* Deep Research — featured card */}
+      <SectionHeader label="Research" />
+      <div
+        className="relative overflow-hidden rounded-2xl p-5 flex items-center gap-4"
+        style={{
+          background: "var(--fm-glass-bg)",
+          border: "1px solid var(--fm-glass-border)",
+        }}
+      >
+        <div
+          className="absolute top-0 left-0 right-0 h-[2px]"
+          style={{ background: "linear-gradient(90deg, var(--fm-accent-violet), transparent)" }}
+        />
+        <div
+          className="flex items-center justify-center shrink-0 rounded-lg"
+          style={{
+            width: 44,
+            height: 44,
+            background: "color-mix(in srgb, var(--fm-accent-violet) 12%, transparent)",
+          }}
+        >
+          <Globe className="h-5 w-5" style={{ color: "var(--fm-accent-violet)" }} />
         </div>
-        <p className="text-xs text-muted-foreground mb-3">
-          Search the web and produce a comprehensive research report.
-        </p>
-        <Button size="sm" onClick={() => setActiveTab("research")} className="gap-1.5 h-7 text-xs">
+        <div className="flex-1 min-w-0">
+          <h3
+            className="font-medium text-sm leading-tight"
+            style={{ color: "var(--fm-text)" }}
+          >
+            Deep Research
+          </h3>
+          <p
+            className="text-xs mt-1 leading-relaxed"
+            style={{ color: "var(--fm-text-tertiary)" }}
+          >
+            Search the web and produce a comprehensive research report with citations.
+          </p>
+        </div>
+        <button
+          onClick={() => setActiveTab("research")}
+          className="flex items-center gap-1.5 h-8 px-4 text-xs font-medium text-white rounded-lg shrink-0"
+          style={{ background: "var(--fm-accent-violet)" }}
+        >
           <Search className="h-3.5 w-3.5" />
-          Start Research
-        </Button>
+          Start
+        </button>
       </div>
+
+      {/* ── Your Generated Outputs ── */}
+      {savedOutputs && savedOutputs.filter((o) => o.status === "ready").length > 0 && (
+        <>
+          <SectionHeader label="Your Outputs" />
+          <div className="space-y-2 mb-8">
+            {savedOutputs
+              .filter((o) => o.status === "ready")
+              .map((output) => {
+                const cfg = typeIcon[output.type] ?? { icon: Wand2, color: "#6b7280" };
+                const Icon = cfg.icon;
+                const timeAgo = formatTimeAgo(output.createdAt);
+                return (
+                  <button
+                    key={output.id}
+                    onClick={() => openSavedOutput(output)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left group"
+                    style={{
+                      background: "var(--fm-surface)",
+                      border: "1px solid var(--fm-surface-border)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--fm-surface-hover)";
+                      e.currentTarget.style.borderColor = `${cfg.color}30`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "var(--fm-surface)";
+                      e.currentTarget.style.borderColor = "var(--fm-surface-border)";
+                    }}
+                  >
+                    <div
+                      className="shrink-0 flex items-center justify-center rounded-lg"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        background: `${cfg.color}15`,
+                      }}
+                    >
+                      <Icon style={{ width: 18, height: 18, color: cfg.color }} strokeWidth={1.8} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-sm font-medium truncate"
+                        style={{ color: "var(--fm-text)" }}
+                      >
+                        {output.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span
+                          className="text-[11px] capitalize"
+                          style={{ color: cfg.color }}
+                        >
+                          {output.type.replace("_", " ")}
+                        </span>
+                        <span className="text-[10px]" style={{ color: "var(--fm-text-tertiary)" }}>
+                          · {timeAgo}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className="shrink-0 flex items-center gap-1 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ color: "var(--fm-text-secondary)" }}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -1,7 +1,6 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
-import { motion } from "motion/react";
 
 const DEFAULT_SUGGESTIONS = [
   "What are the main topics covered in my sources?",
@@ -27,16 +26,14 @@ export const SuggestedQuestions = ({
       </p>
       <div className="grid gap-2 w-full">
         {DEFAULT_SUGGESTIONS.map((question, i) => (
-          <motion.button
+          <button
             key={question}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
             onClick={() => onSelect(question)}
-            className="text-left px-4 py-3 rounded-lg border border-border hover:bg-accent/50 transition-colors text-sm text-muted-foreground hover:text-foreground"
+            className="text-left px-4 py-3 rounded-lg border border-border hover:bg-accent/50 transition-colors text-sm text-muted-foreground hover:text-foreground fm-stagger-item"
+            style={{ animationDelay: `${i * 80}ms` }}
           >
             {question}
-          </motion.button>
+          </button>
         ))}
       </div>
     </div>

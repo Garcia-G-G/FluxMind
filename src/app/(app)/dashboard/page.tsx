@@ -1,20 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   BookOpen,
   FileText,
   MessageSquare,
   Sparkles,
-  MoreHorizontal,
   ChevronRight,
   ArrowRight,
+  Upload,
+  Star,
+  Users,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { GlassCard } from "@/components/shared/glass-card";
+import { OrbitalIcon } from "@/components/shared/orbital-icon";
+import { BreathingIcon } from "@/components/shared/breathing-icon";
+import { AccentIcon } from "@/components/shared/accent-icon";
+import { resolveIcon } from "@/lib/icon-resolver";
 import { useSession } from "@/lib/auth-client";
 import { useNotebooks, useDeleteNotebook } from "@/hooks/use-notebooks";
+import { useStats } from "@/hooks/use-stats";
 import { CreateNotebookDialog } from "@/components/notebook/create-notebook-dialog";
 import { EditNotebookDialog } from "@/components/notebook/edit-notebook-dialog";
 import { DeleteNotebookDialog } from "@/components/notebook/delete-notebook-dialog";
@@ -32,18 +38,15 @@ const getGreeting = (): string => {
 };
 
 const statConfig = [
-  { icon: BookOpen, label: "Active Notebooks", color: "#ff6b35", bg: "rgba(255,107,53,0.12)" },
-  { icon: FileText, label: "Sources Added", color: "#e11d48", bg: "rgba(225,29,72,0.12)" },
-  { icon: MessageSquare, label: "AI Conversations", color: "#7c3aed", bg: "rgba(124,58,237,0.12)" },
-  { icon: Sparkles, label: "Studio Outputs", color: "#2563eb", bg: "rgba(37,99,235,0.12)" },
+  { icon: BookOpen, label: "Active Notebooks", color: "#ff6b35" },
+  { icon: FileText, label: "Sources Added", color: "#e11d48" },
+  { icon: MessageSquare, label: "AI Conversations", color: "#7c3aed" },
+  { icon: Sparkles, label: "Studio Outputs", color: "#2563eb" },
 ];
 
-// Notebook card icon colors matching the mockup
 const CARD_COLORS = [
   "#ff6b35", "#e11d48", "#7c3aed", "#2563eb", "#f59e0b", "#22c55e",
 ];
-
-const CARD_ICONS = [Sparkles, FileText, MessageSquare, BookOpen, Sparkles, ChevronRight];
 
 const formatRelativeTime = (date: Date): string => {
   const now = new Date();
@@ -57,23 +60,23 @@ const formatRelativeTime = (date: Date): string => {
   return `Updated ${days}d ago`;
 };
 
-const containerVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
+const VIEW_TITLES: Record<string, string> = {
+  all: "All Notebooks",
+  recent: "Recent",
+  shared: "Shared with Me",
+  starred: "Starred",
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
-
-const DashboardPage = (): React.ReactNode => {
+const DashboardContent = (): React.ReactNode => {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get("view");
   const [createOpen, setCreateOpen] = useState(false);
   const [editNotebook, setEditNotebook] = useState<NotebookWithCount | null>(null);
   const [deleteNotebook, setDeleteNotebook] = useState<NotebookWithCount | null>(null);
 
   const { data: notebooks, isLoading } = useNotebooks("", "updatedAt", "desc");
+  const { data: stats } = useStats();
   const deleteNotebookMutation = useDeleteNotebook();
 
   useEffect(() => {
@@ -82,160 +85,241 @@ const DashboardPage = (): React.ReactNode => {
     return () => window.removeEventListener("fluxmind:create-notebook", handler);
   }, []);
 
+  const [today, setToday] = useState<string>("");
+  const [greeting, setGreeting] = useState<string>("");
+  useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      }),
+    );
+    setGreeting(getGreeting());
+  }, []);
+
+  const filteredNotebooks = useMemo(() => {
+    if (!notebooks) return [];
+    switch (currentView) {
+      case "starred":
+        return [];
+      case "shared":
+        return [];
+      case "recent":
+        return [...notebooks].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      case "all":
+        return notebooks;
+      default:
+        return notebooks;
+    }
+  }, [notebooks, currentView]);
+
+  const isFilteredView = currentView === "starred" || currentView === "shared";
+
   const lastName = session?.user?.name?.split(" ").pop() ?? "there";
   const notebookCount = notebooks?.length ?? 0;
+  const statValues = [
+    stats?.notebooks ?? 0,
+    stats?.sources ?? 0,
+    stats?.conversations ?? 0,
+    stats?.outputs ?? 0,
+  ];
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Greeting */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="mb-6"
-      >
+      {/* Greeting — CSS fade-in */}
+      <div className="mb-8 fm-fade-in">
         <h1
-          className="text-3xl sm:text-4xl font-bold tracking-tight"
+          className="font-display text-4xl sm:text-5xl lg:text-[56px] font-normal tracking-tight leading-[1.1]"
           style={{
-            background: "linear-gradient(90deg, var(--fm-accent-orange), var(--fm-accent-rose))",
+            backgroundImage: "linear-gradient(90deg, #ff6b35, #e11d48, #7c3aed, #2563eb, #ff6b35)",
+            backgroundSize: "200% auto",
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
+            display: "inline-block",
           }}
         >
-          {getGreeting()}, {lastName}
+          {greeting || "\u00A0"}{greeting && `, ${lastName}`}
         </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--fm-text-secondary)" }}>
-          Your knowledge base is growing. {notebookCount > 0 ? `${notebookCount} notebooks updated today.` : "Create your first notebook to get started."}
+        <p className="text-base mt-3" style={{ color: "var(--fm-text-secondary)" }}>
+          {notebookCount} notebook{notebookCount === 1 ? "" : "s"}
+          {today ? ` · ${today}` : ""}
         </p>
-      </motion.div>
+      </div>
 
-      {/* Stats grid — 4 cards */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8"
-      >
+      {/* Stats grid — v3 Liquid style */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
         {statConfig.map((stat, i) => (
-          <motion.div key={stat.label} variants={itemVariants}>
-            <GlassCard padding="md" hover>
-              <div className="flex items-start justify-between mb-4">
-                <div
-                  className="h-10 w-10 rounded-xl flex items-center justify-center"
-                  style={{ background: stat.bg }}
-                >
-                  <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
-                </div>
-                <button style={{ color: "var(--fm-text-tertiary)" }}>
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="text-3xl font-bold" style={{ color: "var(--fm-text)" }}>
-                {i === 0 ? notebookCount : i === 1 ? "0" : i === 2 ? "0" : "0"}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--fm-text-tertiary)" }}>
-                {stat.label}
-              </p>
-            </GlassCard>
-          </motion.div>
+          <div
+            key={stat.label}
+            className="rounded-2xl p-5 fm-stagger-item fm-lift-card"
+            style={{
+              animationDelay: `${i * 60}ms`,
+              background: "var(--fm-glass-bg)",
+              border: "1px solid var(--fm-glass-border)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <OrbitalIcon icon={stat.icon} accent={stat.color} size={42} />
+            </div>
+            <p
+              className="text-[28px] font-bold tracking-tight"
+              style={{ color: "var(--fm-text)", letterSpacing: "-0.03em" }}
+            >
+              {statValues[i]}
+            </p>
+            <p className="text-[13px] font-light mt-1" style={{ color: "var(--fm-text-tertiary)" }}>
+              {stat.label}
+            </p>
+          </div>
         ))}
-      </motion.div>
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-3 mb-10">
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-transform hover:-translate-y-0.5"
+          style={{ background: "var(--fm-accent-orange)" }}
+        >
+          <Plus className="h-4 w-4" />
+          New Notebook
+        </button>
+        {notebooks && notebooks.length > 0 && (
+          <Link
+            href={`/notebook/${notebooks[0].id}`}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-transform hover:-translate-y-0.5"
+            style={{
+              background: "var(--fm-surface)",
+              border: "1px solid var(--fm-surface-border)",
+              color: "var(--fm-text)",
+            }}
+          >
+            <Upload className="h-4 w-4" />
+            Upload Sources
+          </Link>
+        )}
+      </div>
 
       {/* Notebooks section */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--fm-text)" }}>
-          Your Notebooks
+        <h2 className="font-display text-2xl font-normal" style={{ color: "var(--fm-text)" }}>
+          {currentView ? VIEW_TITLES[currentView] ?? "Your Notebooks" : "Your Notebooks"}
         </h2>
-        <button
-          className="flex items-center gap-1 text-sm transition-colors"
-          style={{ color: "var(--fm-text-secondary)" }}
-        >
-          View all <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+        {!currentView && (
+          <Link
+            href="/dashboard?view=all"
+            className="flex items-center gap-1 text-sm transition-colors hover:opacity-80"
+            style={{ color: "var(--fm-text-secondary)" }}
+          >
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
 
-      {/* Notebook grid */}
-      {isLoading ? (
+      {/* Filtered empty states */}
+      {isFilteredView && filteredNotebooks.length === 0 ? (
+        <div
+          className="fm-fade-in rounded-2xl py-16 text-center"
+          style={{ background: "var(--fm-glass-bg)", border: "1px solid var(--fm-glass-border)" }}
+        >
+          <AccentIcon
+            icon={currentView === "starred" ? Star : Users}
+            accent={currentView === "starred" ? "#f59e0b" : "#22c55e"}
+            size={48}
+            className="mx-auto"
+          />
+          <h3 className="font-display text-xl font-normal mt-5 mb-1" style={{ color: "var(--fm-text)" }}>
+            {currentView === "starred" ? "No starred notebooks yet" : "No shared notebooks yet"}
+          </h3>
+          <p className="text-sm max-w-sm mx-auto" style={{ color: "var(--fm-text-tertiary)" }}>
+            {currentView === "starred"
+              ? "Star a notebook to find it quickly here."
+              : "Notebooks shared with you will appear here."}
+          </p>
+        </div>
+      ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-40 rounded-2xl" style={{ background: "var(--fm-surface)" }} />
           ))}
         </div>
-      ) : notebooks && notebooks.length > 0 ? (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
-        >
-          {notebooks.map((notebook, i) => {
+      ) : filteredNotebooks.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 fm-stagger-grid">
+          {filteredNotebooks.map((notebook, i) => {
             const cardColor = notebook.color ?? CARD_COLORS[i % CARD_COLORS.length];
-            const CardIcon = CARD_ICONS[i % CARD_ICONS.length];
+            const CardIcon = resolveIcon(notebook.icon ?? "BookOpen");
             return (
-              <motion.div key={notebook.id} variants={itemVariants}>
-                <Link href={`/notebook/${notebook.id}`}>
-                  <GlassCard hover padding="md" className="relative overflow-hidden cursor-pointer">
-                    {/* Color top bar */}
+              <div key={notebook.id} className="fm-stagger-item" style={{ animationDelay: `${i * 60}ms` }}>
+                <Link
+                  href={`/notebook/${notebook.id}`}
+                  className="block group"
+                >
+                  <div
+                    className="relative overflow-hidden rounded-2xl p-5 transition-transform duration-300 hover:-translate-y-1"
+                    style={{
+                      background: "var(--fm-glass-bg)",
+                      border: "1px solid var(--fm-glass-border)",
+                    }}
+                  >
+                    {/* Top accent line */}
                     <div
-                      className="absolute top-0 left-0 right-0 h-[3px]"
-                      style={{ background: cardColor }}
+                      className="absolute top-0 left-0 right-0 h-[2px]"
+                      style={{ background: `linear-gradient(90deg, ${cardColor}, transparent)` }}
                     />
 
-                    <div className="flex items-start gap-3 pt-2">
-                      {/* Icon circle */}
-                      <div
-                        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `${cardColor}18` }}
-                      >
-                        <CardIcon className="h-5 w-5" style={{ color: cardColor }} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-base leading-tight" style={{ color: "var(--fm-text)" }}>
+                    <div className="flex items-start gap-3">
+                      <BreathingIcon icon={CardIcon} accent={cardColor} size={38} />
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <h3
+                          className="font-semibold text-[15px] leading-snug tracking-[-0.01em]"
+                          style={{ color: "var(--fm-text)" }}
+                        >
                           {notebook.title}
                         </h3>
-                        <p className="text-xs mt-1" style={{ color: "var(--fm-text-secondary)" }}>
+                        <p className="text-xs mt-1.5" style={{ color: "var(--fm-text-tertiary)" }}>
                           {notebook.sourceCount ?? 0} sources
                         </p>
                       </div>
                     </div>
 
-                    {/* Bottom row */}
-                    <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: "1px solid var(--fm-surface-border)" }}>
-                      <span className="text-xs" style={{ color: "var(--fm-text-tertiary)" }}>
+                    <div className="flex items-center justify-between mt-5 pt-3" style={{ borderTop: "1px solid var(--fm-surface-border)" }}>
+                      <span className="text-[11px]" style={{ color: "var(--fm-text-tertiary)" }}>
                         {formatRelativeTime(notebook.updatedAt)}
                       </span>
-                      <ChevronRight className="h-4 w-4" style={{ color: "var(--fm-text-tertiary)" }} />
+                      <ChevronRight
+                        className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: "var(--fm-text-secondary)" }}
+                      />
                     </div>
-                  </GlassCard>
+                  </div>
                 </Link>
-              </motion.div>
+              </div>
             );
           })}
-        </motion.div>
+        </div>
       ) : (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <GlassCard padding="lg">
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <BookOpen className="h-12 w-12 mb-4" style={{ color: "var(--fm-text-tertiary)" }} />
-              <h3 className="text-lg font-medium mb-1" style={{ color: "var(--fm-text)" }}>
-                Create your first notebook
-              </h3>
-              <p className="text-sm mb-4 max-w-sm" style={{ color: "var(--fm-text-secondary)" }}>
-                Notebooks organize your sources, chat with AI, and create studio outputs.
-              </p>
-              <button
-                onClick={() => setCreateOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
-                style={{ background: "var(--fm-accent-gradient)", borderRadius: 12 }}
-              >
-                <Plus className="h-4 w-4" />
-                New Notebook
-              </button>
-            </div>
-          </GlassCard>
-        </motion.div>
+        <div
+          className="fm-fade-in rounded-2xl py-16 text-center"
+          style={{ background: "var(--fm-glass-bg)", border: "1px solid var(--fm-glass-border)" }}
+        >
+          <AccentIcon icon={BookOpen} accent="#7c3aed" size={48} className="mx-auto" />
+          <h3 className="font-display text-xl font-normal mt-5 mb-1" style={{ color: "var(--fm-text)" }}>
+            Create your first notebook
+          </h3>
+          <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: "var(--fm-text-tertiary)" }}>
+            Notebooks organize your sources, chat with AI, and create studio outputs.
+          </p>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white rounded-xl transition-transform hover:-translate-y-0.5"
+            style={{ background: "var(--fm-accent-orange)" }}
+          >
+            <Plus className="h-4 w-4" />
+            New Notebook
+          </button>
+        </div>
       )}
 
       <CreateNotebookDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -248,6 +332,14 @@ const DashboardPage = (): React.ReactNode => {
           isDeleting={deleteNotebookMutation.isPending} />
       )}
     </div>
+  );
+};
+
+const DashboardPage = (): React.ReactNode => {
+  return (
+    <Suspense fallback={<div />}>
+      <DashboardContent />
+    </Suspense>
   );
 };
 

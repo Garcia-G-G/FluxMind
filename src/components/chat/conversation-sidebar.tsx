@@ -39,7 +39,6 @@ export const ConversationSidebar = ({
       className="w-56 flex flex-col h-full shrink-0 hidden lg:flex"
       style={{
         background: "var(--fm-sidebar-bg)",
-        backdropFilter: "blur(20px)",
         borderRight: "1px solid var(--fm-sidebar-border)",
       }}
     >

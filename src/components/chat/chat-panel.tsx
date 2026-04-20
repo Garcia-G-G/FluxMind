@@ -33,11 +33,12 @@ export const ChatPanel = ({
   }>;
 }): React.ReactNode => {
   const [selectedModel, setSelectedModel] = useState(() => {
-    if (typeof window === "undefined") return "gemini-2.5-flash";
-    return (
-      localStorage.getItem(`fluxmind:model:${notebookId}`) ??
-      "gemini-2.5-flash"
-    );
+    if (typeof window === "undefined") return "gpt-4o";
+    const stored = localStorage.getItem(`fluxmind:model:${notebookId}`);
+    // Validate stored model still exists in the list
+    const validIds = ["gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-pro", "claude-sonnet", "claude-opus"];
+    if (stored && validIds.includes(stored)) return stored;
+    return "gpt-4o";
   });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);

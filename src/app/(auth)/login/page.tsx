@@ -1,12 +1,7 @@
-import { Suspense } from "react";
-import { LoginForm } from "@/components/auth/login-form";
+import { redirect } from "next/navigation";
 
-const LoginPage = (): React.ReactNode => {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  );
+const Page = (): React.ReactNode => {
+  redirect("/");
 };
 
-export default LoginPage;
+export default Page;

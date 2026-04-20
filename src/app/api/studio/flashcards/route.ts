@@ -18,7 +18,7 @@ const flashcardsSchema = z.object({
       id: z.string(),
       front: z.string(),
       back: z.string(),
-      hint: z.string().optional(),
+      hint: z.string().nullable(),
       difficulty: z.enum(["easy", "medium", "hard"]),
       sourceReference: z.string(),
       tags: z.array(z.string()),
