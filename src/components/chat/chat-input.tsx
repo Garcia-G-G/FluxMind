@@ -12,8 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { models } from "@/lib/ai/models";
 
 const providerColors: Record<string, string> = {
-  google: "#2563eb",
-  anthropic: "#7c3aed",
   openai: "#22c55e",
 };
 

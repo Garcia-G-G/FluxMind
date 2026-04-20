@@ -11,15 +11,15 @@ describe("models config", () => {
     for (const model of models) {
       expect(model.id).toBeTruthy();
       expect(model.name).toBeTruthy();
-      expect(model.provider).toMatch(/^(google|anthropic|openai)$/);
+      expect(model.provider).toBe("openai");
       expect(model.tier).toMatch(/^(free|pro|ultra)$/);
     }
   });
 
-  it("getModelConfig returns correct model", () => {
-    const config = getModelConfig("claude-sonnet");
-    expect(config.name).toBe("Claude Sonnet 4.6");
-    expect(config.provider).toBe("anthropic");
+  it("getModelConfig returns a valid model for a known id", () => {
+    const config = getModelConfig("gpt-4o");
+    expect(config.id).toBe("gpt-4o");
+    expect(config.provider).toBe("openai");
   });
 
   it("getModelConfig falls back to first model for unknown id", () => {

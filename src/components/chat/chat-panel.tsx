@@ -36,7 +36,7 @@ export const ChatPanel = ({
     if (typeof window === "undefined") return "gpt-4o";
     const stored = localStorage.getItem(`fluxmind:model:${notebookId}`);
     // Validate stored model still exists in the list
-    const validIds = ["gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-pro", "claude-sonnet", "claude-opus"];
+    const validIds = ["gpt-4o", "gpt-4o-mini"];
     if (stored && validIds.includes(stored)) return stored;
     return "gpt-4o";
   });
