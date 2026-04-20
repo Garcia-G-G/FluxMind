@@ -27,11 +27,13 @@ const fetchNotebooks = async (
 export const useNotebooks = (
   search = "",
   sort = "updatedAt",
-  order = "desc"
+  order = "desc",
+  options?: { initialData?: NotebookWithCount[] },
 ) => {
   return useQuery({
     queryKey: ["notebooks", search, sort, order],
     queryFn: () => fetchNotebooks(search, sort, order),
+    initialData: options?.initialData,
   });
 };
 

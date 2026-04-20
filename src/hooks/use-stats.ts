@@ -15,10 +15,13 @@ const fetchStats = async (): Promise<Stats> => {
   return res.json();
 };
 
-export const useStats = (): UseQueryResult<Stats, Error> => {
+export const useStats = (options?: {
+  initialData?: Stats;
+}): UseQueryResult<Stats, Error> => {
   return useQuery<Stats, Error>({
     queryKey: ["stats"],
     queryFn: fetchStats,
     staleTime: 30_000,
+    initialData: options?.initialData,
   });
 };

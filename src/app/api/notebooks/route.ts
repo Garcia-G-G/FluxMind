@@ -5,6 +5,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notebooks } from "@/db/schema/notebooks";
+import { sources } from "@/db/schema/sources";
 import { createNotebookSchema } from "@/lib/validations/notebook";
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
@@ -27,6 +28,8 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
           : notebooks.updatedAt;
     const sortOrder = order === "asc" ? asc(sortColumn) : desc(sortColumn);
 
+    // One scan with LEFT JOIN + GROUP BY instead of a correlated subquery
+    // that fires per notebook. Same result, strictly fewer DB round-trips.
     const userNotebooks = await db
       .select({
         id: notebooks.id,
@@ -39,9 +42,10 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
         settings: notebooks.settings,
         createdAt: notebooks.createdAt,
         updatedAt: notebooks.updatedAt,
-        sourceCount: sql<number>`(SELECT COUNT(*) FROM sources WHERE sources.notebook_id = ${notebooks.id})`.as("source_count"),
+        sourceCount: sql<number>`COUNT(${sources.id})::int`.as("source_count"),
       })
       .from(notebooks)
+      .leftJoin(sources, sql`${sources.notebookId} = ${notebooks.id}`)
       .where(
         search
           ? sql`(${notebooks.userId} = ${session.user.id} OR EXISTS (
@@ -55,6 +59,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
               AND notebook_collaborators.user_id = ${session.user.id}
             )`
       )
+      .groupBy(notebooks.id)
       .orderBy(sortOrder);
 
     return NextResponse.json(userNotebooks);
