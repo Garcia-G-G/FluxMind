@@ -10,7 +10,9 @@ export type ImageSize = { width: number; height: number };
 export type FluxModel =
   | "fal-ai/flux/dev"
   | "fal-ai/flux/schnell"
-  | "fal-ai/flux-pro/v1.1";
+  | "fal-ai/flux-pro/v1.1"
+  | "fal-ai/ideogram/v2"
+  | "fal-ai/recraft-v3";
 
 export type GeneratedImage = {
   url: string; // permanent R2 URL if upload succeeded, else fal.ai temp URL
@@ -18,7 +20,7 @@ export type GeneratedImage = {
 };
 
 const STYLE_PREFIX =
-  "Clean educational infographic in hand-drawn ink illustration style on bright white background. Professional, high detail, thin black line weight, precise pen strokes. Selective accent colors used sparingly. Annotated diagrams with callout boxes, arrows, hand-lettered labels. Legible, crisp typography. ";
+  "Detailed hand-drawn technical illustration on cream-colored grid paper. Black ink pen drawing with thin precise lines, small annotated vignettes, sketched icons (palm trees, mountains, airplanes, kitchen tools), callout boxes with leader lines. Selective soft orange accent on key numbers. Vintage engineer's notebook aesthetic — think Leonardo da Vinci meets modern infographic. Rich visual detail, not empty space. ";
 
 type FalImageResult = {
   data?: {
@@ -40,19 +42,40 @@ export const generateInfographicImage = async (
     throw new Error("FAL_KEY not configured");
   }
 
-  const model = opts.model ?? "fal-ai/flux/dev";
+  const model = opts.model ?? "fal-ai/flux-pro/v1.1";
   const size = opts.size ?? { width: 1280, height: 1600 };
   const fullPrompt = STYLE_PREFIX + prompt;
 
-  const result = (await fal.subscribe(model, {
-    input: {
+  // Per-model input shape. Ideogram + Recraft use different knobs than Flux.
+  const input: Record<string, unknown> = (() => {
+    if (model === "fal-ai/ideogram/v2") {
+      return {
+        prompt: fullPrompt,
+        aspect_ratio: size.height > size.width ? "4:5" : "16:9",
+        style: "design",
+        expand_prompt: false,
+      };
+    }
+    if (model === "fal-ai/recraft-v3") {
+      return {
+        prompt: fullPrompt,
+        image_size: size,
+        style: "digital_illustration/hand_drawn",
+      };
+    }
+    // flux/dev, flux/schnell, flux-pro/v1.1
+    return {
       prompt: fullPrompt,
       image_size: size,
       num_images: 1,
-      guidance_scale: 7.5,
+      guidance_scale: 4.5,
       num_inference_steps: model === "fal-ai/flux/schnell" ? 4 : 28,
       enable_safety_checker: false,
-    },
+    };
+  })();
+
+  const result = (await fal.subscribe(model, {
+    input,
     logs: false,
   })) as FalImageResult;
 
