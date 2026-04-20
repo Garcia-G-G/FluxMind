@@ -18,34 +18,12 @@
 .fm-blob-2 { animation: fmBlob2 50s ease-in-out infinite; }
 .fm-blob-3 { animation: fmBlob3 40s ease-in-out infinite; }
 
-/* === Icon orbital spin === */
-@keyframes fmOrbitalSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-@keyframes fmOrbitalSpinReverse {
-  0% { transform: rotate(360deg); }
-  100% { transform: rotate(0deg); }
-}
-@keyframes fmBreathingScale {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-@keyframes fmRotateBorder {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-@keyframes fmInnerGlow {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 1; }
-}
-
 /* === GlassCard === */
 .fm-glass-blur {
   background: var(--fm-glass-bg, rgba(12,12,18,0.85));
 }
 
-/* === Gradient text shimmer === */
+/* === Gradient text shimmer (auth/onboarding pages only) === */
 @keyframes gradientShift {
   0% { background-position: 0% center; }
   100% { background-position: 200% center; }
@@ -130,8 +108,3 @@
   transition: opacity 0.2s ease;
 }
 
-/* === Animated gradient text === */
-.fm-shimmer-text {
-  background-size: 200% auto;
-  animation: gradientShift 3s linear infinite;
-}
