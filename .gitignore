@@ -45,3 +45,7 @@ next-env.d.ts
 
 # Local .env backups
 .env.bak*
+
+# Locally-generated media (used when R2 is not configured)
+public/uploads/
+scripts/out/
