@@ -1,289 +1,438 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  Maximize,
-  Minimize,
-  FileText,
   Download,
+  Maximize,
+  X,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { NarrationPlayer } from "@/components/studio/narration-player";
 import type { SlidesContent } from "@/app/api/studio/slides/route";
 
-type Slide = SlidesContent["slides"][number];
+const ACCENT_VAR: Record<string, string> = {
+  orange: "var(--fm-accent-orange)",
+  violet: "var(--fm-accent-violet)",
+  blue: "var(--fm-accent-blue)",
+  rose: "var(--fm-accent-rose)",
+  emerald: "#22c55e",
+  amber: "#f59e0b",
+};
 
-const SlideContent = ({ slide }: { slide: Slide }): React.ReactNode => {
-  switch (slide.layout) {
-    case "title":
-      return (
-        <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-primary/10 via-background to-primary/5 p-12 text-center">
-          <h1 className="text-4xl font-bold mb-4">{slide.title}</h1>
-          {slide.subtitle && (
-            <p className="text-xl text-muted-foreground">{slide.subtitle}</p>
-          )}
-        </div>
-      );
-    case "content":
-      return (
-        <div className="flex flex-col h-full p-10">
-          <h2 className="text-2xl font-bold mb-6">{slide.title}</h2>
-          {slide.bullets && (
-            <ul className="space-y-3 flex-1">
-              {slide.bullets.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-3 text-base">
-                  <span className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
-                  {bullet}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      );
-    case "two_column":
-      return (
-        <div className="flex flex-col h-full p-10">
-          <h2 className="text-2xl font-bold mb-6">{slide.title}</h2>
-          <div className="grid grid-cols-2 gap-8 flex-1">
-            {slide.leftColumn && (
-              <div>
-                <h3 className="font-semibold mb-3 text-primary">
-                  {slide.leftColumn.heading}
-                </h3>
-                <ul className="space-y-2">
-                  {slide.leftColumn.points.map((p, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-primary mt-1">-</span> {p}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {slide.rightColumn && (
-              <div>
-                <h3 className="font-semibold mb-3 text-primary">
-                  {slide.rightColumn.heading}
-                </h3>
-                <ul className="space-y-2">
-                  {slide.rightColumn.points.map((p, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-primary mt-1">-</span> {p}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    case "quote":
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-12 bg-muted/30">
-          <blockquote className="text-2xl italic text-center max-w-2xl leading-relaxed">
-            &ldquo;{slide.quote}&rdquo;
-          </blockquote>
-          {slide.attribution && (
-            <p className="mt-6 text-sm text-muted-foreground">
-              — {slide.attribution}
-            </p>
-          )}
-        </div>
-      );
-    case "stat":
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-12">
-          <p className="text-6xl font-bold text-primary mb-4">{slide.stat}</p>
-          <p className="text-xl text-muted-foreground text-center max-w-md">
-            {slide.description}
-          </p>
-        </div>
-      );
-    case "closing":
-      return (
-        <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-primary/10 via-background to-primary/5 p-12 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            {slide.title ?? "Thank You"}
-          </h2>
-          {slide.subtitle && (
-            <p className="text-lg text-muted-foreground">{slide.subtitle}</p>
-          )}
-        </div>
-      );
-    default:
-      return (
-        <div className="flex items-center justify-center h-full p-10">
-          <p className="text-muted-foreground">Unsupported layout</p>
-        </div>
-      );
+type Props = { slides: SlidesContent & { id?: string } };
+
+const downloadImage = async (
+  url: string,
+  filename: string,
+): Promise<void> => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (e) {
+    console.error("download failed", e);
   }
 };
 
-export const SlideViewer = ({
-  slides,
-}: {
-  slides: SlidesContent;
-}): React.ReactNode => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-  const [direction, setDirection] = useState(0);
+const safeName = (s: string): string =>
+  (s || "slide").replace(/[^a-z0-9-_ ]/gi, "_");
 
-  const slide = slides.slides[currentIndex];
+export const SlideViewer = ({ slides }: Props): React.ReactNode => {
+  const [index, setIndex] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const total = slides.slides.length;
+  const current = slides.slides[index];
+  const accent = ACCENT_VAR[slides.accent] ?? ACCENT_VAR.orange;
 
   const goTo = useCallback(
-    (index: number, dir: number) => {
-      if (index >= 0 && index < slides.slides.length) {
-        setDirection(dir);
-        setCurrentIndex(index);
-      }
+    (next: number): void => {
+      if (next < 0 || next >= total) return;
+      setIndex(next);
     },
-    [slides.slides.length]
+    [total],
   );
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent): void => {
-      if (e.key === "ArrowRight" || e.key === " ") {
+      if (e.key === "ArrowRight") {
         e.preventDefault();
-        goTo(currentIndex + 1, 1);
+        setIndex((i) => (i + 1 < total ? i + 1 : i));
       } else if (e.key === "ArrowLeft") {
-        goTo(currentIndex - 1, -1);
+        e.preventDefault();
+        setIndex((i) => (i - 1 >= 0 ? i - 1 : i));
       } else if (e.key === "Escape") {
         setIsFullscreen(false);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [currentIndex, goTo]);
+  }, [total]);
 
-  const handleExportPdf = async (): Promise<void> => {
-    const { jsPDF } = await import("jspdf");
-    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: [960, 540] });
-    slides.slides.forEach((s, i) => {
-      if (i > 0) pdf.addPage();
-      pdf.setFontSize(24);
-      pdf.text(s.title ?? "", 60, 80);
-      if (s.bullets) {
-        pdf.setFontSize(14);
-        s.bullets.forEach((b, j) => {
-          pdf.text(`• ${b}`, 80, 130 + j * 28);
-        });
-      }
-      if (s.quote) {
-        pdf.setFontSize(16);
-        pdf.text(`"${s.quote}"`, 60, 200, { maxWidth: 840 });
-      }
-      if (s.stat) {
-        pdf.setFontSize(48);
-        pdf.text(s.stat, 480, 250, { align: "center" });
-        if (s.description) {
-          pdf.setFontSize(14);
-          pdf.text(s.description, 480, 300, { align: "center", maxWidth: 600 });
-        }
-      }
-    });
-    pdf.save(`${slides.title}.pdf`);
+  const handleDownload = (): void => {
+    if (!current?.imageUrl) return;
+    void downloadImage(
+      current.imageUrl,
+      `${safeName(slides.deckTitle)}-${current.id}.png`,
+    );
   };
 
-  const containerClass = isFullscreen
-    ? "fixed inset-0 z-50 bg-background flex flex-col"
-    : "flex flex-col";
+  if (!total || !current) {
+    return (
+      <div
+        className="rounded-xl p-6"
+        style={{
+          background: "var(--fm-surface)",
+          border: "1px solid var(--fm-surface-border)",
+        }}
+      >
+        <p style={{ color: "var(--fm-text-secondary)" }}>
+          No slides to display.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className={containerClass}>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
-        <span className="text-sm text-muted-foreground">
-          {currentIndex + 1} / {slides.slides.length}
-        </span>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8"
-            onClick={() => setShowNotes(!showNotes)}
+    <div>
+      {/* Header strip */}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="min-w-0">
+          <h2
+            className="font-semibold text-lg truncate"
+            style={{ color: "var(--fm-text)" }}
           >
-            <FileText className="h-4 w-4 mr-1" />
-            Notes
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8" onClick={handleExportPdf}>
-            <Download className="h-4 w-4 mr-1" />
-            PDF
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8"
-            onClick={() => setIsFullscreen(!isFullscreen)}
+            {slides.deckTitle}
+          </h2>
+          <p
+            className="text-sm truncate"
+            style={{ color: "var(--fm-text-secondary)" }}
           >
-            {isFullscreen ? (
-              <Minimize className="h-4 w-4" />
-            ) : (
-              <Maximize className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Slide area */}
-      <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-        <div className="relative w-full max-w-4xl aspect-video rounded-lg border border-border bg-card overflow-hidden shadow-sm">
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={currentIndex}
-              custom={direction}
-              initial={{ opacity: 0, x: direction * 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -100 }}
-              transition={{ duration: 0.25 }}
-              className="absolute inset-0"
-            >
-              <SlideContent slide={slide} />
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Navigation overlay */}
-          <button
-            className="absolute left-0 top-0 bottom-0 w-1/4 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-start pl-2 transition-opacity"
-            onClick={() => goTo(currentIndex - 1, -1)}
-            aria-label="Previous slide"
-          >
-            <ChevronLeft className="h-8 w-8 text-muted-foreground/50" />
-          </button>
-          <button
-            className="absolute right-0 top-0 bottom-0 w-1/4 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-end pr-2 transition-opacity"
-            onClick={() => goTo(currentIndex + 1, 1)}
-            aria-label="Next slide"
-          >
-            <ChevronRight className="h-8 w-8 text-muted-foreground/50" />
-          </button>
-        </div>
-      </div>
-
-      {/* Dot indicators */}
-      <div className="flex justify-center gap-1.5 py-2 shrink-0">
-        {slides.slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i, i > currentIndex ? 1 : -1)}
-            className={`h-2 rounded-full transition-all ${
-              i === currentIndex
-                ? "w-6 bg-primary"
-                : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-            }`}
-            aria-label={`Go to slide ${i + 1}`}
-          />
-        ))}
-      </div>
-
-      {/* Speaker notes */}
-      {showNotes && slide.notes && (
-        <div className="border-t border-border p-4 bg-muted/30 text-sm text-muted-foreground max-h-32 overflow-y-auto shrink-0">
-          <p className="font-medium text-foreground text-xs mb-1">
-            Speaker Notes
+            {slides.deckSubtitle}
           </p>
-          {slide.notes}
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-sm font-medium tabular-nums"
+            style={{ color: "var(--fm-text-secondary)" }}
+          >
+            {index + 1} / {total}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            disabled={!current.imageUrl}
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Download
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsFullscreen(true)}
+            disabled={!current.imageUrl}
+          >
+            <Maximize className="h-4 w-4 mr-1.5" />
+            Fullscreen
+          </Button>
+        </div>
+      </div>
+
+      {/* Narration player */}
+      {slides.id && (
+        <NarrationPlayer
+          outputId={slides.id}
+          existingAudioUrl={slides.audioUrl ?? null}
+        />
+      )}
+
+      {/* Error banner */}
+      {slides.error && (
+        <div
+          className="rounded-lg p-3 mb-3 text-sm"
+          style={{
+            background: "var(--fm-surface)",
+            border: "1px solid var(--fm-surface-border)",
+            color: "var(--fm-error, #dc2626)",
+          }}
+        >
+          {slides.error}
+        </div>
+      )}
+
+      {/* Main slide area */}
+      <div className="relative">
+        <div
+          className="rounded-xl overflow-hidden relative"
+          style={{
+            background: "var(--fm-surface)",
+            border: "1px solid var(--fm-surface-border)",
+          }}
+        >
+          {current.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={current.imageUrl}
+              alt={current.title}
+              width={1280}
+              height={1600}
+              className="w-full h-auto block cursor-zoom-in"
+              loading="lazy"
+              onClick={() => setIsFullscreen(true)}
+            />
+          ) : (
+            <div className="p-8">
+              <h3
+                className="font-semibold text-xl mb-1"
+                style={{ color: "var(--fm-text)" }}
+              >
+                {current.title}
+              </h3>
+              {current.subtitle && (
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: "var(--fm-text-secondary)" }}
+                >
+                  {current.subtitle}
+                </p>
+              )}
+              <p
+                className="text-xs mb-3 italic"
+                style={{ color: "var(--fm-text-tertiary)" }}
+              >
+                Image unavailable — showing key points
+              </p>
+              <ul className="space-y-2">
+                {current.keyPoints.map((p, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm leading-relaxed"
+                    style={{ color: "var(--fm-text)" }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full mt-[7px] shrink-0"
+                      style={{ background: accent }}
+                    />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Prev / Next arrows */}
+        {index > 0 && (
+          <button
+            type="button"
+            onClick={() => goTo(index - 1)}
+            aria-label="Previous slide"
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center"
+            style={{
+              background: "var(--fm-surface)",
+              border: "1px solid var(--fm-surface-border)",
+              color: "var(--fm-text)",
+            }}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {index < total - 1 && (
+          <button
+            type="button"
+            onClick={() => goTo(index + 1)}
+            aria-label="Next slide"
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center"
+            style={{
+              background: "var(--fm-surface)",
+              border: "1px solid var(--fm-surface-border)",
+              color: "var(--fm-text)",
+            }}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+
+      {/* Key points under image */}
+      {current.keyPoints.length > 0 && current.imageUrl && (
+        <div
+          className="mt-4 rounded-lg p-4"
+          style={{
+            background: "var(--fm-surface)",
+            border: "1px solid var(--fm-surface-border)",
+          }}
+        >
+          <p
+            className="text-xs uppercase tracking-wide mb-2 font-semibold"
+            style={{ color: "var(--fm-text-tertiary)" }}
+          >
+            {current.title}
+          </p>
+          <ul className="space-y-1.5">
+            {current.keyPoints.map((p, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-2 text-sm leading-relaxed"
+                style={{ color: "var(--fm-text-secondary)" }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full mt-[7px] shrink-0"
+                  style={{ background: accent }}
+                />
+                {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Thumbnail strip */}
+      <div
+        className="mt-4 rounded-lg p-2 overflow-x-auto"
+        style={{
+          background: "var(--fm-surface)",
+          border: "1px solid var(--fm-surface-border)",
+        }}
+      >
+        <div className="flex gap-2">
+          {slides.slides.map((s, i) => {
+            const isActive = i === index;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Go to slide ${i + 1}: ${s.title}`}
+                aria-current={isActive ? "true" : undefined}
+                className="shrink-0 rounded-md overflow-hidden relative text-left"
+                style={{
+                  width: 120,
+                  height: 150,
+                  border: isActive
+                    ? `2px solid ${accent}`
+                    : "1px solid var(--fm-surface-border)",
+                  background: "var(--fm-surface-hover, var(--fm-surface))",
+                }}
+              >
+                {s.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={s.imageUrl}
+                    alt={s.title}
+                    width={120}
+                    height={150}
+                    loading="lazy"
+                    className="w-full h-full object-cover block"
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-center p-2 text-center"
+                    style={{ color: "var(--fm-text-tertiary)" }}
+                  >
+                    <span className="text-[10px] uppercase tracking-wide mb-1">
+                      {s.layout}
+                    </span>
+                    <span
+                      className="text-[11px] font-medium line-clamp-3"
+                      style={{ color: "var(--fm-text-secondary)" }}
+                    >
+                      {s.title}
+                    </span>
+                  </div>
+                )}
+                <div
+                  className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{
+                    background: isActive ? accent : "rgba(0,0,0,0.55)",
+                    color: "white",
+                  }}
+                >
+                  {i + 1}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Fullscreen overlay */}
+      {isFullscreen && current.imageUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.92)" }}
+          onClick={() => setIsFullscreen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${current.title} fullscreen`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={current.imageUrl}
+            alt={current.title}
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            className="absolute top-4 right-4 p-2 rounded-lg"
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              color: "white",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsFullscreen(false);
+            }}
+            aria-label="Close fullscreen"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {/* Fullscreen nav arrows */}
+          {index > 0 && (
+            <button
+              type="button"
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full"
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                goTo(index - 1);
+              }}
+              aria-label="Previous slide"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          )}
+          {index < total - 1 && (
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full"
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                goTo(index + 1);
+              }}
+              aria-label="Next slide"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          )}
         </div>
       )}
     </div>
