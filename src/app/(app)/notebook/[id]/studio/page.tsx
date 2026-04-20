@@ -18,20 +18,10 @@ import {
   GraduationCap,
   Network,
   Film,
-  Clock,
-  ChevronRight,
   Eye,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RotatingBorderIcon } from "@/components/shared/rotating-border-icon";
-import { QuizView } from "@/components/studio/quiz-view";
-import { FlashcardView } from "@/components/studio/flashcard-view";
-import { StudyStats } from "@/components/studio/study-stats";
-import { DataTableView } from "@/components/studio/data-table-view";
-import { ThreadPreview } from "@/components/studio/thread-preview";
-import { NewsletterPreview } from "@/components/studio/newsletter-preview";
-import { ReelScriptView } from "@/components/studio/reel-script-view";
 
 const ViewerFallback = (): React.ReactNode => (
   <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -39,6 +29,9 @@ const ViewerFallback = (): React.ReactNode => (
   </div>
 );
 
+// All view components are dynamic: the studio overview never renders them
+// at paint, only after a user picks a card. Dynamic import keeps them out
+// of the studio-overview bundle and out of hydration on first paint.
 const SlideViewer = dynamic(
   () => import("@/components/studio/slide-viewer").then((m) => m.SlideViewer),
   { ssr: false, loading: ViewerFallback },
@@ -61,6 +54,34 @@ const MindMapCanvas = dynamic(
 );
 const VideoPlayer = dynamic(
   () => import("@/components/video/video-player").then((m) => m.VideoPlayer),
+  { ssr: false, loading: ViewerFallback },
+);
+const QuizView = dynamic(
+  () => import("@/components/studio/quiz-view").then((m) => m.QuizView),
+  { ssr: false, loading: ViewerFallback },
+);
+const FlashcardView = dynamic(
+  () => import("@/components/studio/flashcard-view").then((m) => m.FlashcardView),
+  { ssr: false, loading: ViewerFallback },
+);
+const StudyStats = dynamic(
+  () => import("@/components/studio/study-stats").then((m) => m.StudyStats),
+  { ssr: false },
+);
+const DataTableView = dynamic(
+  () => import("@/components/studio/data-table-view").then((m) => m.DataTableView),
+  { ssr: false, loading: ViewerFallback },
+);
+const ThreadPreview = dynamic(
+  () => import("@/components/studio/thread-preview").then((m) => m.ThreadPreview),
+  { ssr: false, loading: ViewerFallback },
+);
+const NewsletterPreview = dynamic(
+  () => import("@/components/studio/newsletter-preview").then((m) => m.NewsletterPreview),
+  { ssr: false, loading: ViewerFallback },
+);
+const ReelScriptView = dynamic(
+  () => import("@/components/studio/reel-script-view").then((m) => m.ReelScriptView),
   { ssr: false, loading: ViewerFallback },
 );
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
@@ -226,9 +247,9 @@ const StudioPage = ({
     );
 
     if (activeTab === "quiz" && quizData)
-      return wrap(quizData.title, <QuizView outputId={quizData.id} questions={quizData.questions as Parameters<typeof QuizView>[0]["questions"]} />);
+      return wrap(quizData.title, <QuizView outputId={quizData.id} questions={quizData.questions as ComponentProps<typeof QuizView>["questions"]} />);
     if (activeTab === "flashcards" && flashcardData)
-      return wrap(flashcardData.title, <FlashcardView outputId={flashcardData.id} cards={flashcardData.cards as Parameters<typeof FlashcardView>[0]["cards"]} />);
+      return wrap(flashcardData.title, <FlashcardView outputId={flashcardData.id} cards={flashcardData.cards as ComponentProps<typeof FlashcardView>["cards"]} />);
     if (activeTab === "slides" && slidesData)
       return wrap(slidesData.title, <SlideViewer slides={slidesData as SlidesContent} />);
     if (activeTab === "infographic" && infographicData)
