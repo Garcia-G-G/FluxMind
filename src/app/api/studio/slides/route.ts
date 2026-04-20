@@ -7,55 +7,65 @@ import { db } from "@/lib/db";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
-import { generateInfographicImage } from "@/lib/media/generate-image";
+import {
+  composeSlide,
+  type SlideSpec,
+  type SlideLayout,
+} from "@/lib/media/compose-slide";
+
+// ---------- Zod deck schema ----------
 
 const slideSchema = z.object({
-  id: z.string().describe("Short id like s1, s2..."),
-  title: z.string().describe("Slide title, max 8 words"),
-  subtitle: z.string().nullable().describe("Optional subtitle"),
+  id: z.string().describe("Short id s1, s2..."),
   layout: z
     .enum([
       "title",
-      "graph",
-      "comparison_table",
-      "diagram",
-      "equation",
+      "content",
+      "stat",
+      "comparison",
+      "quote",
       "flow",
-      "timeline",
       "closing",
     ])
-    .describe("Choose the visual layout best suited to this slide's content"),
-  keyPoints: z
-    .array(z.string())
+    .describe("Which visual layout fits this slide's content best"),
+  title: z.string().nullable(),
+  subtitle: z.string().nullable(),
+  bullets: z.array(z.string().max(80)).min(2).max(5).nullable(),
+  stat: z
+    .object({ value: z.string(), label: z.string() })
+    .nullable(),
+  comparisonItems: z
+    .array(z.object({ label: z.string(), value: z.string() }))
     .min(2)
-    .max(5)
-    .describe("2-5 short bullet points summarizing what's on the slide"),
-  imagePrompt: z
+    .max(4)
+    .nullable(),
+  quote: z
+    .object({
+      text: z.string(),
+      attribution: z.string().nullable(),
+    })
+    .nullable(),
+  flowSteps: z
+    .array(z.object({ label: z.string(), detail: z.string() }))
+    .min(3)
+    .max(6)
+    .nullable(),
+  illustrationPrompt: z
     .string()
     .describe(
-      "DETAILED prompt (150-250 words) for the FLUX image. MUST describe: (1) the exact layout matching the chosen layout type, (2) specific visual elements (e.g. 'a graph with Altitude on X-axis, Boiling Point on Y-axis'), (3) callout boxes with the exact text to render (include real numbers and labels from the source), (4) small illustrated elements (e.g. 'palm tree at sea-level point', 'mountain at high-altitude point'), (5) spatial arrangement (top, center, bottom-right, etc.). Style inherits hand-drawn ink illustration from server prefix — do NOT describe style again. Include the slide title to render inside the image. Use Spanish if sources are Spanish.",
+      "Visual-only prompt (NO text, NO labels, NO numbers). Describe scenes, objects, icons, metaphors that represent the slide's content. 80-160 words. The AI illustration will be placed BEHIND a text overlay so leave breathing room.",
     ),
-  narrationHint: z
-    .string()
-    .describe(
-      "1-2 sentences the narrator should say about this slide — used for deck-level narration script",
-    ),
+  narrationHint: z.string(),
 });
 
 const deckSchema = z.object({
   deckTitle: z.string().describe("Overall deck title, 2-6 words"),
-  deckSubtitle: z.string().describe("One-line subtitle for the deck"),
-  accent: z
-    .enum(["orange", "violet", "blue", "rose", "emerald", "amber"])
-    .describe("Accent color theme"),
-  slides: z
-    .array(slideSchema)
-    .min(4)
-    .max(8)
-    .describe(
-      "4-8 slides total: start with a 'title' layout, end with 'closing', mix layouts in between. NEVER repeat the same layout twice in a row.",
-    ),
+  deckSubtitle: z.string().describe("One-line subtitle"),
+  accent: z.enum(["orange", "violet", "blue", "rose", "emerald", "amber"]),
+  slides: z.array(slideSchema).min(4).max(8),
 });
+
+// ---------- Viewer contract (must stay stable) ----------
 
 export type SlideDeckSlide = {
   id: string;
@@ -77,7 +87,25 @@ export type SlidesContent = {
   audioScript?: string | null;
   audioDuration?: number | null;
   error?: string | null;
+  /** Full richer deck description (per-layout fields) preserved for later regeneration. */
+  fullDeck?: z.infer<typeof deckSchema>;
 };
+
+// ---------- Accent -> hex ----------
+
+const ACCENT_HEX: Record<
+  "orange" | "violet" | "blue" | "rose" | "emerald" | "amber",
+  string
+> = {
+  orange: "#ff6b35",
+  violet: "#7c3aed",
+  blue: "#2563eb",
+  rose: "#e11d48",
+  emerald: "#059669",
+  amber: "#d97706",
+};
+
+// ---------- Route ----------
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   let outputId: string | null = null;
@@ -97,7 +125,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     };
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
     const LANG_NAME = language === "es" ? "Spanish" : "English";
-    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages. For any text rendered IN the image (callout boxes, labels, quoted short phrases inside the imagePrompt), write that text in ${LANG_NAME} as well.`;
+    const langInstr = `IMPORTANT: Generate ALL textual content (titles, subtitles, bullets, stats, quotes, flow steps, narrationHint) in ${LANG_NAME}. Do NOT mix languages. HOWEVER, the illustrationPrompt must contain NO text of ANY kind, in any language — describe visuals only (objects, scenes, metaphors).`;
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) {
@@ -116,7 +144,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       updatedAt: new Date(),
     });
 
-    // Phase 1 — Generate deck structure with per-slide imagePrompts
+    // Phase 1 — generate the full deck structure
     let deck: z.infer<typeof deckSchema>;
     try {
       const { object } = await generateObject({
@@ -126,29 +154,27 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
 You are designing a visual presentation deck that teaches the user about the topic in the sources.
 
-Create ${count} slides (default 6) that each use a DIFFERENT visual layout to best present its content.
+Create ${count} slides (default 6). Each slide uses ONE of 7 hybrid layouts. The AI will draw a pure-visual illustration as the background; all text is rendered by code on top. Therefore:
+
+CRITICAL: The illustrationPrompt must describe ONLY visual elements — scenes, objects, icons, people, metaphors. Absolutely NO text, NO letters, NO numbers, NO labels, NO words, NO typography of any kind. Write 80-160 words. Leave breathing room in the composition because text will be overlaid.
 
 LAYOUTS AVAILABLE and when to use each:
-- title: the opening cover slide. ALWAYS first.
-- graph: when showing relationships between two quantitative variables (use axes, annotations, callout boxes at key points).
-- comparison_table: when comparing 3+ options across 2-4 properties (use grid of cells).
-- diagram: when showing anatomy, taxonomy, structural breakdown (labeled parts with leader lines).
-- equation: when the concept has a key formula (center the formula, annotate each term with what it represents).
-- flow: when the content is a process (numbered circles with arrows).
-- timeline: when events matter chronologically.
-- closing: the final takeaway slide. ALWAYS last.
+- title: the opening cover slide. ALWAYS first. Use: title + subtitle only. No bullets/stat/etc.
+- content: a bulleted explanation of a concept. Use: title + 2-5 short bullets (max ~70 chars each). Optional subtitle.
+- stat: a single striking number. Use: title (as eyebrow) + stat { value, label }. No bullets.
+- comparison: compare 2-4 things side by side. Use: title + comparisonItems[] each with { label, value }. Short values (numbers, 1-2 words).
+- quote: a pull quote from the sources. Use: quote { text, attribution }. No bullets. title optional.
+- flow: a 3-6 step process. Use: title + flowSteps[] each with { label (2-4 words), detail (short sentence) }.
+- closing: the final takeaway slide. ALWAYS last. Use: title as the single summary sentence. Optional subtitle as eyebrow.
 
 Rules:
-- Every slide MUST use a layout that genuinely fits its content. DO NOT use 'title' in the middle.
-- NEVER use the same layout twice in a row.
-- Each imagePrompt MUST be 150-250 words and describe a SPECIFIC, ANNOTATED illustration with real numbers and labels pulled from the sources. Include the slide title text to render IN the image.
-- narrationHint: 1-2 sentences in the same language as the sources — what the narrator will say about this slide.
-- Match language of the sources (English sources → English slides; Spanish sources → Spanish slides).
+- Slide order: first layout is 'title', last is 'closing'. In between, mix layouts. NEVER repeat the same layout twice in a row.
+- For each slide, populate ONLY the fields that its layout uses and set the others to null.
+- Write all text in ${LANG_NAME}. The illustrationPrompt must have NO text in any language.
+- narrationHint: 1-2 sentences the narrator will say about this slide (in ${LANG_NAME}).
 
-EXAMPLE imagePrompt for a 'graph' layout:
-"A hand-drawn ink illustration on white graph paper titled 'Termodinámica: La Ley de la Presión Atmosférica' rendered at the top in bold serif font. The center features a large XY graph with 'Altitud' labeled on the X-axis (horizontal, bottom-right with arrow) and 'Punto de Ebullición' on the Y-axis (vertical, top-left with arrow). A thin black curve descends from top-right to bottom-left across the graph. Four callout boxes with leader lines to the curve: (1) at sea level, a small palm tree + sun sketch labeled 'Nivel del Mar: El agua hierve a 100°C. Tiempo estándar de arroz: 15-20 min.', (2) mid-altitude, a small airplane sketch labeled 'Avión Comercial (Cabina a 2400m): El agua hierve a 90°C. Altera la extracción de sabores.', (3) upper-right, a small mountain sketch labeled 'La Paz, Bolivia (3600m): El agua hierve a 88°C. Un arroz graneado toma hasta 40 minutos.', (4) bottom-right, a sketch of a pressure cooker with steam labeled 'Olla de Presión (Efecto Inverso): Atrapa el vapor, elevando la temperatura de ebullición a 120°C.'. Monochrome ink with thin line weight. Footer: 'NotebookLM' style attribution."
-
-Every slide should follow a similar level of specificity, detail, and annotation density — picking the visual structure best suited to its content.
+EXAMPLE of a good illustrationPrompt (for a 'content' slide about rice thermodynamics):
+"A hand-drawn ink sketch showing a steaming pot of rice on the left, grains of rice arranged in a spiral pattern on the right. Thin black ink lines on cream paper with subtle orange watercolor touches at the steam and the grains. Include a small thermometer icon, a tiny mountain silhouette in the background, and a stylized water droplet. Compose with lots of empty space on the left half so text can be overlaid. No labels, no numbers, no letters — purely illustrative metaphoric objects arranged in a loose circular flow around empty center-left space."
 
 Sources:
 ${ctx.sourceContext}`,
@@ -171,85 +197,75 @@ ${ctx.sourceContext}`,
       );
     }
 
-    // If no FAL key — save text content with error status but return 201
-    if (!process.env.FAL_KEY) {
-      const fallback: SlidesContent = {
-        deckTitle: deck.deckTitle,
-        deckSubtitle: deck.deckSubtitle,
-        accent: deck.accent,
-        slides: deck.slides.map((s) => ({
+    const hex = ACCENT_HEX[deck.accent];
+
+    // Phase 2 — compose every slide in parallel.
+    // Each composeSlide() internally falls back to a cream background if fal fails.
+    const composed = await Promise.all(
+      deck.slides.map(async (s) => {
+        const spec: SlideSpec = {
           id: s.id,
+          layout: s.layout as SlideLayout,
           title: s.title,
           subtitle: s.subtitle,
-          layout: s.layout,
-          keyPoints: s.keyPoints,
-          imagePrompt: s.imagePrompt,
-          imageUrl: "",
+          bullets: s.bullets,
+          stat: s.stat,
+          comparisonItems: s.comparisonItems,
+          quote: s.quote,
+          flowSteps: s.flowSteps,
+          illustrationPrompt: s.illustrationPrompt,
           narrationHint: s.narrationHint,
-        })),
-        error: "FAL_KEY not configured",
-      };
-      await db
-        .update(outputs)
-        .set({
-          status: "error",
-          content: fallback as unknown as Record<string, unknown>,
-          updatedAt: new Date(),
-        })
-        .where(eq(outputs.id, outputId));
-      return NextResponse.json(
-        { id: outputId, ...fallback },
-        { status: 201 },
-      );
-    }
-
-    // Phase 2 — Generate all slide images in parallel
-    const results = await Promise.all(
-      deck.slides.map(async (slide) => {
+        };
         try {
-          const result = await generateInfographicImage(slide.imagePrompt, {
-            size: { width: 1280, height: 1600 },
-            persistTo: {
-              key: `slides/${notebookId}/${outputId}/${slide.id}.png`,
-            },
+          const r = await composeSlide(spec, {
+            notebookId: ctx.notebookId,
+            outputId: outputId!,
+            deckAccent: hex,
           });
-          return { slide, imageUrl: result.url, error: null as string | null };
-        } catch (err) {
-          console.error(
-            `Slide image generation failed for ${slide.id}:`,
-            err,
-          );
-          const msg =
-            err instanceof Error ? err.message : "image generation failed";
-          return { slide, imageUrl: "", error: msg };
+          return {
+            slide: s,
+            imageUrl: r.imageUrl,
+            error: null as string | null,
+          };
+        } catch (e) {
+          console.error(`Slide compose failed for ${s.id}:`, e);
+          return {
+            slide: s,
+            imageUrl: "",
+            error: e instanceof Error ? e.message : "compose failed",
+          };
         }
       }),
     );
 
-    const generatedSlides: SlideDeckSlide[] = results.map(
-      ({ slide, imageUrl }) => ({
-        id: slide.id,
-        title: slide.title,
-        subtitle: slide.subtitle,
-        layout: slide.layout,
-        keyPoints: slide.keyPoints,
-        imagePrompt: slide.imagePrompt,
-        imageUrl,
-        narrationHint: slide.narrationHint,
-      }),
-    );
+    // Map the richer schema back to the viewer's flat shape
+    const generatedSlides: SlideDeckSlide[] = composed.map((c) => ({
+      id: c.slide.id,
+      title: c.slide.title ?? "",
+      subtitle: c.slide.subtitle,
+      layout: c.slide.layout,
+      keyPoints:
+        c.slide.bullets ??
+        c.slide.comparisonItems?.map((i) => `${i.label}: ${i.value}`) ??
+        c.slide.flowSteps?.map((s) => `${s.label}: ${s.detail}`) ??
+        (c.slide.stat ? [`${c.slide.stat.value} — ${c.slide.stat.label}`] : []),
+      imagePrompt: c.slide.illustrationPrompt,
+      imageUrl: c.imageUrl,
+      narrationHint: c.slide.narrationHint,
+    }));
 
-    const allImagesFailed = generatedSlides.every((s) => !s.imageUrl);
-    const firstErr = results.find((r) => r.error)?.error ?? null;
+    const allSlidesFailed = generatedSlides.every((s) => !s.imageUrl);
+    const firstErr = composed.find((r) => r.error)?.error ?? null;
 
     const saved: SlidesContent = {
       deckTitle: deck.deckTitle,
       deckSubtitle: deck.deckSubtitle,
       accent: deck.accent,
       slides: generatedSlides,
-      error: allImagesFailed
-        ? firstErr ?? "All slide images failed to generate"
+      error: allSlidesFailed
+        ? firstErr ?? "All slides failed to compose"
         : null,
+      fullDeck: deck,
     };
 
     const firstImageUrl = generatedSlides.find((s) => s.imageUrl)?.imageUrl;
@@ -259,7 +275,7 @@ ${ctx.sourceContext}`,
       .set({
         content: saved as unknown as Record<string, unknown>,
         fileUrl: firstImageUrl ?? undefined,
-        status: allImagesFailed ? "error" : "ready",
+        status: allSlidesFailed ? "error" : "ready",
         updatedAt: new Date(),
       })
       .where(eq(outputs.id, outputId));

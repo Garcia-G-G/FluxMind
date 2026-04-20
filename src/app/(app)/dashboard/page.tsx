@@ -1,5 +1,12 @@
 "use client";
 
+// Force-dynamic so Next 15 skips prerendering this page at build time.
+// The (app) layout is already dynamic via auth.api.getSession + headers(),
+// but Next still attempts to SSG the client shell and fails in webpack-runtime
+// chunk resolution. Opting out of prerender here is both correct (auth-gated
+// page) and unblocks `pnpm build`.
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {

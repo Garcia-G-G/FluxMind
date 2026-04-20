@@ -20,7 +20,8 @@ export type GeneratedImage = {
 };
 
 const STYLE_PREFIX =
-  "Detailed hand-drawn technical illustration on cream-colored grid paper. Black ink pen drawing with thin precise lines, small annotated vignettes, sketched icons (palm trees, mountains, airplanes, kitchen tools), callout boxes with leader lines. Selective soft orange accent on key numbers. Vintage engineer's notebook aesthetic — think Leonardo da Vinci meets modern infographic. Rich visual detail, not empty space. ";
+  "Hand-drawn technical illustration, thin black ink lines on cream paper, small illustrated vignettes (icons, scenes, metaphoric objects), subtle orange watercolor accents. " +
+  "CRITICAL RULES: NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO LABELS, NO TYPOGRAPHY of any kind. The image must be purely visual — icons, scenes, objects, patterns only. Leave breathing room in the composition for text to be overlaid separately. ";
 
 type FalImageResult = {
   data?: {
