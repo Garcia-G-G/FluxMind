@@ -8,6 +8,7 @@ import { notebooks } from "@/db/schema/notebooks";
 import { sources, sourceChunks } from "@/db/schema/sources";
 import { chunkText, estimateTokenCount } from "@/lib/processing/chunker";
 import { generateEmbeddings } from "@/lib/ai/embeddings";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -58,6 +59,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         updatedAt: now,
       })
       .returning();
+
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     // Chunk and embed
     try {

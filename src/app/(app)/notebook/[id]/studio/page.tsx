@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, type ComponentProps } from "react";
+import { memo, use, useCallback, useState, type ComponentProps } from "react";
 import dynamic from "next/dynamic";
 import {
   HelpCircle,
@@ -159,6 +159,216 @@ type StudioTab =
 
 type OutputData<T> = { id: string; title: string } & T;
 
+type QuizData = OutputData<{ questions: unknown[] }>;
+type FlashcardData = OutputData<{ cards: unknown[] }>;
+type SlidesData = OutputData<SlidesContent>;
+type InfographicData = OutputData<InfographicContent>;
+type DataTableData = OutputData<DataTableContent>;
+type ThreadData = OutputData<ThreadContent>;
+type NewsletterData = OutputData<NewsletterContent>;
+type ReelData = OutputData<ReelContent>;
+type CourseData = OutputData<CourseContent>;
+type MindMapData = OutputData<{ nodes: unknown[]; edges: unknown[] }>;
+type VideoData = OutputData<{
+  fileUrl?: string;
+  chapters?: unknown[];
+  status: string;
+}>;
+
+// Union of all possible data shapes per tab. Each tab reads the typed slice
+// it owns — 11 `useState`s collapsed into a single object-shaped state so
+// writing one slice doesn't force the other 10 slices to render.
+type StudioOutputs = {
+  quiz: QuizData | null;
+  flashcards: FlashcardData | null;
+  slides: SlidesData | null;
+  infographic: InfographicData | null;
+  datatable: DataTableData | null;
+  thread: ThreadData | null;
+  newsletter: NewsletterData | null;
+  reel: ReelData | null;
+  course: CourseData | null;
+  mindmap: MindMapData | null;
+  video: VideoData | null;
+};
+
+const INITIAL_OUTPUTS: StudioOutputs = {
+  quiz: null,
+  flashcards: null,
+  slides: null,
+  infographic: null,
+  datatable: null,
+  thread: null,
+  newsletter: null,
+  reel: null,
+  course: null,
+  mindmap: null,
+  video: null,
+};
+
+/* Map output type (from the persisted API) → StudioTab */
+const TYPE_TO_TAB: Record<string, StudioTab> = {
+  quiz: "quiz",
+  flashcards: "flashcards",
+  slides: "slides",
+  infographic: "infographic",
+  data_table: "datatable",
+  thread: "thread",
+  newsletter: "newsletter",
+  course: "course",
+  mindmap: "mindmap",
+  video: "video",
+  research_report: "research",
+};
+
+const TYPE_ICON: Record<string, { icon: LucideIcon; color: string }> = {
+  quiz: { icon: HelpCircle, color: "#7c3aed" },
+  flashcards: { icon: Layers, color: "#2563eb" },
+  slides: { icon: Presentation, color: "#ff6b35" },
+  infographic: { icon: Image, color: "#e11d48" },
+  data_table: { icon: Table, color: "#2563eb" },
+  thread: { icon: MessageCircle, color: "#2563eb" },
+  newsletter: { icon: Mail, color: "#7c3aed" },
+  course: { icon: GraduationCap, color: "#e11d48" },
+  mindmap: { icon: Network, color: "#7c3aed" },
+  video: { icon: Film, color: "#ff6b35" },
+  research_report: { icon: Search, color: "#7c3aed" },
+};
+
+const DEFAULT_TYPE_ICON = { icon: Wand2, color: "#6b7280" };
+
+const RESEARCH_CARD_STYLE: React.CSSProperties = {
+  background: "var(--fm-glass-bg)",
+  border: "1px solid var(--fm-glass-border)",
+  ["--fm-card-accent" as string]: "var(--fm-secondary)",
+};
+
+const OUTPUT_CARD_STYLE: React.CSSProperties = {
+  background: "var(--fm-surface)",
+  border: "1px solid var(--fm-surface-border)",
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Presentational cards — defined at MODULE scope so React preserves
+// their identity across StudioPage re-renders. Previously these were
+// declared inside the render function, which created a fresh component
+// reference on every state change and forced every card subtree to
+// unmount and re-mount when the parent set a single useState.
+
+type StudioCardProps = {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onGenerate: () => void;
+  isPending: boolean;
+  error: Error | null;
+  hasData: boolean;
+  accent?: string;
+  onHover?: () => void;
+  onView?: () => void;
+};
+
+const StudioCard = memo(({
+  icon: Icon,
+  title,
+  description,
+  onGenerate,
+  isPending,
+  error,
+  hasData,
+  accent = "var(--fm-secondary)",
+  onHover,
+  onView,
+}: StudioCardProps): React.ReactNode => (
+  <div
+    onMouseEnter={onHover}
+    onFocus={onHover}
+    className="fm-hover-tint group relative overflow-hidden rounded-2xl p-5 transition-transform duration-150 ease-out hover:-translate-y-0.5"
+    style={{
+      background: "var(--fm-glass-bg)",
+      border: "1px solid var(--fm-glass-border)",
+      ["--fm-card-accent" as string]: accent,
+    } as React.CSSProperties}
+  >
+    <div
+      className="absolute top-0 left-0 right-0 h-[2px]"
+      style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }}
+    />
+    <div className="flex items-start gap-3">
+      <div
+        className="shrink-0 flex items-center justify-center rounded-lg"
+        style={{
+          width: 36,
+          height: 36,
+          background: `color-mix(in srgb, ${accent} 12%, transparent)`,
+        }}
+      >
+        <Icon style={{ width: 18, height: 18, color: accent }} strokeWidth={1.8} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-medium text-sm leading-tight" style={{ color: "var(--fm-text)" }}>
+          {title}
+        </h3>
+        <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--fm-text-tertiary)" }}>
+          {description}
+        </p>
+      </div>
+    </div>
+
+    <div className="flex items-center gap-2 mt-4">
+      <button
+        onClick={onGenerate}
+        disabled={isPending}
+        className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white rounded-lg transition-opacity disabled:opacity-50"
+        style={{ background: accent }}
+      >
+        {isPending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Wand2 className="h-3.5 w-3.5" />
+        )}
+        Generate
+      </button>
+      {hasData && onView && (
+        <button
+          onClick={onView}
+          className="flex items-center h-8 px-3.5 text-xs font-medium rounded-lg transition-colors"
+          style={{
+            background: "var(--fm-bg-tertiary)",
+            color: "var(--fm-text-secondary)",
+          }}
+        >
+          View
+        </button>
+      )}
+    </div>
+
+    {error && (
+      <p
+        className="text-xs mt-3 px-2 py-1.5 rounded-md"
+        style={{
+          color: "var(--fm-error, #ef4444)",
+          background: "color-mix(in srgb, var(--fm-error, #ef4444) 8%, transparent)",
+        }}
+      >
+        {error.message}
+      </p>
+    )}
+  </div>
+));
+StudioCard.displayName = "StudioCard";
+
+const SectionHeader = ({ label }: { label: string }): React.ReactNode => (
+  <div className="mb-3 mt-6">
+    <span
+      className="text-xs font-medium uppercase tracking-wide"
+      style={{ color: "var(--fm-text-tertiary)" }}
+    >
+      {label}
+    </span>
+  </div>
+);
+
 const StudioPage = ({
   params,
 }: {
@@ -187,75 +397,95 @@ const StudioPage = ({
   const generateMindMap = useGenerateMindMap();
   const generateVideoOverview = useGenerateVideo();
 
-  // All output data
-  const [quizData, setQuizData] = useState<OutputData<{ questions: unknown[] }> | null>(null);
-  const [flashcardData, setFlashcardData] = useState<OutputData<{ cards: unknown[] }> | null>(null);
-  const [slidesData, setSlidesData] = useState<OutputData<SlidesContent> | null>(null);
-  const [infographicData, setInfographicData] = useState<OutputData<InfographicContent> | null>(null);
-  const [dataTableData, setDataTableData] = useState<OutputData<DataTableContent> | null>(null);
-  const [threadData, setThreadData] = useState<OutputData<ThreadContent> | null>(null);
-  const [newsletterData, setNewsletterData] = useState<OutputData<NewsletterContent> | null>(null);
-  const [reelData, setReelData] = useState<OutputData<ReelContent> | null>(null);
-  const [courseData, setCourseData] = useState<OutputData<CourseContent> | null>(null);
-  const [mindMapData, setMindMapData] = useState<OutputData<{ nodes: unknown[]; edges: unknown[] }> | null>(null);
-  const [videoData, setVideoData] = useState<OutputData<{ fileUrl?: string; chapters?: unknown[]; status: string }> | null>(null);
+  // One state object keyed by tab instead of 11 parallel useStates. Writing
+  // one slice with functional update only re-renders consumers of that slice
+  // (StudioCard is memo'd on its own props) and skips the other slices.
+  const [outputs, setOutputs] = useState<StudioOutputs>(INITIAL_OUTPUTS);
 
-  /* Map output type → StudioTab */
-  const typeToTab: Record<string, StudioTab> = {
-    quiz: "quiz", flashcards: "flashcards", slides: "slides",
-    infographic: "infographic", data_table: "datatable",
-    thread: "thread", newsletter: "newsletter", course: "course",
-    mindmap: "mindmap", video: "video", research_report: "research",
-  };
+  const {
+    quiz: quizData,
+    flashcards: flashcardData,
+    slides: slidesData,
+    infographic: infographicData,
+    datatable: dataTableData,
+    thread: threadData,
+    newsletter: newsletterData,
+    reel: reelData,
+    course: courseData,
+    mindmap: mindMapData,
+    video: videoData,
+  } = outputs;
 
-  const typeIcon: Record<string, { icon: LucideIcon; color: string }> = {
-    quiz: { icon: HelpCircle, color: "#7c3aed" },
-    flashcards: { icon: Layers, color: "#2563eb" },
-    slides: { icon: Presentation, color: "#ff6b35" },
-    infographic: { icon: Image, color: "#e11d48" },
-    data_table: { icon: Table, color: "#2563eb" },
-    thread: { icon: MessageCircle, color: "#2563eb" },
-    newsletter: { icon: Mail, color: "#7c3aed" },
-    course: { icon: GraduationCap, color: "#e11d48" },
-    mindmap: { icon: Network, color: "#7c3aed" },
-    video: { icon: Film, color: "#ff6b35" },
-    research_report: { icon: Search, color: "#7c3aed" },
-  };
+  const setOutput = useCallback(
+    <K extends keyof StudioOutputs>(
+      tab: K,
+      data: StudioOutputs[K],
+    ): void => {
+      setOutputs((prev) => ({ ...prev, [tab]: data }));
+    },
+    [],
+  );
 
   /* Open a saved output by loading its content into state */
-  const openSavedOutput = (output: OutputListItem): void => {
-    const tab = typeToTab[output.type];
-    if (!tab || !output.content) return;
+  const openSavedOutput = useCallback(
+    (output: OutputListItem): void => {
+      const tab = TYPE_TO_TAB[output.type];
+      if (!tab || !output.content) return;
 
-    const data = { id: output.id, title: output.title, ...output.content } as never;
+      const data = {
+        id: output.id,
+        title: output.title,
+        ...output.content,
+      } as never;
 
-    switch (output.type) {
-      case "quiz": setQuizData(data); break;
-      case "flashcards": setFlashcardData(data); break;
-      case "slides": setSlidesData(data); break;
-      case "infographic": setInfographicData(data); break;
-      case "data_table": setDataTableData(data); break;
-      case "thread": setThreadData(data); break;
-      case "newsletter": setNewsletterData(data); break;
-      case "course": setCourseData(data); break;
-      case "mindmap": setMindMapData(data); break;
-      case "video": setVideoData(data); break;
-    }
-    setActiveTab(tab);
-  };
+      switch (output.type) {
+        case "quiz":
+          setOutput("quiz", data);
+          break;
+        case "flashcards":
+          setOutput("flashcards", data);
+          break;
+        case "slides":
+          setOutput("slides", data);
+          break;
+        case "infographic":
+          setOutput("infographic", data);
+          break;
+        case "data_table":
+          setOutput("datatable", data);
+          break;
+        case "thread":
+          setOutput("thread", data);
+          break;
+        case "newsletter":
+          setOutput("newsletter", data);
+          break;
+        case "course":
+          setOutput("course", data);
+          break;
+        case "mindmap":
+          setOutput("mindmap", data);
+          break;
+        case "video":
+          setOutput("video", data);
+          break;
+      }
+      setActiveTab(tab);
+    },
+    [setOutput],
+  );
 
-  const generate = async <T,>(
-    type: StudioTab,
+  const generate = async <K extends keyof StudioOutputs, T extends StudioOutputs[K]>(
+    tab: K,
     mutateAsync: (
       args: { notebookId: string } & Partial<GenerateConfig>,
     ) => Promise<T>,
-    setter: (data: T) => void,
     config?: Partial<GenerateConfig>,
   ): Promise<void> => {
     try {
       const result = await mutateAsync({ notebookId, ...config });
-      setter(result);
-      setActiveTab(type);
+      setOutput(tab, result);
+      setActiveTab(tab as StudioTab);
     } catch {
       // Error shown by mutation
     }
@@ -266,36 +496,20 @@ const StudioPage = ({
     if (!dialogType) return;
     switch (dialogType) {
       case "slides":
-        await generate(
-          "slides",
-          generateSlides.mutateAsync,
-          setSlidesData,
-          config,
-        );
+        await generate("slides", generateSlides.mutateAsync, config);
         break;
       case "infographic":
         await generate(
           "infographic",
           generateInfographic.mutateAsync,
-          setInfographicData,
           config,
         );
         break;
       case "video":
-        await generate(
-          "video",
-          generateVideoOverview.mutateAsync,
-          setVideoData,
-          config,
-        );
+        await generate("video", generateVideoOverview.mutateAsync, config);
         break;
       case "mindmap":
-        await generate(
-          "mindmap",
-          generateMindMap.mutateAsync,
-          setMindMapData,
-          config,
-        );
+        await generate("mindmap", generateMindMap.mutateAsync, config);
         break;
     }
     setDialogOpen(false);
@@ -372,125 +586,6 @@ const StudioPage = ({
     );
   }
 
-  // Studio card — clean minimal design
-  const StudioCard = ({
-    icon: Icon,
-    title,
-    description,
-    onGenerate,
-    isPending,
-    error,
-    hasData,
-    tab,
-    accent = "var(--fm-secondary)",
-    onHover,
-  }: {
-    icon: LucideIcon;
-    title: string;
-    description: string;
-    onGenerate: () => void;
-    isPending: boolean;
-    error: Error | null;
-    hasData: boolean;
-    tab: StudioTab;
-    accent?: string;
-    onHover?: () => void;
-  }): React.ReactNode => (
-    <div
-      onMouseEnter={onHover}
-      onFocus={onHover}
-      className="fm-hover-tint group relative overflow-hidden rounded-2xl p-5 transition-transform duration-150 ease-out hover:-translate-y-0.5"
-      style={{
-        background: "var(--fm-glass-bg)",
-        border: "1px solid var(--fm-glass-border)",
-        ["--fm-card-accent" as string]: accent,
-      } as React.CSSProperties}
-    >
-      {/* Top accent line */}
-      <div
-        className="absolute top-0 left-0 right-0 h-[2px]"
-        style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }}
-      />
-      <div className="flex items-start gap-3">
-        <div
-          className="shrink-0 flex items-center justify-center rounded-lg"
-          style={{
-            width: 36,
-            height: 36,
-            background: `color-mix(in srgb, ${accent} 12%, transparent)`,
-          }}
-        >
-          <Icon style={{ width: 18, height: 18, color: accent }} strokeWidth={1.8} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3
-            className="font-medium text-sm leading-tight"
-            style={{ color: "var(--fm-text)" }}
-          >
-            {title}
-          </h3>
-          <p
-            className="text-xs mt-1 leading-relaxed"
-            style={{ color: "var(--fm-text-tertiary)" }}
-          >
-            {description}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 mt-4">
-        <button
-          onClick={onGenerate}
-          disabled={isPending}
-          className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white rounded-lg transition-opacity disabled:opacity-50"
-          style={{ background: accent }}
-        >
-          {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Wand2 className="h-3.5 w-3.5" />
-          )}
-          Generate
-        </button>
-        {hasData && (
-          <button
-            onClick={() => setActiveTab(tab)}
-            className="flex items-center h-8 px-3.5 text-xs font-medium rounded-lg transition-colors"
-            style={{
-              background: "var(--fm-bg-tertiary)",
-              color: "var(--fm-text-secondary)",
-            }}
-          >
-            View
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <p
-          className="text-xs mt-3 px-2 py-1.5 rounded-md"
-          style={{
-            color: "var(--fm-error, #ef4444)",
-            background: "color-mix(in srgb, var(--fm-error, #ef4444) 8%, transparent)",
-          }}
-        >
-          {error.message}
-        </p>
-      )}
-    </div>
-  );
-
-  const SectionHeader = ({ label }: { label: string }): React.ReactNode => (
-    <div className="mb-3 mt-6">
-      <span
-        className="text-xs font-medium uppercase tracking-wide"
-        style={{ color: "var(--fm-text-tertiary)" }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-
   return (
     <div className="max-w-5xl mx-auto">
       <h2
@@ -519,19 +614,19 @@ const StudioPage = ({
       {/* Study section */}
       <SectionHeader label="Study" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={HelpCircle} title="Quiz" tab="quiz" accent="var(--fm-secondary)"
+        <StudioCard icon={HelpCircle} title="Quiz" onView={() => setActiveTab("quiz")} accent="var(--fm-secondary)"
           description="MC, T/F, and free response questions."
-          onGenerate={() => generate("quiz", generateQuiz.mutateAsync, setQuizData)}
+          onGenerate={() => generate("quiz", generateQuiz.mutateAsync)}
           onHover={importQuizView}
           isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData} />
-        <StudioCard icon={Layers} title="Flashcards" tab="flashcards" accent="var(--fm-secondary)"
+        <StudioCard icon={Layers} title="Flashcards" onView={() => setActiveTab("flashcards")} accent="var(--fm-secondary)"
           description="Spaced repetition flashcards."
-          onGenerate={() => generate("flashcards", generateFlashcards.mutateAsync, setFlashcardData)}
+          onGenerate={() => generate("flashcards", generateFlashcards.mutateAsync)}
           onHover={importFlashcardView}
           isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData} />
-        <StudioCard icon={GraduationCap} title="Mini-Course" tab="course" accent="var(--fm-secondary)"
+        <StudioCard icon={GraduationCap} title="Mini-Course" onView={() => setActiveTab("course")} accent="var(--fm-secondary)"
           description="Structured lessons with quizzes."
-          onGenerate={() => generate("course", generateCourse.mutateAsync, setCourseData)}
+          onGenerate={() => generate("course", generateCourse.mutateAsync)}
           onHover={importCourseView}
           isPending={generateCourse.isPending} error={generateCourse.error} hasData={!!courseData} />
       </div>
@@ -539,27 +634,27 @@ const StudioPage = ({
       {/* Visual section */}
       <SectionHeader label="Visual" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={Presentation} title="Slide Deck" tab="slides" accent="var(--fm-secondary)"
+        <StudioCard icon={Presentation} title="Slide Deck" onView={() => setActiveTab("slides")} accent="var(--fm-secondary)"
           description="Presentation with multiple layouts."
           onGenerate={() => openDialog("slides")}
           onHover={importSlideViewer}
           isPending={generateSlides.isPending} error={generateSlides.error} hasData={!!slidesData} />
-        <StudioCard icon={Image} title="Infographic" tab="infographic" accent="var(--fm-secondary)"
+        <StudioCard icon={Image} title="Infographic" onView={() => setActiveTab("infographic")} accent="var(--fm-secondary)"
           description="Stats, timelines, and comparisons."
           onGenerate={() => openDialog("infographic")}
           onHover={importInfographicViewer}
           isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData} />
-        <StudioCard icon={Table} title="Data Tables" tab="datatable" accent="var(--fm-secondary)"
+        <StudioCard icon={Table} title="Data Tables" onView={() => setActiveTab("datatable")} accent="var(--fm-secondary)"
           description="Extract tabular data from sources."
-          onGenerate={() => generate("datatable", generateDataTable.mutateAsync, setDataTableData)}
+          onGenerate={() => generate("datatable", generateDataTable.mutateAsync)}
           onHover={importDataTableView}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
-        <StudioCard icon={Network} title="Mind Map" tab="mindmap" accent="var(--fm-secondary)"
+        <StudioCard icon={Network} title="Mind Map" onView={() => setActiveTab("mindmap")} accent="var(--fm-secondary)"
           description="Explorable knowledge graph from sources."
           onGenerate={() => openDialog("mindmap")}
           onHover={importMindMapCanvas}
           isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
-        <StudioCard icon={Film} title="Video Overview" tab="video" accent="var(--fm-secondary)"
+        <StudioCard icon={Film} title="Video Overview" onView={() => setActiveTab("video")} accent="var(--fm-secondary)"
           description="AI-narrated video with generated visuals."
           onGenerate={() => openDialog("video")}
           onHover={importVideoPlayer}
@@ -569,19 +664,19 @@ const StudioPage = ({
       {/* Content section */}
       <SectionHeader label="Content" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={MessageCircle} title="X Thread" tab="thread" accent="var(--fm-secondary)"
+        <StudioCard icon={MessageCircle} title="X Thread" onView={() => setActiveTab("thread")} accent="var(--fm-secondary)"
           description="Viral thread with hook and CTA."
-          onGenerate={() => generate("thread", generateThread.mutateAsync, setThreadData)}
+          onGenerate={() => generate("thread", generateThread.mutateAsync)}
           onHover={importThreadPreview}
           isPending={generateThread.isPending} error={generateThread.error} hasData={!!threadData} />
-        <StudioCard icon={Mail} title="Newsletter" tab="newsletter" accent="var(--fm-secondary)"
+        <StudioCard icon={Mail} title="Newsletter" onView={() => setActiveTab("newsletter")} accent="var(--fm-secondary)"
           description="Professional email newsletter."
-          onGenerate={() => generate("newsletter", generateNewsletter.mutateAsync, setNewsletterData)}
+          onGenerate={() => generate("newsletter", generateNewsletter.mutateAsync)}
           onHover={importNewsletterPreview}
           isPending={generateNewsletter.isPending} error={generateNewsletter.error} hasData={!!newsletterData} />
-        <StudioCard icon={Video} title="Reel Script" tab="reel" accent="var(--fm-secondary)"
+        <StudioCard icon={Video} title="Reel Script" onView={() => setActiveTab("reel")} accent="var(--fm-secondary)"
           description="30-60s short-form video script."
-          onGenerate={() => generate("reel", generateReel.mutateAsync, setReelData)}
+          onGenerate={() => generate("reel", generateReel.mutateAsync)}
           onHover={importReelScriptView}
           isPending={generateReel.isPending} error={generateReel.error} hasData={!!reelData} />
       </div>
@@ -591,11 +686,7 @@ const StudioPage = ({
       <div
         onMouseEnter={importDeepResearch}
         className="fm-hover-tint relative overflow-hidden rounded-2xl p-5 flex items-center gap-4"
-        style={{
-          background: "var(--fm-glass-bg)",
-          border: "1px solid var(--fm-glass-border)",
-          ["--fm-card-accent" as string]: "var(--fm-secondary)",
-        } as React.CSSProperties}
+        style={RESEARCH_CARD_STYLE}
       >
         <div
           className="absolute top-0 left-0 right-0 h-[2px]"
@@ -643,7 +734,7 @@ const StudioPage = ({
             {savedOutputs
               .filter((o) => o.status === "ready")
               .map((output) => {
-                const cfg = typeIcon[output.type] ?? { icon: Wand2, color: "#6b7280" };
+                const cfg = TYPE_ICON[output.type] ?? DEFAULT_TYPE_ICON;
                 const Icon = cfg.icon;
                 const timeAgo = formatTimeAgo(output.createdAt);
                 return (
@@ -651,10 +742,7 @@ const StudioPage = ({
                     key={output.id}
                     onClick={() => openSavedOutput(output)}
                     className="w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left group"
-                    style={{
-                      background: "var(--fm-surface)",
-                      border: "1px solid var(--fm-surface-border)",
-                    }}
+                    style={OUTPUT_CARD_STYLE}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = "var(--fm-surface-hover)";
                       e.currentTarget.style.borderColor = `${cfg.color}30`;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { memo, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -179,7 +179,7 @@ const SidebarInner = ({
   );
 };
 
-export const Sidebar = (props: {
+const SidebarWithSuspense = (props: {
   collapsed: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
 }): React.ReactNode => {
@@ -189,3 +189,9 @@ export const Sidebar = (props: {
     </Suspense>
   );
 };
+
+// Memoized export — AppShell now passes stable collapsed / onCollapsedChange
+// props, so the sidebar no longer re-renders when unrelated state at the
+// shell level updates.
+export const Sidebar = memo(SidebarWithSuspense);
+Sidebar.displayName = "Sidebar";

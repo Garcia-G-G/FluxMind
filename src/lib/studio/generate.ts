@@ -65,26 +65,36 @@ export const getStudioContext = async (
     }
   }
 
-  const [notebook] = await db
-    .select({ userId: notebooks.userId, title: notebooks.title })
-    .from(notebooks)
-    .where(eq(notebooks.id, notebookId));
+  // Ownership check and source fetch are independent — fire both in
+  // parallel. If the notebook is missing or owned by someone else, we
+  // throw the same 404 sentinel as before; the sources query result is
+  // discarded in that path.
+  //
+  // Truncate raw text at the DB level so the Postgres->app hop only
+  // carries what we'll actually feed the model. Ready-only, most-recent
+  // first (desc updatedAt).
+  const [notebookRows, notebookSources] = await Promise.all([
+    db
+      .select({ userId: notebooks.userId, title: notebooks.title })
+      .from(notebooks)
+      .where(eq(notebooks.id, notebookId)),
+    db
+      .select({
+        title: sources.title,
+        rawText: sql<string>`LEFT(${sources.rawText}, ${STUDIO_MAX_CHARS_PER_SOURCE})`.as(
+          "raw_text",
+        ),
+      })
+      .from(sources)
+      .where(eq(sources.notebookId, notebookId))
+      .orderBy(desc(sources.updatedAt))
+      .limit(STUDIO_MAX_SOURCES),
+  ]);
 
+  const notebook = notebookRows[0];
   if (!notebook || notebook.userId !== session.user.id) {
     return { error: "Not found", status: 404 };
   }
-
-  // Truncate raw text at the DB level so the Postgres->app hop only carries
-  // what we'll actually feed the model. Ready-only, most-recent first.
-  const notebookSources = await db
-    .select({
-      title: sources.title,
-      rawText: sql<string>`LEFT(${sources.rawText}, ${STUDIO_MAX_CHARS_PER_SOURCE})`.as("raw_text"),
-    })
-    .from(sources)
-    .where(eq(sources.notebookId, notebookId))
-    .orderBy(desc(sources.updatedAt))
-    .limit(STUDIO_MAX_SOURCES);
 
   let total = 0;
   const parts: string[] = [];

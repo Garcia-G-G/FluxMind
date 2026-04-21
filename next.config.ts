@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -40,10 +45,15 @@ const nextConfig: NextConfig = {
     // worker imports it at runtime.
     "@ffmpeg-installer/ffmpeg",
     "fluent-ffmpeg",
+    // Native image processing (libvips) — ships precompiled binaries per
+    // platform. Bundling it breaks route chunks; mark as external so it
+    // resolves from node_modules at runtime.
+    "sharp",
   ],
 
   // Dev server: keep compiled routes warm for longer so flipping back to a
-  // route doesn't recompile from scratch every time.
+  // route doesn't recompile from scratch every time. Still respected by
+  // Next 15's App Router dev server.
   onDemandEntries: {
     maxInactiveAge: 5 * 60 * 1000,
     pagesBufferLength: 8,
@@ -114,4 +124,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Run with `ANALYZE=true pnpm build` to generate an HTML treemap of the
+// client + server bundles. Critical for catching accidental large-dep
+// regressions (tldraw, motion, xyflow, ffmpeg-installer, jspdf, etc.)
+// before they ship.
+export default withBundleAnalyzer(nextConfig);

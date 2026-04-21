@@ -8,6 +8,9 @@
  *   A gradient is rasterised once and cached by the compositor;
  *   blur() is re-computed every frame → 10× more expensive.
  * - Only transform animations (translate3d) → GPU-composited, zero layout/paint.
+ * - No `will-change: transform` — the browser already auto-promotes animated
+ *   transforms, and a permanent hint forces a dedicated compositor layer even
+ *   while idle, burning memory and making the initial paint slower.
  * - contain: strict on wrapper isolates the layer from the rest of the tree.
  * - No SVG filters, no mesh grid, no backdrop-filter.
  * - 3 blobs (down from 4) — the visual difference is negligible but saves a layer.
@@ -39,7 +42,6 @@ export const AnimatedBackground = (): React.ReactNode => {
           opacity: "var(--fm-blob-o1, 0.14)",
           top: "-10%",
           left: "0%",
-          willChange: "transform",
           transform: "translate3d(0,0,0)",
         }}
       />
@@ -57,7 +59,6 @@ export const AnimatedBackground = (): React.ReactNode => {
           opacity: "var(--fm-blob-o2, 0.12)",
           top: "30%",
           right: "-5%",
-          willChange: "transform",
           transform: "translate3d(0,0,0)",
         }}
       />
@@ -75,7 +76,6 @@ export const AnimatedBackground = (): React.ReactNode => {
           opacity: "var(--fm-blob-o3, 0.12)",
           bottom: "-5%",
           left: "20%",
-          willChange: "transform",
           transform: "translate3d(0,0,0)",
         }}
       />

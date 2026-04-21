@@ -10,6 +10,7 @@ import { uploadFile, getStorageKey } from "@/lib/storage/r2";
 import { validateFile } from "@/lib/processing/parsers";
 import { getDocumentQueue, type DocumentJobData } from "@/lib/queue";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -83,12 +84,20 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         type: sourceType as "pdf" | "docx" | "txt" | "csv" | "image" | "url" | "youtube",
         title: file.name,
         fileUrl,
+        // Persist the storage key so DELETE doesn't have to parse the URL.
+        fileKey,
         status: "pending",
         metadata: {},
         createdAt: now,
         updatedAt: now,
       })
       .returning();
+
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     // Enqueue processing job
     const jobData: DocumentJobData = {

@@ -97,9 +97,15 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 
 IMPORTANT LANGUAGE PREFERENCE: The user has selected ${LANG_NAME} as their preferred language. Unless the user explicitly writes their question in a different language, respond in ${LANG_NAME}. Citations and source titles stay in their original form.`;
 
-    // Ensure or create conversation
+    // Ensure or create conversation. We also need to know whether the
+    // conversation currently has a title so we can decide in onFinish
+    // whether to populate it — reading this BEFORE the stream starts
+    // eliminates the extra SELECT inside the hot onFinish path.
     let activeConversationId = conversationId;
+    let titleWasEmpty = true;
+
     if (!activeConversationId) {
+      // Brand-new conversation: title is definitionally empty.
       activeConversationId = createId();
       await db.insert(conversations).values({
         id: activeConversationId,
@@ -109,6 +115,15 @@ IMPORTANT LANGUAGE PREFERENCE: The user has selected ${LANG_NAME} as their prefe
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      titleWasEmpty = true;
+    } else {
+      // Existing conversation: check title once, synchronously, so
+      // onFinish can avoid an extra round-trip entirely.
+      const [existing] = await db
+        .select({ title: conversations.title })
+        .from(conversations)
+        .where(eq(conversations.id, activeConversationId));
+      titleWasEmpty = !existing?.title;
     }
 
     // Save user message
@@ -120,6 +135,12 @@ IMPORTANT LANGUAGE PREFERENCE: The user has selected ${LANG_NAME} as their prefe
       createdAt: new Date(),
     });
 
+    // Capture into closures — streamText runs onFinish after the HTTP
+    // response is already flushing, so we can't re-read local `let`
+    // state inside it safely.
+    const conversationIdForFinish: string = activeConversationId;
+    const titleWasEmptyForFinish: boolean = titleWasEmpty;
+
     const result = streamText({
       model: getModel(modelId),
       system: systemPrompt,
@@ -127,41 +148,35 @@ IMPORTANT LANGUAGE PREFERENCE: The user has selected ${LANG_NAME} as their prefe
       onFinish: async ({ text, usage }) => {
         try {
           const citationRefs = parseCitations(text, chunks);
-          await db.insert(messagesTable).values({
-            id: createId(),
-            conversationId: activeConversationId!,
-            role: "assistant",
-            content: text,
-            citations: citationRefs.map((c) => ({
-              sourceId: c.sourceId ?? "",
-              chunkId: "",
-              text: c.sourceTitle,
-            })),
-            modelUsed: modelId,
-            tokensUsed: usage.totalTokens,
-            createdAt: new Date(),
-          });
 
-          // Auto-title with first user message
-          const [convo] = await db
-            .select({ title: conversations.title })
-            .from(conversations)
-            .where(eq(conversations.id, activeConversationId!));
+          // Insert assistant message + update conversation in parallel.
+          // We already know (from the pre-stream check) whether to set
+          // the title, so we avoid the old SELECT-then-UPDATE pattern.
+          const now = new Date();
+          const updateSet = titleWasEmptyForFinish
+            ? { title: userText.slice(0, 100), updatedAt: now }
+            : { updatedAt: now };
 
-          if (!convo?.title) {
-            await db
+          await Promise.all([
+            db.insert(messagesTable).values({
+              id: createId(),
+              conversationId: conversationIdForFinish,
+              role: "assistant",
+              content: text,
+              citations: citationRefs.map((c) => ({
+                sourceId: c.sourceId ?? "",
+                chunkId: "",
+                text: c.sourceTitle,
+              })),
+              modelUsed: modelId,
+              tokensUsed: usage.totalTokens,
+              createdAt: now,
+            }),
+            db
               .update(conversations)
-              .set({
-                title: userText.slice(0, 100),
-                updatedAt: new Date(),
-              })
-              .where(eq(conversations.id, activeConversationId!));
-          } else {
-            await db
-              .update(conversations)
-              .set({ updatedAt: new Date() })
-              .where(eq(conversations.id, activeConversationId!));
-          }
+              .set(updateSet)
+              .where(eq(conversations.id, conversationIdForFinish)),
+          ]);
         } catch (saveError) {
           console.error("Failed to save message:", saveError);
         }

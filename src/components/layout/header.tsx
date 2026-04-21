@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { memo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Search, Bell, Moon, Sun, Settings, Menu, LogOut, User } from "lucide-react";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
@@ -8,7 +8,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { useFluxTheme } from "@/components/shared/theme-provider";
 import { LanguageToggle } from "@/components/shared/language-toggle";
 
-export const Header = ({
+const HeaderInner = ({
   onOpenCommandPalette,
   onToggleSidebar,
 }: {
@@ -185,3 +185,9 @@ export const Header = ({
     </header>
   );
 };
+
+// Memoized export — with stable onOpenCommandPalette / onToggleSidebar refs
+// from AppShell (useCallback), the header now skips re-render on parent
+// renders that don't change its own props.
+export const Header = memo(HeaderInner);
+Header.displayName = "Header";

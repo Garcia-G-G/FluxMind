@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Download, Maximize, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NarrationPlayer } from "@/components/studio/narration-player";
@@ -181,12 +182,14 @@ export const InfographicViewer = ({
           border: "1px solid var(--fm-surface-border)",
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={infographic.imageUrl}
           alt={infographic.title}
+          width={1280}
+          height={1600}
+          sizes="(max-width: 768px) 100vw, 800px"
           className="w-full h-auto block cursor-zoom-in"
-          loading="lazy"
+          priority
           onClick={() => setIsFullscreen(true)}
         />
       </div>
@@ -259,11 +262,13 @@ export const InfographicViewer = ({
           aria-modal="true"
           aria-label={`${infographic.title} fullscreen`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={infographic.imageUrl}
             alt={infographic.title}
-            className="max-w-full max-h-full object-contain"
+            width={1280}
+            height={1600}
+            sizes="100vw"
+            className="max-w-full max-h-full w-auto h-auto object-contain"
             onClick={(e) => e.stopPropagation()}
           />
           <button

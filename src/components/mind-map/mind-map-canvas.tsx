@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   ReactFlow,
   Background,
@@ -12,6 +19,9 @@ import {
   useNodesState,
   useEdgesState,
 } from "@xyflow/react";
+// xyflow CSS is side-effect loaded here; because this module is only pulled
+// in via `next/dynamic` from the Studio page, the stylesheet is not shipped
+// with the main app chunk.
 import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import { MindMapNode, type MindMapNodeData } from "./mind-map-node";
@@ -32,6 +42,20 @@ const nodeTypes = { mindMapNode: MindMapNode };
 
 const WIDTHS: Record<number, number> = { 0: 240, 1: 200, 2: 160 };
 const HEIGHTS: Record<number, number> = { 0: 90, 1: 80, 2: 65 };
+
+// Hoisted style prop — avoids creating a fresh object literal on every render
+// of <ReactFlow>, which would invalidate its memoized prop checks.
+const FLOW_STYLE: React.CSSProperties = { background: "var(--fm-bg)" };
+const CONTROLS_STYLE: React.CSSProperties = {
+  background: "var(--fm-glass-bg)",
+  border: "1px solid var(--fm-glass-border)",
+  borderRadius: 12,
+};
+const MINIMAP_STYLE: React.CSSProperties = {
+  background: "var(--fm-surface)",
+  border: "1px solid var(--fm-glass-border)",
+  borderRadius: 12,
+};
 
 const getLayoutedElements = (
   inputNodes: MindMapInput["nodes"],
@@ -109,16 +133,25 @@ export const MindMapCanvas = ({
   }, [data]);
 
   const handleToggle = useCallback((id: string): void => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
+    // Expanding a branch triggers a full dagre re-layout. Running that inside
+    // startTransition lets React yield to paint so the click feels instant
+    // while the layout work happens in a lower-priority pass.
+    startTransition(() => {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
     });
   }, []);
+
+  // The layout compute reads `expanded` — deferring it decouples dagre
+  // recomputation from the urgent toggle.
+  const deferredExpanded = useDeferredValue(expanded);
 
   // Compute which node ids have any children (used for showing +/- only when useful).
   const childrenMap = useMemo(() => {
@@ -153,7 +186,7 @@ export const MindMapCanvas = ({
         }
       }
     };
-    for (const id of expanded) {
+    for (const id of deferredExpanded) {
       expandDescendants(id);
     }
 
@@ -162,7 +195,7 @@ export const MindMapCanvas = ({
       (e) => visibleIds.has(e.source) && visibleIds.has(e.target)
     );
     return { filteredNodes, filteredEdges };
-  }, [data, expanded, childrenMap]);
+  }, [data, deferredExpanded, childrenMap]);
 
   const layout = useMemo(
     () =>
@@ -171,11 +204,11 @@ export const MindMapCanvas = ({
         if (!node || node.level !== 1) return {};
         return {
           hasChildren: (childrenMap.get(id) ?? []).length > 0,
-          isExpanded: expanded.has(id),
+          isExpanded: deferredExpanded.has(id),
           onToggle: handleToggle,
         };
       }),
-    [filteredNodes, filteredEdges, data, childrenMap, expanded, handleToggle]
+    [filteredNodes, filteredEdges, data, childrenMap, deferredExpanded, handleToggle],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layout.nodes);
@@ -202,26 +235,16 @@ export const MindMapCanvas = ({
         nodesConnectable={false}
         fitView
         proOptions={{ hideAttribution: true }}
-        style={{ background: "var(--fm-bg)" }}
+        style={FLOW_STYLE}
       >
         <Background color="var(--fm-surface-border)" gap={20} size={1} />
-        <Controls
-          style={{
-            background: "var(--fm-glass-bg)",
-            border: "1px solid var(--fm-glass-border)",
-            borderRadius: 12,
-          }}
-        />
+        <Controls style={CONTROLS_STYLE} />
         <MiniMap
           nodeColor={(node) =>
             (node.data as MindMapNodeData)?.color ?? "#7c3aed"
           }
           maskColor="var(--fm-bg)"
-          style={{
-            background: "var(--fm-surface)",
-            border: "1px solid var(--fm-glass-border)",
-            borderRadius: 12,
-          }}
+          style={MINIMAP_STYLE}
         />
       </ReactFlow>
     </div>

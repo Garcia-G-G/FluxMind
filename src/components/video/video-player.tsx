@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Play,
   Pause,
@@ -159,12 +160,13 @@ export const VideoPlayer = ({
           }}
         >
           {currentChapter.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={currentChapter.imageUrl}
               alt={currentChapter.title}
-              loading="lazy"
-              className="w-full h-full object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 720px"
+              className="object-cover"
+              priority
             />
           ) : null}
         </div>
@@ -300,12 +302,12 @@ export const VideoPlayer = ({
               aria-label={`Jump to chapter ${i + 1}: ${ch.title}`}
             >
               {ch.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={ch.imageUrl}
                   alt={ch.title}
-                  loading="lazy"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="128px"
+                  className="object-cover"
                 />
               ) : (
                 <div
@@ -363,12 +365,13 @@ export const VideoPlayer = ({
                 </p>
               )}
               {ch.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={ch.imageUrl}
                   alt={ch.title}
-                  loading="lazy"
-                  className="mt-2 rounded-lg w-full aspect-video object-cover"
+                  width={1280}
+                  height={720}
+                  sizes="(max-width: 768px) 100vw, 720px"
+                  className="mt-2 rounded-lg w-full h-auto aspect-video object-cover"
                 />
               )}
             </div>

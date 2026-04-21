@@ -171,15 +171,9 @@ export const SourcePanel = ({
               return (
                 <div
                   key={source.id}
-                  className="group flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors cursor-default fm-stagger-item"
+                  className="group flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors cursor-default fm-stagger-item hover:bg-[var(--fm-surface-hover)]"
                   style={{
                     animationDelay: `${i * 15}ms`,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--fm-surface-hover)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   {/* Favicon-style icon */}
@@ -233,8 +227,7 @@ export const SourcePanel = ({
                     )}
                     <button
                       aria-label={`Delete source ${source.title}`}
-                      className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: "var(--fm-text-tertiary)" }}
+                      className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity text-[var(--fm-text-tertiary)] hover:text-[var(--fm-error)]"
                       onClick={() => {
                         // Native confirm keeps the surface minimal; a dialog
                         // can replace this later when we have a shared
@@ -243,12 +236,6 @@ export const SourcePanel = ({
                           `Delete "${source.title}"? This can't be undone.`,
                         );
                         if (ok) deleteSource.mutate({ id: source.id, notebookId });
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.color = "var(--fm-error)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.color = "var(--fm-text-tertiary)";
                       }}
                     >
                       <Trash2 className="h-3 w-3" />

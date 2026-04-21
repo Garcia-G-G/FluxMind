@@ -15,6 +15,7 @@ import {
 import { chunkText, estimateTokenCount } from "@/lib/processing/chunker";
 import { generateEmbeddings } from "@/lib/ai/embeddings";
 import { sourceChunks } from "@/db/schema/sources";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -62,6 +63,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         updatedAt: now,
       })
       .returning();
+
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     // Process inline (no queue needed for URL/YouTube — fast enough)
     try {

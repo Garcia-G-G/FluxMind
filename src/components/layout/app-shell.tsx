@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -49,6 +49,18 @@ export const AppShell = ({
     return () => mql.removeEventListener("change", apply);
   }, [sidebarCollapsed]);
 
+  // Stable handler identities so the memo'd Header/Sidebar see the same
+  // function refs across app-shell re-renders — the toggle won't force a
+  // full re-render of the entire header + sidebar subtree on every keystroke
+  // that propagates through the app.
+  const handleOpenCommandPalette = useCallback(() => {
+    setCommandOpen(true);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, []);
+
   return (
     <div className="min-h-screen relative" style={{ background: "var(--fm-bg)" }}>
       <AnimatedBackground />
@@ -61,8 +73,8 @@ export const AppShell = ({
         style={{ paddingLeft: `var(--fm-sidebar-pad, 0px)` }}
       >
         <Header
-          onOpenCommandPalette={() => setCommandOpen(true)}
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onOpenCommandPalette={handleOpenCommandPalette}
+          onToggleSidebar={handleToggleSidebar}
         />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>

@@ -17,29 +17,39 @@ export const GET = async (
 
     const { id } = await params;
 
-    const [convo] = await db
-      .select()
-      .from(conversations)
-      .where(
-        and(eq(conversations.id, id), eq(conversations.userId, session.user.id))
-      );
+    // Ownership check and message fetch are independent — fire both in
+    // parallel. In the typical case (conversation exists) we save one
+    // round-trip of latency. When the conversation is missing or not
+    // owned by the caller, we discard the (possibly empty) message list
+    // and surface a 404 the same way as before.
+    const [convoRows, msgs] = await Promise.all([
+      db
+        .select()
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.id, id),
+            eq(conversations.userId, session.user.id),
+          ),
+        ),
+      db
+        .select({
+          id: messages.id,
+          role: messages.role,
+          content: messages.content,
+          citations: messages.citations,
+          modelUsed: messages.modelUsed,
+          createdAt: messages.createdAt,
+        })
+        .from(messages)
+        .where(eq(messages.conversationId, id))
+        .orderBy(asc(messages.createdAt)),
+    ]);
 
+    const convo = convoRows[0];
     if (!convo) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-
-    const msgs = await db
-      .select({
-        id: messages.id,
-        role: messages.role,
-        content: messages.content,
-        citations: messages.citations,
-        modelUsed: messages.modelUsed,
-        createdAt: messages.createdAt,
-      })
-      .from(messages)
-      .where(eq(messages.conversationId, id))
-      .orderBy(asc(messages.createdAt));
 
     return NextResponse.json({ ...convo, messages: msgs });
   } catch (error) {

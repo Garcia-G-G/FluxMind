@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notebooks } from "@/db/schema/notebooks";
 import { updateNotebookSchema } from "@/lib/validations/notebook";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 export const PATCH = async (
   request: NextRequest,
@@ -44,6 +45,14 @@ export const PATCH = async (
       .where(eq(notebooks.id, id))
       .returning();
 
+    // Title/icon edits don't change counts, but we invalidate anyway for
+    // simplicity — the cache is cheap to rebuild.
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Failed to update notebook:", error);
@@ -79,6 +88,14 @@ export const DELETE = async (
     }
 
     await db.delete(notebooks).where(eq(notebooks.id, id));
+
+    // Deleting a notebook cascades through sources/outputs/conversations,
+    // so every counted entity in the stats payload may have changed.
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

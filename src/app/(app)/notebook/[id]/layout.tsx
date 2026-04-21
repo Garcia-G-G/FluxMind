@@ -1,92 +1,56 @@
-"use client";
+import { Suspense, type ReactNode } from "react";
+import { notFound, redirect } from "next/navigation";
+import { eq, sql } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { notebooks } from "@/db/schema/notebooks";
+import { getCachedSession } from "@/lib/auth-session";
+import { NotebookTabs } from "./notebook-tabs";
 
-import { use, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { MessageSquare, Wand2, Layers } from "lucide-react";
-import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import { SourcePanel } from "@/components/notebook/source-panel";
+// Inline tab-content skeleton — fits inside the tab area the NotebookTabs
+// island renders, so navigation between tabs streams the new page without
+// replacing the tab bar + source panel chrome.
+const TabContentFallback = (): ReactNode => (
+  <div className="p-4 space-y-3 fm-fade-in">
+    <div className="fm-skel-bar" style={{ height: 32, width: 240 }} />
+    <div className="fm-skel-bar mt-4" style={{ height: "60vh", borderRadius: 16 }} />
+  </div>
+);
 
-const tabs = [
-  { href: "", icon: MessageSquare, label: "Chat" },
-  { href: "/studio", icon: Wand2, label: "Studio" },
-  { href: "/canvas", icon: Layers, label: "Canvas" },
-];
-
-const NotebookLayout = ({
+const NotebookLayout = async ({
   children,
   params,
 }: {
   children: ReactNode;
   params: Promise<{ id: string }>;
-}): ReactNode => {
-  const { id } = use(params);
-  const pathname = usePathname();
-  const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
+}): Promise<ReactNode> => {
+  const { id } = await params;
 
-  const basePath = `/notebook/${id}`;
+  const session = await getCachedSession();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  // Check ownership or collaborator access. 404 if not found / not allowed.
+  const [notebook] = await db
+    .select({ id: notebooks.id })
+    .from(notebooks)
+    .where(
+      sql`${eq(notebooks.id, id)} AND (${notebooks.userId} = ${session.user.id} OR EXISTS (
+        SELECT 1 FROM notebook_collaborators
+        WHERE notebook_collaborators.notebook_id = ${notebooks.id}
+        AND notebook_collaborators.user_id = ${session.user.id}
+      ))`,
+    )
+    .limit(1);
+
+  if (!notebook) {
+    notFound();
+  }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] -m-4 md:-m-6">
-      {/* Source Panel — wider for usability */}
-      {sourcePanelOpen && (
-        <div
-          className="hidden md:block w-80 lg:w-[340px] shrink-0 overflow-hidden"
-          style={{
-            borderRight: "1px solid var(--fm-surface-border)",
-            background: "var(--fm-bg-secondary, var(--fm-bg))",
-          }}
-        >
-          <SourcePanel notebookId={id} />
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Tabs */}
-        <div
-          className="flex items-center gap-1 px-4 pt-3 pb-0"
-          style={{ borderBottom: "1px solid var(--fm-surface-border)" }}
-        >
-          {tabs.map((tab) => {
-            const tabPath = `${basePath}${tab.href}`;
-            const isActive =
-              tab.href === ""
-                ? pathname === basePath
-                : pathname.startsWith(tabPath);
-            return (
-              <Link
-                key={tab.label}
-                href={tabPath}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-md transition-colors -mb-px",
-                  isActive ? "font-medium" : ""
-                )}
-                style={{
-                  color: isActive ? "var(--fm-text)" : "var(--fm-text-tertiary)",
-                  borderBottom: isActive ? "2px solid var(--fm-accent-orange)" : "2px solid transparent",
-                }}
-              >
-                <tab.icon className="h-4 w-4" />
-                {tab.label}
-              </Link>
-            );
-          })}
-
-          <button
-            onClick={() => setSourcePanelOpen(!sourcePanelOpen)}
-            className="ml-auto text-xs transition-colors px-2 py-1 hidden md:block"
-            style={{ color: "var(--fm-text-tertiary)" }}
-          >
-            {sourcePanelOpen ? "Hide sources" : "Show sources"}
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="flex-1 overflow-auto p-4">{children}</div>
-      </div>
-    </div>
+    <NotebookTabs notebookId={id}>
+      <Suspense fallback={<TabContentFallback />}>{children}</Suspense>
+    </NotebookTabs>
   );
 };
 

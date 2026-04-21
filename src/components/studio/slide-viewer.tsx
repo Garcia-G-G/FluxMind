@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import {
   ChevronLeft,
   ChevronRight,
@@ -180,14 +181,14 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
           }}
         >
           {current.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={current.imageUrl}
               alt={current.title}
               width={1280}
               height={1600}
+              sizes="(max-width: 768px) 100vw, 800px"
               className="w-full h-auto block cursor-zoom-in"
-              loading="lazy"
+              priority={index === 0}
               onClick={() => setIsFullscreen(true)}
             />
           ) : (
@@ -326,13 +327,12 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
                 }}
               >
                 {s.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={s.imageUrl}
                     alt={s.title}
                     width={120}
                     height={150}
-                    loading="lazy"
+                    sizes="120px"
                     className="w-full h-full object-cover block"
                   />
                 ) : (
@@ -376,11 +376,13 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
           aria-modal="true"
           aria-label={`${current.title} fullscreen`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={current.imageUrl}
             alt={current.title}
-            className="max-w-full max-h-full object-contain"
+            width={1280}
+            height={1600}
+            sizes="100vw"
+            className="max-w-full max-h-full w-auto h-auto object-contain"
             onClick={(e) => e.stopPropagation()}
           />
           <button

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { notebooks } from "@/db/schema/notebooks";
 import { sources } from "@/db/schema/sources";
 import { createNotebookSchema } from "@/lib/validations/notebook";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -116,6 +117,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         updatedAt: now,
       })
       .returning();
+
+    // Invalidate dashboard stats cache — notebook counts are now stale.
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     return NextResponse.json(notebook, { status: 201 });
   } catch (error) {

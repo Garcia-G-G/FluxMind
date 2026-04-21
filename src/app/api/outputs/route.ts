@@ -18,17 +18,21 @@ export const GET = async (req: Request): Promise<NextResponse> => {
     return NextResponse.json({ error: "notebookId required" }, { status: 400 });
   }
 
+  // List view never needs the `content` jsonb column — quiz/flashcards/
+  // slides payloads can reach tens of KB each, and multiplying that by
+  // every row makes the list endpoint an order of magnitude bigger than
+  // it needs to be. Clients fetch `content` lazily via GET /api/outputs/[id].
   const results = await db
     .select({
       id: outputs.id,
+      notebookId: outputs.notebookId,
       type: outputs.type,
       title: outputs.title,
       status: outputs.status,
-      createdAt: outputs.createdAt,
-      updatedAt: outputs.updatedAt,
-      content: outputs.content,
       fileUrl: outputs.fileUrl,
       thumbnailUrl: outputs.thumbnailUrl,
+      createdAt: outputs.createdAt,
+      updatedAt: outputs.updatedAt,
     })
     .from(outputs)
     .where(

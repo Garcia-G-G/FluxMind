@@ -6,11 +6,11 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { notebooks } from "@/db/schema/notebooks";
-import { sources } from "@/db/schema/sources";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getStudioContext, isError } from "@/lib/studio/generate";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 const quizSchema = z.object({
   title: z.string(),
@@ -77,33 +77,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: "notebookId required" }, { status: 400 });
     }
 
-    // Verify access
-    const [notebook] = await db
-      .select({ userId: notebooks.userId, title: notebooks.title })
-      .from(notebooks)
-      .where(eq(notebooks.id, notebookId));
-
-    if (!notebook || notebook.userId !== session.user.id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    // Shared studio context: auth, ownership check, and DB-sliced source
+    // text (LEFT() + LIMIT) in a single parallelized call.
+    const ctx = await getStudioContext(notebookId);
+    if (isError(ctx)) {
+      return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
-
-    // Get source texts
-    const notebookSources = await db
-      .select({ title: sources.title, rawText: sources.rawText })
-      .from(sources)
-      .where(eq(sources.notebookId, notebookId));
-
-    const sourceContext = notebookSources
-      .filter((s) => s.rawText)
-      .map((s) => `[${s.title}]\n${s.rawText!.slice(0, 5000)}`)
-      .join("\n\n---\n\n");
-
-    if (!sourceContext.trim()) {
-      return NextResponse.json(
-        { error: "No processed sources available" },
-        { status: 400 }
-      );
-    }
+    const { notebookTitle, sourceContext } = ctx;
 
     // Create output record first
     const outputId = createId();
@@ -112,11 +92,17 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       notebookId,
       userId: session.user.id,
       type: "quiz",
-      title: `Quiz: ${notebook.title}`,
+      title: `Quiz: ${notebookTitle}`,
       status: "generating",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    // Stats cache invalidation — fire-and-forget, never fails the request.
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     try {
       const { object: quiz } = await generateObject({

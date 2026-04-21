@@ -38,6 +38,11 @@ export const sources = pgTable(
     type: sourceTypeEnum("type").notNull(),
     title: text("title").notNull(),
     fileUrl: text("file_url"),
+    // Storage key (R2 object key / local path under public/uploads/).
+    // Stored explicitly so DELETE doesn't have to derive it from fileUrl
+    // via fragile URL parsing. Nullable for legacy rows uploaded before
+    // this column existed.
+    fileKey: text("file_key"),
     originalUrl: text("original_url"),
     rawText: text("raw_text"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),

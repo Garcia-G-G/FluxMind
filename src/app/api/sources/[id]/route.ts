@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sources } from "@/db/schema/sources";
 import { notebooks } from "@/db/schema/notebooks";
+import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
 
 export const GET = async (
   _request: NextRequest,
@@ -110,6 +111,12 @@ export const DELETE = async (
 
     // Cascade delete handles chunks
     await db.delete(sources).where(eq(sources.id, id));
+
+    try {
+      await cacheDel(statsCacheKey(session.user.id));
+    } catch {
+      /* no-op */
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

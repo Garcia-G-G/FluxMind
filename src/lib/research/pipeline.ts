@@ -55,20 +55,32 @@ Return search queries and your reasoning.`,
     data: plan,
   });
 
-  // Step 2: Search the web
+  // Step 2: Search the web. Was serial (1 round-trip per query, 5-8 queries
+  // = 5-15s dead time). Run all queries concurrently with allSettled so a
+  // single provider hiccup doesn't take the whole pipeline down — rejected
+  // queries just contribute zero results.
+  onStep({
+    type: "search",
+    message: `Searching ${plan.queries.length} queries in parallel...`,
+    progress: 12,
+  });
+
+  const searchSettled = await Promise.allSettled(
+    plan.queries.map((searchQuery) => searchWeb(searchQuery, 5)),
+  );
+
   const allResults: SearchResult[] = [];
   const seenUrls = new Set<string>();
-
-  for (let i = 0; i < plan.queries.length; i++) {
-    const searchQuery = plan.queries[i];
-    onStep({
-      type: "search",
-      message: `Searching: "${searchQuery}"`,
-      progress: 10 + ((i + 1) / plan.queries.length) * 30,
-    });
-
-    const results = await searchWeb(searchQuery, 5);
-    for (const result of results) {
+  for (let i = 0; i < searchSettled.length; i++) {
+    const settled = searchSettled[i];
+    if (settled.status !== "fulfilled") {
+      console.warn(
+        `[research] search query rejected: ${plan.queries[i]}`,
+        settled.reason,
+      );
+      continue;
+    }
+    for (const result of settled.value) {
       if (!seenUrls.has(result.url)) {
         seenUrls.add(result.url);
         allResults.push(result);

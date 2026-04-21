@@ -34,6 +34,13 @@ export const conversations = pgTable(
   (table) => [
     index("conversations_notebook_id_idx").on(table.notebookId),
     index("conversations_user_id_idx").on(table.userId),
+    // Composite covers the common list query on the notebook detail page:
+    // "conversations where notebookId = ? AND userId = ?". Cheaper than
+    // intersecting the two single-column indexes.
+    index("conversations_notebook_user_idx").on(
+      table.notebookId,
+      table.userId,
+    ),
   ]
 );
 
