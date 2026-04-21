@@ -36,23 +36,34 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
 
-        if (userId && customerId) {
+        if (userId && customerId && subscriptionId) {
           await db
             .update(users)
             .set({ stripeCustomerId: customerId, plan: "pro" })
             .where(eq(users.id, userId));
 
-          // Create subscription record
+          // Fetch the real subscription from Stripe so periods, trials, and
+          // interval (monthly vs annual) come from source-of-truth instead
+          // of hand-rolled +1-month JS math.
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          const firstItem = sub.items.data[0];
+          const periodStart = new Date(
+            ((firstItem?.current_period_start ?? sub.start_date) as number) * 1000,
+          );
+          const periodEnd = new Date(
+            ((firstItem?.current_period_end ??
+              firstItem?.current_period_start ??
+              sub.start_date) as number) * 1000,
+          );
           const now = new Date();
-          const periodEnd = new Date();
-          periodEnd.setMonth(periodEnd.getMonth() + 1);
+
           await db.insert(subscriptions).values({
             id: createId(),
             userId,
             stripeSubscriptionId: subscriptionId,
             plan: "pro",
-            status: "active",
-            currentPeriodStart: now,
+            status: sub.status,
+            currentPeriodStart: periodStart,
             currentPeriodEnd: periodEnd,
             createdAt: now,
             updatedAt: now,

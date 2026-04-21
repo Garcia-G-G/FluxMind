@@ -82,28 +82,31 @@ Return search queries and your reasoning.`,
     progress: 40,
   });
 
-  // Step 3: Read/scrape top results
+  // Step 3: Read/scrape top results IN PARALLEL. Was serial — 12 network
+  // round-trips at one per iteration = 10-30s of wall-clock time on top of
+  // search. Promise.allSettled lets every page race; failed scrapes are
+  // simply dropped (we already tolerate partial results).
   const pagesToRead = allResults.slice(0, 12);
+  onStep({
+    type: "read",
+    message: `Reading ${pagesToRead.length} articles in parallel...`,
+    progress: 42,
+  });
+
+  const scrapeResults = await Promise.allSettled(
+    pagesToRead.map((r) => scrapePage(r.url)),
+  );
   const scrapedPages: ScrapedPage[] = [];
-
-  for (let i = 0; i < pagesToRead.length; i++) {
-    const result = pagesToRead[i];
-    onStep({
-      type: "read",
-      message: `Reading: "${result.title}"`,
-      progress: 40 + ((i + 1) / pagesToRead.length) * 30,
-    });
-
-    const page = await scrapePage(result.url);
-    if (page) {
-      scrapedPages.push(page);
+  for (const settled of scrapeResults) {
+    if (settled.status === "fulfilled" && settled.value) {
+      scrapedPages.push(settled.value);
     }
   }
 
   onStep({
     type: "read",
-    message: `Read ${scrapedPages.length} articles successfully`,
-    progress: 70,
+    message: `Read ${scrapedPages.length}/${pagesToRead.length} articles`,
+    progress: 68,
   });
 
   // Step 4: Synthesize report
