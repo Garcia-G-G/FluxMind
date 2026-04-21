@@ -30,7 +30,7 @@ export const SuggestedQuestions = ({
             key={question}
             onClick={() => onSelect(question)}
             className="text-left px-4 py-3 rounded-lg border border-border hover:bg-accent/50 transition-colors text-sm text-muted-foreground hover:text-foreground fm-stagger-item"
-            style={{ animationDelay: `${i * 80}ms` }}
+            style={{ animationDelay: `${i * 30}ms` }}
           >
             {question}
           </button>

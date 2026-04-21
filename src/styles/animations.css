@@ -35,11 +35,13 @@
   50% { opacity: 1; }
 }
 
-/* === Fade-in-up (replaces motion.div initial/animate) === */
+/* === Fade-in-up (replaces motion.div initial/animate) ===
+   Tightened from 0.5s/0.4s → 0.25s/0.22s and translateY 16px → 8px so
+   entrance feels crisp instead of "contracted" / sluggish. */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -48,13 +50,13 @@
 }
 
 .fm-fade-in {
-  animation: fadeInUp 0.5s ease both;
+  animation: fadeInUp 0.25s ease-out both;
 }
 
 /* === Stagger grid items (replaces motion containerVariants/itemVariants) === */
 .fm-stagger-item {
   opacity: 0;
-  animation: fadeInUp 0.4s ease both;
+  animation: fadeInUp 0.22s ease-out both;
   /* animation-delay set inline per item */
 }
 
@@ -66,12 +68,26 @@
     color 0.4s ease;
 }
 
-/* === Card hover lift === */
+/* === Card hover lift ===
+   Snappier: 0.3s → 0.15s so hover feels immediate, not syrupy. */
 .fm-lift-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 .fm-lift-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
+}
+
+/* === Accent-tinted border on hover ===
+   Reads the per-card --fm-card-accent custom property (default primary)
+   and mixes it into the border only on hover. Cheap: single property
+   transition, no new layers, no filters. Adds "life" without hurting perf. */
+.fm-hover-tint {
+  --fm-card-accent: var(--fm-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fm-hover-tint:hover {
+  border-color: color-mix(in srgb, var(--fm-card-accent) 32%, transparent) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fm-card-accent) 14%, transparent);
 }
 
 /* === Icon tile base === */
@@ -86,12 +102,13 @@
 }
 .fm-icon-tile:hover { transform: scale(1.05); }
 
-/* === Notebook card hover glow === */
+/* === Notebook card hover glow ===
+   Snappier: 0.35s → 0.16s. Still smooth, no longer "slow/contracted". */
 .fm-notebook-card {
   display: block;
   transition:
-    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transform 0.16s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.16s cubic-bezier(0.2, 0, 0, 1);
 }
 .fm-notebook-card:hover {
   transform: translateY(-3px);
@@ -106,5 +123,35 @@
 /* === Sidebar label fade (replaces motion.span) === */
 .fm-sidebar-label {
   transition: opacity 0.2s ease;
+}
+
+/* === Skeleton shimmer for route loading.tsx fallbacks ===
+   One linear-gradient sweep on the glass surface; no filter blur, no
+   infinite particle work. Reads as "something is coming" instead of blank. */
+@keyframes fmShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.fm-skel-bar {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.12) 50%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+  background-size: 200% 100%;
+  animation: fmShimmer 1.6s ease-in-out infinite;
+  border-radius: 12px;
+}
+[data-theme="light"] .fm-skel-bar {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.04) 0%,
+      rgba(0, 0, 0, 0.10) 50%,
+      rgba(0, 0, 0, 0.04) 100%
+    );
+  background-size: 200% 100%;
 }
 

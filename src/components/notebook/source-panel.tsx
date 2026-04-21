@@ -173,7 +173,7 @@ export const SourcePanel = ({
                   key={source.id}
                   className="group flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors cursor-default fm-stagger-item"
                   style={{
-                    animationDelay: `${i * 30}ms`,
+                    animationDelay: `${i * 15}ms`,
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--fm-surface-hover)";

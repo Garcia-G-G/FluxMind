@@ -196,7 +196,7 @@ const UploadList = ({
           <div
             key={`${u.file.name}-${i}`}
             className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-muted fm-stagger-item"
-            style={{ animationDelay: `${i * 30}ms` }}
+            style={{ animationDelay: `${i * 15}ms` }}
           >
             {u.status === "uploading" && (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />

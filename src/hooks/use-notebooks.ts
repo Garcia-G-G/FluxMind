@@ -28,12 +28,16 @@ export const useNotebooks = (
   search = "",
   sort = "updatedAt",
   order = "desc",
-  options?: { initialData?: NotebookWithCount[] },
+  options?: { initialData?: NotebookWithCount[]; staleTime?: number },
 ) => {
   return useQuery({
     queryKey: ["notebooks", search, sort, order],
     queryFn: () => fetchNotebooks(search, sort, order),
     initialData: options?.initialData,
+    // 60s default: sidebar + dashboard won't re-fetch on every route change,
+    // which was causing the "Recent Notebooks" flicker during navigation.
+    // Mutations (create/update/delete) still invalidate immediately.
+    staleTime: options?.staleTime ?? 60_000,
   });
 };
 

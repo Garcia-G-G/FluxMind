@@ -6,24 +6,30 @@
   --fm-bg: #08080c;
   --fm-bg-secondary: #0f0f15;
   --fm-bg-tertiary: #16161f;
-  --fm-surface: rgba(255,255,255,0.06);
-  --fm-surface-hover: rgba(255,255,255,0.08);
-  --fm-surface-border: rgba(255,255,255,0.08);
-  --fm-glass-bg: rgba(255,255,255,0.06);
-  --fm-glass-border: rgba(255,255,255,0.08);
+  --fm-surface: rgba(255,255,255,0.08);
+  --fm-surface-hover: rgba(255,255,255,0.11);
+  --fm-surface-border: rgba(255,255,255,0.10);
+  --fm-glass-bg: rgba(255,255,255,0.08);
+  --fm-glass-border: rgba(255,255,255,0.10);
   --fm-text: #ffffff;
   --fm-text-secondary: rgba(255,255,255,0.7);
   --fm-text-tertiary: rgba(255,255,255,0.4);
+  /* Color role system — single primary + semantic roles, no ambiguity.
+     Use --fm-primary for CTAs, active states, logo accent.
+     Use --fm-secondary for Studio/AI surfaces.
+     Use --fm-info/success/danger/warning for semantic meaning only. */
   --fm-accent-orange: #ff6b35;
   --fm-accent-rose: #e11d48;
   --fm-accent-violet: #7c3aed;
   --fm-accent-blue: #2563eb;
+  --fm-primary: #ff6b35;           /* CTAs, active nav, primary selection */
+  --fm-secondary: #7c3aed;         /* AI / Studio features, chat accent */
   --fm-accent-gradient: linear-gradient(135deg, #ff6b35, #e11d48, #7c3aed);
   --fm-accent-gradient-text: linear-gradient(90deg, #ff6b35, #e11d48, #7c3aed, #2563eb, #ff6b35);
   --fm-success: #22c55e;
   --fm-warning: #eab308;
   --fm-error: #ef4444;
-  --fm-info: #3b82f6;
+  --fm-info: #2563eb;
   --fm-sidebar-bg: rgba(255,255,255,0.03);
   --fm-sidebar-border: rgba(255,255,255,0.06);
   --fm-header-bg: rgba(10,8,14,0.7);
@@ -63,6 +69,8 @@
   --fm-accent-rose: #e11d48;
   --fm-accent-violet: #7c3aed;
   --fm-accent-blue: #2563eb;
+  --fm-primary: #ff6b35;
+  --fm-secondary: #7c3aed;
   --fm-accent-gradient: linear-gradient(135deg, #ff6b35, #e11d48, #7c3aed);
   --fm-accent-gradient-text: linear-gradient(90deg, #e85d2a, #d0163d, #6a2ec8, #1d55d0, #e85d2a);
   --fm-success: #16a34a;

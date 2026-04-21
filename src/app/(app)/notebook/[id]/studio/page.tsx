@@ -29,59 +29,79 @@ const ViewerFallback = (): React.ReactNode => (
   </div>
 );
 
+// Named import fns so we can also call them on card hover (prefetch) — the
+// viewer chunk starts downloading while the user is deciding to click, so
+// opening the viewer feels instant instead of waiting on the chunk.
+const importSlideViewer = () => import("@/components/studio/slide-viewer");
+const importInfographicViewer = () =>
+  import("@/components/studio/infographic-viewer");
+const importDeepResearch = () => import("@/components/studio/deep-research");
+const importCourseView = () => import("@/components/studio/course-view");
+const importMindMapCanvas = () =>
+  import("@/components/mind-map/mind-map-canvas");
+const importVideoPlayer = () => import("@/components/video/video-player");
+const importQuizView = () => import("@/components/studio/quiz-view");
+const importFlashcardView = () => import("@/components/studio/flashcard-view");
+const importStudyStats = () => import("@/components/studio/study-stats");
+const importDataTableView = () => import("@/components/studio/data-table-view");
+const importThreadPreview = () => import("@/components/studio/thread-preview");
+const importNewsletterPreview = () =>
+  import("@/components/studio/newsletter-preview");
+const importReelScriptView = () => import("@/components/studio/reel-script-view");
+
 // All view components are dynamic: the studio overview never renders them
 // at paint, only after a user picks a card. Dynamic import keeps them out
 // of the studio-overview bundle and out of hydration on first paint.
 const SlideViewer = dynamic(
-  () => import("@/components/studio/slide-viewer").then((m) => m.SlideViewer),
+  () => importSlideViewer().then((m) => m.SlideViewer),
   { ssr: false, loading: ViewerFallback },
 );
 const InfographicViewer = dynamic(
-  () => import("@/components/studio/infographic-viewer").then((m) => m.InfographicViewer),
+  () => importInfographicViewer().then((m) => m.InfographicViewer),
   { ssr: false, loading: ViewerFallback },
 );
 const DeepResearch = dynamic(
-  () => import("@/components/studio/deep-research").then((m) => m.DeepResearch),
+  () => importDeepResearch().then((m) => m.DeepResearch),
   { ssr: false, loading: ViewerFallback },
 );
 const CourseView = dynamic(
-  () => import("@/components/studio/course-view").then((m) => m.CourseView),
+  () => importCourseView().then((m) => m.CourseView),
   { ssr: false, loading: ViewerFallback },
 );
 const MindMapCanvas = dynamic(
-  () => import("@/components/mind-map/mind-map-canvas").then((m) => m.MindMapCanvas),
+  () => importMindMapCanvas().then((m) => m.MindMapCanvas),
   { ssr: false, loading: ViewerFallback },
 );
 const VideoPlayer = dynamic(
-  () => import("@/components/video/video-player").then((m) => m.VideoPlayer),
+  () => importVideoPlayer().then((m) => m.VideoPlayer),
   { ssr: false, loading: ViewerFallback },
 );
 const QuizView = dynamic(
-  () => import("@/components/studio/quiz-view").then((m) => m.QuizView),
+  () => importQuizView().then((m) => m.QuizView),
   { ssr: false, loading: ViewerFallback },
 );
 const FlashcardView = dynamic(
-  () => import("@/components/studio/flashcard-view").then((m) => m.FlashcardView),
+  () => importFlashcardView().then((m) => m.FlashcardView),
   { ssr: false, loading: ViewerFallback },
 );
 const StudyStats = dynamic(
-  () => import("@/components/studio/study-stats").then((m) => m.StudyStats),
+  () => importStudyStats().then((m) => m.StudyStats),
   { ssr: false },
 );
 const DataTableView = dynamic(
-  () => import("@/components/studio/data-table-view").then((m) => m.DataTableView),
+  () => importDataTableView().then((m) => m.DataTableView),
   { ssr: false, loading: ViewerFallback },
 );
 const ThreadPreview = dynamic(
-  () => import("@/components/studio/thread-preview").then((m) => m.ThreadPreview),
+  () => importThreadPreview().then((m) => m.ThreadPreview),
   { ssr: false, loading: ViewerFallback },
 );
 const NewsletterPreview = dynamic(
-  () => import("@/components/studio/newsletter-preview").then((m) => m.NewsletterPreview),
+  () => importNewsletterPreview().then((m) => m.NewsletterPreview),
   { ssr: false, loading: ViewerFallback },
 );
 const ReelScriptView = dynamic(
-  () => import("@/components/studio/reel-script-view").then((m) => m.ReelScriptView),
+  () => importReelScriptView().then((m) => m.ReelScriptView),
   { ssr: false, loading: ViewerFallback },
 );
 import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
@@ -98,6 +118,10 @@ import {
   useGenerateVideo,
 } from "@/hooks/use-studio-outputs";
 import type { OutputListItem } from "@/hooks/use-studio-outputs";
+import {
+  GenerateDialog,
+  type GenerateConfig,
+} from "@/components/studio/generate-dialog";
 import type { SlidesContent } from "@/app/api/studio/slides/route";
 import type { InfographicContent } from "@/app/api/studio/infographic/route";
 import type { DataTableContent } from "@/app/api/studio/datatable/route";
@@ -143,6 +167,12 @@ const StudioPage = ({
   const { id: notebookId } = use(params);
   const [activeTab, setActiveTab] = useState<StudioTab>("overview");
   const { data: savedOutputs } = useOutputs(notebookId);
+
+  // Dialog-driven generators: slides, infographic, video, mindmap.
+  // Everything else generates instantly on Generate-button click.
+  type DialogType = "slides" | "infographic" | "video" | "mindmap";
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [dialogType, setDialogType] = useState<DialogType | null>(null);
 
   // All generators
   const generateQuiz = useGenerateQuiz();
@@ -216,17 +246,74 @@ const StudioPage = ({
 
   const generate = async <T,>(
     type: StudioTab,
-    mutateAsync: (args: { notebookId: string }) => Promise<T>,
-    setter: (data: T) => void
+    mutateAsync: (
+      args: { notebookId: string } & Partial<GenerateConfig>,
+    ) => Promise<T>,
+    setter: (data: T) => void,
+    config?: Partial<GenerateConfig>,
   ): Promise<void> => {
     try {
-      const result = await mutateAsync({ notebookId });
+      const result = await mutateAsync({ notebookId, ...config });
       setter(result);
       setActiveTab(type);
     } catch {
       // Error shown by mutation
     }
   };
+
+  /** Fire the right generator for the currently-open dialog. */
+  const runDialogGenerate = async (config: GenerateConfig): Promise<void> => {
+    if (!dialogType) return;
+    switch (dialogType) {
+      case "slides":
+        await generate(
+          "slides",
+          generateSlides.mutateAsync,
+          setSlidesData,
+          config,
+        );
+        break;
+      case "infographic":
+        await generate(
+          "infographic",
+          generateInfographic.mutateAsync,
+          setInfographicData,
+          config,
+        );
+        break;
+      case "video":
+        await generate(
+          "video",
+          generateVideoOverview.mutateAsync,
+          setVideoData,
+          config,
+        );
+        break;
+      case "mindmap":
+        await generate(
+          "mindmap",
+          generateMindMap.mutateAsync,
+          setMindMapData,
+          config,
+        );
+        break;
+    }
+    setDialogOpen(false);
+  };
+
+  /** Open the customization dialog for a given output type. */
+  const openDialog = (type: DialogType): void => {
+    setDialogType(type);
+    setDialogOpen(true);
+  };
+
+  /** `isPending` for whichever dialog-type is currently open. */
+  const dialogIsPending =
+    (dialogType === "slides" && generateSlides.isPending) ||
+    (dialogType === "infographic" && generateInfographic.isPending) ||
+    (dialogType === "video" && generateVideoOverview.isPending) ||
+    (dialogType === "mindmap" && generateMindMap.isPending) ||
+    false;
 
   // Render active output view
   if (activeTab !== "overview") {
@@ -295,7 +382,8 @@ const StudioPage = ({
     error,
     hasData,
     tab,
-    accent = "var(--fm-accent-orange)",
+    accent = "var(--fm-secondary)",
+    onHover,
   }: {
     icon: LucideIcon;
     title: string;
@@ -306,13 +394,17 @@ const StudioPage = ({
     hasData: boolean;
     tab: StudioTab;
     accent?: string;
+    onHover?: () => void;
   }): React.ReactNode => (
     <div
-      className="group relative overflow-hidden rounded-2xl p-5 transition-transform duration-300 hover:-translate-y-1"
+      onMouseEnter={onHover}
+      onFocus={onHover}
+      className="fm-hover-tint group relative overflow-hidden rounded-2xl p-5 transition-transform duration-150 ease-out hover:-translate-y-0.5"
       style={{
         background: "var(--fm-glass-bg)",
         border: "1px solid var(--fm-glass-border)",
-      }}
+        ["--fm-card-accent" as string]: accent,
+      } as React.CSSProperties}
     >
       {/* Top accent line */}
       <div
@@ -427,84 +519,97 @@ const StudioPage = ({
       {/* Study section */}
       <SectionHeader label="Study" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={HelpCircle} title="Quiz" tab="quiz" accent="var(--fm-accent-violet)"
+        <StudioCard icon={HelpCircle} title="Quiz" tab="quiz" accent="var(--fm-secondary)"
           description="MC, T/F, and free response questions."
           onGenerate={() => generate("quiz", generateQuiz.mutateAsync, setQuizData)}
+          onHover={importQuizView}
           isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData} />
-        <StudioCard icon={Layers} title="Flashcards" tab="flashcards" accent="var(--fm-accent-blue)"
+        <StudioCard icon={Layers} title="Flashcards" tab="flashcards" accent="var(--fm-secondary)"
           description="Spaced repetition flashcards."
           onGenerate={() => generate("flashcards", generateFlashcards.mutateAsync, setFlashcardData)}
+          onHover={importFlashcardView}
           isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData} />
-        <StudioCard icon={GraduationCap} title="Mini-Course" tab="course" accent="var(--fm-accent-rose)"
+        <StudioCard icon={GraduationCap} title="Mini-Course" tab="course" accent="var(--fm-secondary)"
           description="Structured lessons with quizzes."
           onGenerate={() => generate("course", generateCourse.mutateAsync, setCourseData)}
+          onHover={importCourseView}
           isPending={generateCourse.isPending} error={generateCourse.error} hasData={!!courseData} />
       </div>
 
       {/* Visual section */}
       <SectionHeader label="Visual" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={Presentation} title="Slide Deck" tab="slides" accent="var(--fm-accent-orange)"
+        <StudioCard icon={Presentation} title="Slide Deck" tab="slides" accent="var(--fm-secondary)"
           description="Presentation with multiple layouts."
-          onGenerate={() => generate("slides", generateSlides.mutateAsync, setSlidesData)}
+          onGenerate={() => openDialog("slides")}
+          onHover={importSlideViewer}
           isPending={generateSlides.isPending} error={generateSlides.error} hasData={!!slidesData} />
-        <StudioCard icon={Image} title="Infographic" tab="infographic" accent="var(--fm-accent-rose)"
+        <StudioCard icon={Image} title="Infographic" tab="infographic" accent="var(--fm-secondary)"
           description="Stats, timelines, and comparisons."
-          onGenerate={() => generate("infographic", generateInfographic.mutateAsync, setInfographicData)}
+          onGenerate={() => openDialog("infographic")}
+          onHover={importInfographicViewer}
           isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData} />
-        <StudioCard icon={Table} title="Data Tables" tab="datatable" accent="var(--fm-accent-blue)"
+        <StudioCard icon={Table} title="Data Tables" tab="datatable" accent="var(--fm-secondary)"
           description="Extract tabular data from sources."
           onGenerate={() => generate("datatable", generateDataTable.mutateAsync, setDataTableData)}
+          onHover={importDataTableView}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
-        <StudioCard icon={Network} title="Mind Map" tab="mindmap" accent="var(--fm-accent-violet)"
+        <StudioCard icon={Network} title="Mind Map" tab="mindmap" accent="var(--fm-secondary)"
           description="Explorable knowledge graph from sources."
-          onGenerate={() => generate("mindmap", generateMindMap.mutateAsync, setMindMapData)}
+          onGenerate={() => openDialog("mindmap")}
+          onHover={importMindMapCanvas}
           isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
-        <StudioCard icon={Film} title="Video Overview" tab="video" accent="var(--fm-accent-orange)"
+        <StudioCard icon={Film} title="Video Overview" tab="video" accent="var(--fm-secondary)"
           description="AI-narrated video with generated visuals."
-          onGenerate={() => generate("video", generateVideoOverview.mutateAsync, setVideoData)}
+          onGenerate={() => openDialog("video")}
+          onHover={importVideoPlayer}
           isPending={generateVideoOverview.isPending} error={generateVideoOverview.error} hasData={!!videoData} />
       </div>
 
       {/* Content section */}
       <SectionHeader label="Content" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={MessageCircle} title="X Thread" tab="thread" accent="var(--fm-accent-blue)"
+        <StudioCard icon={MessageCircle} title="X Thread" tab="thread" accent="var(--fm-secondary)"
           description="Viral thread with hook and CTA."
           onGenerate={() => generate("thread", generateThread.mutateAsync, setThreadData)}
+          onHover={importThreadPreview}
           isPending={generateThread.isPending} error={generateThread.error} hasData={!!threadData} />
-        <StudioCard icon={Mail} title="Newsletter" tab="newsletter" accent="var(--fm-accent-violet)"
+        <StudioCard icon={Mail} title="Newsletter" tab="newsletter" accent="var(--fm-secondary)"
           description="Professional email newsletter."
           onGenerate={() => generate("newsletter", generateNewsletter.mutateAsync, setNewsletterData)}
+          onHover={importNewsletterPreview}
           isPending={generateNewsletter.isPending} error={generateNewsletter.error} hasData={!!newsletterData} />
-        <StudioCard icon={Video} title="Reel Script" tab="reel" accent="var(--fm-accent-rose)"
+        <StudioCard icon={Video} title="Reel Script" tab="reel" accent="var(--fm-secondary)"
           description="30-60s short-form video script."
           onGenerate={() => generate("reel", generateReel.mutateAsync, setReelData)}
+          onHover={importReelScriptView}
           isPending={generateReel.isPending} error={generateReel.error} hasData={!!reelData} />
       </div>
 
       {/* Deep Research — featured card */}
       <SectionHeader label="Research" />
       <div
-        className="relative overflow-hidden rounded-2xl p-5 flex items-center gap-4"
+        onMouseEnter={importDeepResearch}
+        className="fm-hover-tint relative overflow-hidden rounded-2xl p-5 flex items-center gap-4"
         style={{
           background: "var(--fm-glass-bg)",
           border: "1px solid var(--fm-glass-border)",
-        }}
+          ["--fm-card-accent" as string]: "var(--fm-secondary)",
+        } as React.CSSProperties}
       >
         <div
           className="absolute top-0 left-0 right-0 h-[2px]"
-          style={{ background: "linear-gradient(90deg, var(--fm-accent-violet), transparent)" }}
+          style={{ background: "linear-gradient(90deg, var(--fm-secondary), transparent)" }}
         />
         <div
           className="flex items-center justify-center shrink-0 rounded-lg"
           style={{
             width: 44,
             height: 44,
-            background: "color-mix(in srgb, var(--fm-accent-violet) 12%, transparent)",
+            background: "color-mix(in srgb, var(--fm-secondary) 12%, transparent)",
           }}
         >
-          <Globe className="h-5 w-5" style={{ color: "var(--fm-accent-violet)" }} />
+          <Globe className="h-5 w-5" style={{ color: "var(--fm-secondary)" }} />
         </div>
         <div className="flex-1 min-w-0">
           <h3
@@ -523,7 +628,7 @@ const StudioPage = ({
         <button
           onClick={() => setActiveTab("research")}
           className="flex items-center gap-1.5 h-8 px-4 text-xs font-medium text-white rounded-lg shrink-0"
-          style={{ background: "var(--fm-accent-violet)" }}
+          style={{ background: "var(--fm-secondary)" }}
         >
           <Search className="h-3.5 w-3.5" />
           Start
@@ -600,6 +705,17 @@ const StudioPage = ({
               })}
           </div>
         </>
+      )}
+
+      {/* Customization dialog — slides, infographic, video, mindmap */}
+      {dialogType && (
+        <GenerateDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          outputType={dialogType}
+          onGenerate={runDialogGenerate}
+          isGenerating={dialogIsPending}
+        />
       )}
     </div>
   );

@@ -42,15 +42,14 @@ const getGreeting = (): string => {
   return "Good evening";
 };
 
+// Role-based stat grouping: first pair = "your content" (primary orange),
+// second pair = "AI work" (secondary violet). Visual hierarchy via two
+// pairs instead of four independent colors.
 const statConfig = [
   { icon: BookOpen, label: "Active Notebooks", color: "#ff6b35" },
-  { icon: FileText, label: "Sources Added", color: "#e11d48" },
+  { icon: FileText, label: "Sources Added", color: "#ff6b35" },
   { icon: MessageSquare, label: "AI Conversations", color: "#7c3aed" },
-  { icon: Sparkles, label: "Studio Outputs", color: "#2563eb" },
-];
-
-const CARD_COLORS = [
-  "#ff6b35", "#e11d48", "#7c3aed", "#2563eb", "#f59e0b", "#22c55e",
+  { icon: Sparkles, label: "Studio Outputs", color: "#7c3aed" },
 ];
 
 const formatRelativeTime = (date: Date | string, nowMs: number): string => {
@@ -163,7 +162,7 @@ const DashboardContent = (): React.ReactNode => {
             key={stat.label}
             className="rounded-2xl p-5 fm-stagger-item fm-lift-card"
             style={{
-              animationDelay: `${i * 60}ms`,
+              animationDelay: `${i * 25}ms`,
               background: "var(--fm-glass-bg)",
               border: "1px solid var(--fm-glass-border)",
             }}
@@ -256,20 +255,23 @@ const DashboardContent = (): React.ReactNode => {
       ) : filteredNotebooks.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 fm-stagger-grid">
           {filteredNotebooks.map((notebook, i) => {
-            const cardColor = notebook.color ?? CARD_COLORS[i % CARD_COLORS.length];
+            // User-chosen color wins; no random rotation fallback. Default to
+            // the brand primary so the grid reads as one family.
+            const cardColor = notebook.color ?? "#ff6b35";
             const CardIcon = resolveIcon(notebook.icon ?? "BookOpen");
             return (
-              <div key={notebook.id} className="fm-stagger-item" style={{ animationDelay: `${i * 60}ms` }}>
+              <div key={notebook.id} className="fm-stagger-item" style={{ animationDelay: `${i * 25}ms` }}>
                 <Link
                   href={`/notebook/${notebook.id}`}
                   className="block group"
                 >
                   <div
-                    className="relative overflow-hidden rounded-2xl p-5 transition-transform duration-300 hover:-translate-y-1"
+                    className="fm-hover-tint relative overflow-hidden rounded-2xl p-5 transition-transform duration-150 ease-out hover:-translate-y-0.5"
                     style={{
                       background: "var(--fm-glass-bg)",
                       border: "1px solid var(--fm-glass-border)",
-                    }}
+                      ["--fm-card-accent" as string]: cardColor,
+                    } as React.CSSProperties}
                   >
                     {/* Top accent line */}
                     <div
