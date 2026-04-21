@@ -1,10 +1,17 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import { fal } from "@fal-ai/client";
+import { createId } from "@paralleldrive/cuid2";
 import { db } from "@/lib/db";
 import { sources } from "@/db/schema/sources";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
+import { uploadFile } from "@/lib/storage/r2";
+
+if (process.env.FAL_KEY) {
+  fal.config({ credentials: process.env.FAL_KEY });
+}
 
 const scriptSchema = z.object({
   title: z.string(),
@@ -90,27 +97,48 @@ Sources:\n${sourceContext}`,
       return;
     }
 
-    // Step 2: Generate images via Fal.ai
+    // Step 2: Generate images via Fal.ai. `fal.subscribe` handles the
+    // queue-poll cycle internally (the raw queue.fal.run POST returns a
+    // request id, not the image — using fetch directly against it was
+    // why every chapter imageUrl came back as an empty string).
     const imageUrls: string[] = [];
     for (let i = 0; i < script.chapters.length; i++) {
+      let chapterImageUrl = "";
       try {
-        const res = await fetch("https://queue.fal.run/fal-ai/flux/dev", {
-          method: "POST",
-          headers: {
-            Authorization: `Key ${process.env.FAL_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const result = (await fal.subscribe("fal-ai/flux/schnell", {
+          input: {
             prompt: `${script.chapters[i].imagePrompt}. Professional, high quality, clean design, suitable for educational video.`,
             image_size: "landscape_16_9",
             num_images: 1,
-          }),
-        });
-        const data = await res.json();
-        imageUrls.push(data.images?.[0]?.url ?? "");
-      } catch {
-        imageUrls.push("");
+            num_inference_steps: 4,
+            enable_safety_checker: false,
+          },
+          logs: false,
+        })) as { data?: { images?: Array<{ url: string }> } };
+        const falUrl = result.data?.images?.[0]?.url;
+        if (falUrl) {
+          // Persist to R2 / local uploads so the URL stays valid past
+          // fal's ~24h TTL.
+          try {
+            const res = await fetch(falUrl);
+            if (res.ok) {
+              const buf = Buffer.from(await res.arrayBuffer());
+              chapterImageUrl = await uploadFile(
+                buf,
+                `video/${outputId}/${createId()}.png`,
+                "image/png",
+              );
+            } else {
+              chapterImageUrl = falUrl;
+            }
+          } catch {
+            chapterImageUrl = falUrl;
+          }
+        }
+      } catch (err) {
+        console.warn(`Chapter ${i} image gen failed:`, err);
       }
+      imageUrls.push(chapterImageUrl);
       await updateProgress(outputId, {
         content: { script, progress: 15 + Math.round(((i + 1) / script.chapters.length) * 40) },
       });
