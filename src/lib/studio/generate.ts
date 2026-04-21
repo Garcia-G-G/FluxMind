@@ -1,10 +1,22 @@
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notebooks } from "@/db/schema/notebooks";
 import { sources } from "@/db/schema/sources";
 import { consumeRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+/**
+ * Hard caps on how much source material a studio generator sees.
+ *   - At most STUDIO_MAX_SOURCES sources per generation (by most-recently-updated).
+ *   - Each source's rawText is truncated to STUDIO_MAX_CHARS_PER_SOURCE AT THE DB
+ *     level (SUBSTRING) so we don't transfer a 1MB PDF's full text for a
+ *     generator that will slice it in JS anyway.
+ *   - Combined context capped at STUDIO_MAX_TOTAL_CHARS as a safety rail.
+ */
+const STUDIO_MAX_SOURCES = 8;
+const STUDIO_MAX_CHARS_PER_SOURCE = 6000;
+const STUDIO_MAX_TOTAL_CHARS = 32_000;
 
 export type StudioContext = {
   userId: string;
@@ -62,15 +74,28 @@ export const getStudioContext = async (
     return { error: "Not found", status: 404 };
   }
 
+  // Truncate raw text at the DB level so the Postgres->app hop only carries
+  // what we'll actually feed the model. Ready-only, most-recent first.
   const notebookSources = await db
-    .select({ title: sources.title, rawText: sources.rawText })
+    .select({
+      title: sources.title,
+      rawText: sql<string>`LEFT(${sources.rawText}, ${STUDIO_MAX_CHARS_PER_SOURCE})`.as("raw_text"),
+    })
     .from(sources)
-    .where(eq(sources.notebookId, notebookId));
+    .where(eq(sources.notebookId, notebookId))
+    .orderBy(desc(sources.updatedAt))
+    .limit(STUDIO_MAX_SOURCES);
 
-  const sourceContext = notebookSources
-    .filter((s) => s.rawText)
-    .map((s) => `[${s.title}]\n${s.rawText!.slice(0, 5000)}`)
-    .join("\n\n---\n\n");
+  let total = 0;
+  const parts: string[] = [];
+  for (const s of notebookSources) {
+    if (!s.rawText) continue;
+    const block = `[${s.title}]\n${s.rawText}`;
+    if (total + block.length > STUDIO_MAX_TOTAL_CHARS) break;
+    parts.push(block);
+    total += block.length + 6; // +6 for the `\n\n---\n\n` separator
+  }
+  const sourceContext = parts.join("\n\n---\n\n");
 
   if (!sourceContext.trim()) {
     return { error: "No processed sources available", status: 400 };

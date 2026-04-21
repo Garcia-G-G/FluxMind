@@ -57,12 +57,35 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
           );
           const now = new Date();
 
+          // Narrow Stripe's full status union down to what our enum accepts.
+          // Anything exotic (paused, incomplete_expired, unpaid) maps to the
+          // closest equivalent so the webhook never rejects a real event.
+          const mapStatus = (
+            s: Stripe.Subscription.Status,
+          ): "active" | "canceled" | "past_due" | "trialing" | "incomplete" => {
+            switch (s) {
+              case "active":
+              case "trialing":
+              case "past_due":
+              case "canceled":
+              case "incomplete":
+                return s;
+              case "paused":
+              case "unpaid":
+                return "past_due";
+              case "incomplete_expired":
+                return "canceled";
+              default:
+                return "incomplete";
+            }
+          };
+
           await db.insert(subscriptions).values({
             id: createId(),
             userId,
             stripeSubscriptionId: subscriptionId,
             plan: "pro",
-            status: sub.status,
+            status: mapStatus(sub.status),
             currentPeriodStart: periodStart,
             currentPeriodEnd: periodEnd,
             createdAt: now,
