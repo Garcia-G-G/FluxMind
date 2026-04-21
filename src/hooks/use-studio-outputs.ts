@@ -1,7 +1,13 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+} from "@tanstack/react-query";
 import { useLanguage, type Language } from "@/lib/i18n/language";
+import type { GenerateConfig } from "@/components/studio/generate-dialog";
 
 /* ── Fetch existing outputs for a notebook ── */
 export type OutputListItem = {
@@ -28,10 +34,11 @@ export const useOutputs = (notebookId: string) => {
   });
 };
 
-const generateStudioOutput = async (
+const generateStudioOutput = async <TArgs extends { notebookId: string }>(
   endpoint: string,
-  data: { notebookId: string; count?: number; model?: string; language: Language }
-) => {
+  data: TArgs & { language: Language },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> => {
   const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -44,37 +51,99 @@ const generateStudioOutput = async (
   return res.json();
 };
 
-/* Factory: auto-invalidates outputs query after generation */
-const useGenerate = <T extends { notebookId: string }>(endpoint: string) => {
+/**
+ * Factory: auto-invalidates the notebook's outputs query after generation.
+ *
+ * The hook injects the current `language` from `useLanguage()` into every
+ * request. If the caller's payload already has a `language` (e.g. chosen in
+ * the generate-dialog), that value wins.
+ *
+ * Result is typed `any` so downstream callers can assign to concrete
+ * output-content shapes without casting — matching the legacy behavior.
+ */
+const useGenerate = <TArgs extends { notebookId: string }>(
+  endpoint: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): UseMutationResult<any, Error, TArgs> => {
   const qc = useQueryClient();
   const { language } = useLanguage();
-  return useMutation({
-    mutationFn: (data: T) =>
-      generateStudioOutput(endpoint, { ...data, language }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return useMutation<any, Error, TArgs>({
+    mutationFn: async (data: TArgs) => {
+      const payload = { language, ...data };
+      return await generateStudioOutput(endpoint, payload);
+    },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["outputs", vars.notebookId] });
     },
   });
 };
 
-export const useGenerateSlides = () =>
-  useGenerate<{ notebookId: string; count?: number; model?: string }>("/api/studio/slides");
-export const useGenerateInfographic = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/infographic");
-export const useGenerateDataTable = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/datatable");
-export const useGenerateThread = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/thread");
-export const useGenerateNewsletter = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/newsletter");
-export const useGenerateReel = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/reel");
-export const useGenerateCourse = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/course");
-export const useGenerateMindMap = () =>
-  useGenerate<{ notebookId: string; model?: string }>("/api/studio/mindmap");
-export const useGenerateAudio = () =>
-  useGenerate<{ notebookId: string }>("/api/studio/audio");
+/* ── Dialog-driven generators accept an optional GenerateConfig ── */
+type DialogArgs = { notebookId: string } & Partial<GenerateConfig>;
+type SlidesArgs = DialogArgs & { count?: number; model?: string };
+type InfographicArgs = DialogArgs & { model?: string };
+type VideoArgs = DialogArgs & { model?: string };
+type MindMapArgs = DialogArgs & { model?: string };
+
+/* ── Instant-generate helpers keep their legacy shape ── */
+type InstantArgs = { notebookId: string; model?: string };
+
+export const useGenerateSlides = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  SlidesArgs
+> => useGenerate<SlidesArgs>("/api/studio/slides");
+export const useGenerateInfographic = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  InfographicArgs
+> => useGenerate<InfographicArgs>("/api/studio/infographic");
+export const useGenerateDataTable = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  InstantArgs
+> => useGenerate<InstantArgs>("/api/studio/datatable");
+export const useGenerateThread = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  InstantArgs
+> => useGenerate<InstantArgs>("/api/studio/thread");
+export const useGenerateNewsletter = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  InstantArgs
+> => useGenerate<InstantArgs>("/api/studio/newsletter");
+export const useGenerateReel = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  InstantArgs
+> => useGenerate<InstantArgs>("/api/studio/reel");
+export const useGenerateCourse = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  InstantArgs
+> => useGenerate<InstantArgs>("/api/studio/course");
+export const useGenerateMindMap = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  MindMapArgs
+> => useGenerate<MindMapArgs>("/api/studio/mindmap");
+export const useGenerateAudio = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  { notebookId: string }
+> => useGenerate<{ notebookId: string }>("/api/studio/audio");
+
 /**
  * Video generation is async on the server (fire-and-forget pipeline:
  * script → images → TTS → composition). POST returns immediately with
@@ -90,12 +159,17 @@ type VideoResult = {
   chapters?: unknown[];
 };
 
-export const useGenerateVideo = () => {
+export const useGenerateVideo = (): UseMutationResult<
+  VideoResult,
+  Error,
+  VideoArgs
+> => {
   const qc = useQueryClient();
   const { language } = useLanguage();
-  return useMutation<VideoResult, Error, { notebookId: string }>({
+  return useMutation<VideoResult, Error, VideoArgs>({
     mutationFn: async (data) => {
-      await generateStudioOutput("/api/studio/video", { ...data, language });
+      const payload = { language, ...data };
+      await generateStudioOutput("/api/studio/video", payload);
 
       const deadline = Date.now() + 10 * 60 * 1000;
       let delay = 2000;
@@ -128,7 +202,9 @@ export const useGenerateVideo = () => {
         if (row && row.status === "error") {
           const content = (row.content ?? {}) as Record<string, unknown>;
           throw new Error(
-            typeof content.error === "string" ? content.error : "Video generation failed",
+            typeof content.error === "string"
+              ? content.error
+              : "Video generation failed",
           );
         }
         // Slow the poll from 2s → 5s after the first 30s so we don't hammer

@@ -29,11 +29,38 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
-    const { notebookId, language: rawLanguage = "en" } = body as {
+    const {
+      notebookId,
+      language: rawLanguage = "en",
+      style: rawStyle = "auto",
+      detailLevel: rawDetail = "standard",
+      customPrompt: rawCustom = "",
+    } = body as {
       notebookId: string;
       language?: string;
+      style?: string;
+      detailLevel?: string;
+      customPrompt?: string;
     };
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const ALLOWED_STYLES = [
+      "auto",
+      "sketch",
+      "kawaii",
+      "professional",
+      "scientific",
+      "minimalist",
+    ] as const;
+    const style: (typeof ALLOWED_STYLES)[number] =
+      ALLOWED_STYLES.includes(rawStyle as (typeof ALLOWED_STYLES)[number])
+        ? (rawStyle as (typeof ALLOWED_STYLES)[number])
+        : "auto";
+    const ALLOWED_DETAIL = ["concise", "standard", "detailed"] as const;
+    const detailLevel: (typeof ALLOWED_DETAIL)[number] =
+      ALLOWED_DETAIL.includes(rawDetail as (typeof ALLOWED_DETAIL)[number])
+        ? (rawDetail as (typeof ALLOWED_DETAIL)[number])
+        : "standard";
+    const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -54,7 +81,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     try {
       const { generateVideo } = await import("@/lib/video/generate-video");
       // Process async without blocking response
-      generateVideo(notebookId, outputId, language).catch(console.error);
+      generateVideo(notebookId, outputId, {
+        language,
+        style,
+        detailLevel,
+        customPrompt,
+      }).catch(console.error);
     } catch {
       console.warn("Video generation module unavailable");
     }

@@ -9,8 +9,13 @@ import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 import {
   composeInfographic,
+  type ComposeOptions,
   type InfographicLayout,
 } from "@/lib/media/compose-infographic";
+import {
+  getStyleInstructions,
+  type VisualStyle,
+} from "@/lib/media/styles";
 
 // ---------- Layout schema ----------
 
@@ -146,14 +151,68 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       notebookId,
       model: modelId = "gpt-4o",
       language: rawLanguage = "en",
+      style: rawStyle = "auto",
+      detailLevel: rawDetail = "standard",
+      customPrompt: rawCustom = "",
+      orientation: rawOrientation = "vertical",
     } = body as {
       notebookId: string;
       model?: string;
       language?: string;
+      style?: string;
+      detailLevel?: string;
+      customPrompt?: string;
+      orientation?: string;
     };
+
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const ALLOWED_STYLES: VisualStyle[] = [
+      "auto",
+      "sketch",
+      "kawaii",
+      "professional",
+      "scientific",
+      "minimalist",
+    ];
+    const style: VisualStyle = ALLOWED_STYLES.includes(rawStyle as VisualStyle)
+      ? (rawStyle as VisualStyle)
+      : "auto";
+    const ALLOWED_DETAIL = ["concise", "standard", "detailed"] as const;
+    const detailLevel: (typeof ALLOWED_DETAIL)[number] =
+      ALLOWED_DETAIL.includes(rawDetail as (typeof ALLOWED_DETAIL)[number])
+        ? (rawDetail as (typeof ALLOWED_DETAIL)[number])
+        : "standard";
+    const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
+    const ALLOWED_ORIENT = ["horizontal", "vertical", "square"] as const;
+    const orientation: (typeof ALLOWED_ORIENT)[number] =
+      ALLOWED_ORIENT.includes(rawOrientation as (typeof ALLOWED_ORIENT)[number])
+        ? (rawOrientation as (typeof ALLOWED_ORIENT)[number])
+        : "vertical";
+
+    const detailMap = {
+      concise: "5 blocks, tight summaries",
+      standard: "6-8 blocks, comprehensive coverage",
+      detailed: "8-10 blocks, deeply detailed with multiple data viz",
+    } as const;
+    const detailPick = detailMap[detailLevel];
+
+    // Orientation → canvas size
+    const sizeForOrientation: Record<
+      (typeof ALLOWED_ORIENT)[number],
+      { width: number; height: number }
+    > = {
+      horizontal: { width: 1600, height: 1000 },
+      vertical: { width: 1280, height: 1600 },
+      square: { width: 1280, height: 1280 },
+    };
+    const canvasSize = sizeForOrientation[orientation];
+
     const LANG_NAME = language === "es" ? "Spanish" : "English";
-    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body, callouts, chart labels, flow step labels, takeaway text, timeline events, sections, keyStats, AND the descriptive wording of illustrationPrompt must all be in ${LANG_NAME}. However, the illustrationPrompt itself MUST contain NO text/letters/words/numbers INSIDE the image — it only describes visual elements (objects, scenes, icons, metaphors) in ${LANG_NAME} prose. Never mix languages.`;
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, labels, all user-facing text. The illustrationPrompt must still contain NO text inside the image.`;
+    const userInstr = customPrompt.trim()
+      ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this into the output.\n`
+      : "";
+    const styleInstr = getStyleInstructions(style);
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) {
@@ -179,120 +238,82 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         model: getModel(modelId),
         schema: layoutSchema,
         prompt: `${langInstr}
-
-You are a world-class data visualization designer and expert educator. Your job is to create an infographic that TEACHES complex information through dense, specific, visual data. Every block must contain REAL data extracted from the sources.
+${userInstr}
+You are an expert teacher building an infographic that TEACHES real, specific facts from the provided sources. Content density and factual accuracy come first; the visual is secondary.
 
 ═══════════════════════════════════════
-CONTENT EXTRACTION (do this FIRST)
+STEP 1 — EXTRACT (do this first, silently)
 ═══════════════════════════════════════
 
-Deeply analyze the sources. Extract:
-- Every number, percentage, statistic, date, or measurable fact
-- Every process or workflow (ordered steps)
+Read the sources and pull out:
+- Every number, percentage, statistic, date, or measurable claim
+- Every ordered process or workflow
 - Every comparison or trade-off between alternatives
 - Every timeline or historical progression
 - Every cause-effect chain
 - Every definition of a key concept
 - Every expert insight or notable finding
 
-You will structure these extractions into 4-10 visual blocks.
+All block content must come from these extractions. Do NOT invent facts.
 
 ═══════════════════════════════════════
-BLOCK SELECTION STRATEGY
+STEP 2 — STRUCTURE (target: ${detailPick})
 ═══════════════════════════════════════
 
-A great infographic tells a visual STORY. Structure it:
+An infographic tells a visual story. Compose:
 
-Opening (hook the reader):
-→ 1-2 "stat" blocks with surprising numbers to grab attention
+Opening (hook):
+→ 1-2 "stat" blocks with surprising numbers to anchor attention
 
-Body (teach the details):
-→ 1 "chart" block if there's quantitative data (trends, growth, distributions)
+Body (teach):
+→ 1 "chart" block if the sources contain quantitative data (trends, distributions)
 → 1-2 "callout" blocks for concepts that need deeper explanation
 → 1 "flow" or "timeline" block if there's a process or chronology
-→ 1 "comparison" block if alternatives are discussed
-→ 0-1 "text" blocks for essential context
+→ 1 "comparison" block if named alternatives are discussed
+→ 0-1 "text" blocks ONLY when essential context can't be conveyed visually
 
-Closing (seal the insight):
-→ 1 "takeaway" block with a specific, memorable conclusion
+Closing (seal):
+→ 1 "takeaway" block with a specific, memorable, actionable conclusion
 
-Mix 5-8 block types total. Never use more than 2 of the same type.
-
-═══════════════════════════════════════
-BLOCK CONTENT DENSITY (CRITICAL)
-═══════════════════════════════════════
-
-● "stat" block:
-  value = a REAL number ("68%", "$4.2T", "3.2s", "1.8B")
-  label = 10-25 words explaining significance
-  position = place semantically (important stats at top)
-  GOOD: {value:"68%", label:"of all online experiences begin with a search engine — SEO is the #1 organic traffic source", position:"top-left"}
-  BAD: {value:"Lots", label:"of people use the internet", position:"top-left"}
-
-● "callout" block:
-  title = 3-6 words naming the concept
-  body = 2-4 sentences of REAL explanation with specifics — tool names, techniques, concrete details
-  position = place near related illustration area
-  leaderTo = direction pointing toward related visual element
-  GOOD: {title:"The DOM Tree", body:"When a browser loads HTML, it builds a Document Object Model — a tree structure where every element becomes a node. JavaScript's querySelector() finds nodes; addEventListener() makes them respond to clicks, hovers, and keyboard input. Understanding the DOM is the key to dynamic web pages.", position:"mid-right", leaderTo:"left"}
-  BAD: {title:"Important Concept", body:"This is something you should know about because it matters.", position:"mid-right", leaderTo:"left"}
-
-● "chart" block:
-  chartType = "line" for trends, "bar" for comparisons, "area" for volume/cumulative
-  dataPoints = 3-8 points with REAL or realistic data. x = specific label (year, category, stage name). y = numeric value. annotation = highlight key inflection points.
-  GOOD: {chartType:"bar", xLabel:"Framework", yLabel:"npm Downloads/week (M)", dataPoints:[{x:"React",y:22.5,annotation:"Market leader"},{x:"Vue",y:4.2,annotation:null},{x:"Angular",y:3.1,annotation:null},{x:"Svelte",y:0.8,annotation:"Fastest growing"}]}
-  BAD: {chartType:"bar", xLabel:"Things", yLabel:"Amount", dataPoints:[{x:"A",y:10,annotation:null},{x:"B",y:20,annotation:null}]}
-
-● "flow" block:
-  steps = 3-6, each with label (2-4 words) and detail (concrete action sentence)
-  Same quality bar as slides — every step is specific and actionable
-
-● "timeline" block:
-  events = 3-6 entries with real dates/periods and specific event descriptions
-  GOOD: [{date:"1991", label:"Tim Berners-Lee publishes the first website at CERN"}, {date:"1995", label:"JavaScript created in 10 days by Brendan Eich at Netscape"}, ...]
-  BAD: [{date:"Long ago", label:"The web started"}, {date:"Recently", label:"Things changed"}]
-
-● "comparison" block:
-  items = 2-4 with named entities and quantifiable differences (same bar as slides)
-
-● "takeaway" block:
-  text = A specific, memorable insight (not "this topic is important")
-  GOOD: "Every second of load time costs 7% in conversions — optimize images, minify CSS, and use a CDN to keep your site under the 3-second threshold"
-  BAD: "Web development is an important field with many opportunities"
-
-● "text" block:
-  text = 2-3 sentences of essential context (use sparingly — prefer visual blocks)
+Never use more than 2 of the same block type. Vary layouts.
 
 ═══════════════════════════════════════
-METADATA FIELDS
+STEP 3 — DENSITY (every block must teach)
 ═══════════════════════════════════════
 
-- title: max 8 words, punchy, specific to the topic (not "Important Information")
+● "stat": value = a REAL number ("68%", "$4.2T", "3.2s"); label = 10-25 words explaining WHY it matters; position = semantic zone.
+● "callout": title = 3-6 words; body = 2-4 sentences of REAL explanation with specifics (tool names, techniques, concrete details); position near a related illustration zone; leaderTo points toward it.
+● "chart": chartType = "line" (trends), "bar" (comparisons), or "area" (volume); dataPoints = 3-8 real/realistic points; annotation = highlight key inflection points on 1-2 points.
+  GOOD: {chartType:"bar", xLabel:"Framework", yLabel:"npm downloads/week (M)", dataPoints:[{x:"React",y:22.5,annotation:"Market leader"},{x:"Vue",y:4.2,annotation:null},{x:"Svelte",y:0.8,annotation:"Fastest growing"}]}
+● "flow": 3-6 steps, each with a 2-4 word label and a ONE concrete-action sentence.
+● "timeline": 3-6 entries with real dates and specific event descriptions — no vague "long ago" / "recently".
+● "comparison": 2-4 items with NAMED entities and quantifiable differences.
+● "takeaway": a specific, memorable insight — NOT "this topic is important".
+● "text": 2-3 sentences of essential context (use sparingly).
+
+Every field in every block must come from the extraction pass. Generic filler is a failure.
+
+═══════════════════════════════════════
+STEP 4 — METADATA + FALLBACKS
+═══════════════════════════════════════
+
+- title: max 8 words, punchy and topic-specific
 - subtitle: max 14 words framing what the reader will learn
-- header.text: the big heading at the top of the infographic
-- header.subtext: optional one-liner beneath it
+- header.text: the hero heading at the top; header.subtext: optional one-liner
 - footer: short attribution or source note
-- accentColor: pick one that matches the topic's mood (orange=energy, blue=tech, emerald=nature/growth, violet=creative, rose=health/people, amber=finance/caution)
+- accentColor: pick by mood (orange=energy, blue=tech, emerald=growth/nature, violet=creative, rose=health/people, amber=finance/caution)
+- sections (3-6): heading + 2-3 sentence summary of each major topic area — this is the text-only fallback. Be comprehensive.
+- keyStats (2-5): the highest-impact numbers repeated as {value, label} pairs.
 
 ═══════════════════════════════════════
-SECTIONS and KEYSTATS (fallback view)
+STEP 5 — ILLUSTRATION (visual-only, never text)
 ═══════════════════════════════════════
 
-These power the text-only fallback when images can't render:
-- sections (3-6): each has a heading + a 2-3 sentence summary of a major topic area from the sources. Be comprehensive — this is the user's backup way to consume the information.
-- keyStats (2-5): the most impactful numbers repeated as {value, label} pairs.
+${styleInstr}
 
-═══════════════════════════════════════
-ILLUSTRATION PROMPT (secondary priority)
-═══════════════════════════════════════
+Write illustrationPrompt as 100-200 words describing small vignettes positioned in specific canvas zones (top-left, center-right, bottom-center, etc.) with whitespace between each for the text/chart overlay. The illustration must visually RELATE to the topic — cooking topic → utensils and ingredients; web dev → browsers, brackets, server racks; biology → cells, organs, microscopes. Never random decorative shapes.
 
-illustrationPrompt creates the visual background (1280×1600 portrait). Describe ONLY visual elements — NO text, NO letters, NO numbers, NO labels, NO words, NO typography.
-
-100-200 words. Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook (Leonardo's Codex, old physics textbooks). Describe small illustrated vignettes positioned in specific zones of the canvas (top-left, center-right, bottom, etc.), leaving whitespace between each for the text/chart overlay. Thin ink lines, off-register hand-drawn feel, occasional muted orange/sepia watercolor wash on focal elements.
-
-The illustration should visually RELATE to the infographic's topic. If the topic is cooking, draw utensils and ingredients. If it's web development, draw browsers and code brackets and server racks.
-
-All textual content must be in ${LANG_NAME}. The illustrationPrompt itself may be in ${LANG_NAME} prose but must contain NO text/words INSIDE the image.
+All text must be in ${LANG_NAME}. The illustrationPrompt itself may be prose in ${LANG_NAME} but must contain NO text/words/letters/numbers INSIDE the image.
 
 Sources:
 ${ctx.sourceContext}`,
@@ -324,14 +345,19 @@ ${ctx.sourceContext}`,
     let thumbnailUrl: string | null = null;
     let composeError: string | null = null;
     try {
+      // The composer accepts a `style` pass-through so future compose
+      // implementations can forward it to generateInfographicImage. Until the
+      // composer reads it, style selection is preserved as metadata.
+      const composeOpts: ComposeOptions & { style?: VisualStyle } = {
+        notebookId,
+        outputId,
+        width: canvasSize.width,
+        height: canvasSize.height,
+        style,
+      };
       const composed = await composeInfographic(
         content as InfographicLayout,
-        {
-          notebookId,
-          outputId,
-          width: 1280,
-          height: 1600,
-        },
+        composeOpts,
       );
       imageUrl = composed.imageUrl;
       thumbnailUrl = composed.thumbnailUrl;

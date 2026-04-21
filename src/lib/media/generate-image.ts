@@ -1,5 +1,6 @@
 import { fal } from "@fal-ai/client";
 import { uploadFile } from "@/lib/storage/r2";
+import { STYLE_CONFIGS, type VisualStyle } from "@/lib/media/styles";
 
 if (process.env.FAL_KEY) {
   fal.config({ credentials: process.env.FAL_KEY });
@@ -19,9 +20,20 @@ export type GeneratedImage = {
   persisted: boolean; // true if on R2, false if temp fal URL (~24h TTL)
 };
 
-const STYLE_PREFIX =
-  "Vintage engineering sketchbook illustration on cream-colored graph paper. Loose pen-and-ink style, confident thin black line work, small illustrated vignettes (icons, scenes, metaphoric objects, technical apparatus), occasional subtle watercolor wash in muted orange or sepia on key focal elements. Slightly off-register as if drawn by hand. " +
-  "ABSOLUTE RULE: NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO LABELS, NO TYPOGRAPHY anywhere in the image. The drawing must be purely visual — objects, scenes, icons, patterns only. Leave breathing room in the composition for text to be overlaid separately. Style reference: Leonardo da Vinci's Codex, old physics textbook diagrams, technical illustrated notebooks. ";
+/**
+ * Returns the fal.ai prompt prefix for the chosen visual style, combined with
+ * the ABSOLUTE RULE that forbids text/letters/numbers in the output image.
+ *
+ * Default (`"auto"`) is the vintage engineering sketchbook look — identical
+ * to the pre-style-registry behavior.
+ */
+export const getStylePrefix = (style: VisualStyle = "auto"): string => {
+  const config = STYLE_CONFIGS[style];
+  return (
+    config.illustrationPrefix +
+    "ABSOLUTE RULE: NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO LABELS, NO TYPOGRAPHY anywhere in the image. Visual elements only. Leave breathing room for text overlay. "
+  );
+};
 
 type FalImageResult = {
   data?: {
@@ -37,6 +49,8 @@ export const generateInfographicImage = async (
     size?: ImageSize;
     model?: FluxModel;
     persistTo?: { key: string }; // R2 key for permanent upload
+    /** Visual style — defaults to `"auto"` which preserves legacy look. */
+    style?: VisualStyle;
   } = {},
 ): Promise<GeneratedImage> => {
   if (!process.env.FAL_KEY) {
@@ -45,7 +59,7 @@ export const generateInfographicImage = async (
 
   const model = opts.model ?? "fal-ai/flux-pro/v1.1";
   const size = opts.size ?? { width: 1280, height: 1600 };
-  const fullPrompt = STYLE_PREFIX + prompt;
+  const fullPrompt = getStylePrefix(opts.style) + prompt;
 
   // Per-model input shape. Ideogram + Recraft use different knobs than Flux.
   const input: Record<string, unknown> = (() => {

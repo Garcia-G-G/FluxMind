@@ -1,27 +1,50 @@
+/**
+ * Video overview pipeline — serverless-friendly slideshow mode.
+ *
+ * Phases:
+ *   1. Pull source text & generate a structured multi-chapter script via LLM.
+ *   2. Generate a cream-style still image per chapter via fal.ai (best-effort).
+ *   3. Synthesize narration per chapter via ElevenLabs (multilingual v2).
+ *   4. Save chapters as a slideshow — the viewer steps image+audio per chapter
+ *      and auto-advances on audio end. No FFmpeg, no MP4 concat.
+ *
+ * Design: graceful degradation.
+ *   - Missing FAL_KEY       → chapters have no imageUrl, TTS still runs.
+ *   - Missing ELEVENLABS    → chapters have no audioUrl, output is "ready"
+ *                              with `partial: true` so the viewer renders an
+ *                              "audio unavailable" state.
+ *   - Per-chapter failures  → logged, that chapter's media is left blank,
+ *                              the overall output still ships.
+ */
 import { generateObject } from "ai";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { fal } from "@fal-ai/client";
 import { createId } from "@paralleldrive/cuid2";
-import { promises as fs } from "fs";
-import path from "path";
-import os from "os";
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import sharp from "sharp";
 import { db } from "@/lib/db";
 import { sources } from "@/db/schema/sources";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { uploadFile } from "@/lib/storage/r2";
+import {
+  getStyleInstructions,
+  type VisualStyle,
+} from "@/lib/media/styles";
 
 if (process.env.FAL_KEY) {
   fal.config({ credentials: process.env.FAL_KEY });
 }
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-const VOICE_VIDEO = process.env.ELEVENLABS_VOICE_VIDEO ?? "21m00Tcm4TlvDq8ikWAM";
+
+// Voice fallback chain:
+//   1. ELEVENLABS_VOICE_VIDEO  — dedicated video voice if configured
+//   2. ELEVENLABS_VOICE_ALEX   — shared with the podcast path
+//   3. Rachel (21m00Tcm4TlvDq8ikWAM) — ElevenLabs default multilingual voice
+const resolveVoice = (): string =>
+  process.env.ELEVENLABS_VOICE_VIDEO ??
+  process.env.ELEVENLABS_VOICE_ALEX ??
+  "21m00Tcm4TlvDq8ikWAM";
 
 const scriptSchema = z.object({
   title: z.string(),
@@ -40,9 +63,16 @@ type ChapterMeta = {
   title: string;
   narration: string;
   imagePrompt: string;
-  imageUrl?: string;
-  startMs?: number;
-  durationMs?: number;
+  imageUrl: string;
+  audioUrl: string;
+  duration: number; // seconds
+};
+
+export type VideoGenerateOpts = {
+  language?: "en" | "es";
+  style?: VisualStyle;
+  detailLevel?: "concise" | "standard" | "detailed";
+  customPrompt?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -58,11 +88,14 @@ const updateProgress = async (
     .where(eq(outputs.id, outputId));
 };
 
-const synthesizeNarration = async (text: string): Promise<Buffer> => {
+const synthesizeNarration = async (
+  text: string,
+  voiceId: string,
+): Promise<Buffer> => {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
 
-  const res = await fetch(`${ELEVENLABS_API_URL}/${VOICE_VIDEO}`, {
+  const res = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
     method: "POST",
     headers: {
       "xi-api-key": apiKey,
@@ -88,77 +121,21 @@ const synthesizeNarration = async (text: string): Promise<Buffer> => {
   return Buffer.from(await res.arrayBuffer());
 };
 
-const probeDurationMs = (filePath: string): Promise<number> =>
-  new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(filePath, (err, data) => {
-      if (err) return reject(err);
-      const seconds = data.format?.duration ?? 0;
-      resolve(Math.round(seconds * 1000));
-    });
-  });
-
-const buildChapterVideo = (
-  imagePath: string,
-  audioPath: string,
-  outputPath: string,
-): Promise<void> =>
-  new Promise((resolve, reject) => {
-    ffmpeg()
-      .input(imagePath)
-      .inputOptions(["-loop", "1"])
-      .input(audioPath)
-      .outputOptions([
-        "-c:v",
-        "libx264",
-        "-tune",
-        "stillimage",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "192k",
-        "-pix_fmt",
-        "yuv420p",
-        "-vf",
-        "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1",
-        "-r",
-        "30",
-        "-shortest",
-        "-movflags",
-        "+faststart",
-      ])
-      .output(outputPath)
-      .on("end", () => resolve())
-      .on("error", (err) => reject(err))
-      .run();
-  });
-
-const concatVideos = async (
-  chapterPaths: string[],
-  outputPath: string,
-  workDir: string,
-): Promise<void> => {
-  const listPath = path.join(workDir, "concat.txt");
-  const content = chapterPaths
-    .map((p) => `file '${p.replace(/'/g, "'\\''")}'`)
-    .join("\n");
-  await fs.writeFile(listPath, content);
-
-  await new Promise<void>((resolve, reject) => {
-    ffmpeg()
-      .input(listPath)
-      .inputOptions(["-f", "concat", "-safe", "0"])
-      .outputOptions(["-c", "copy", "-movflags", "+faststart"])
-      .output(outputPath)
-      .on("end", () => resolve())
-      .on("error", (err) => reject(err))
-      .run();
-  });
-};
-
 const downloadToBuffer = async (url: string): Promise<Buffer> => {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Download ${url} failed: ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
+};
+
+/**
+ * Estimate narration duration from word count. 150 words per minute is a good
+ * neutral pace for explainer narration. We use this because ElevenLabs does
+ * not return duration and we don't ship ffprobe.
+ */
+const estimateDurationSec = (text: string): number => {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  const wpm = 150;
+  return Math.max(3, Math.round((words / wpm) * 60));
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -167,15 +144,29 @@ const downloadToBuffer = async (url: string): Promise<Buffer> => {
 export const generateVideo = async (
   notebookId: string,
   outputId: string,
-  language: "en" | "es" = "en",
+  opts: VideoGenerateOpts = {},
 ): Promise<void> => {
-  const workDir = path.join(os.tmpdir(), `fm-video-${outputId}`);
+  const language: "en" | "es" = opts.language ?? "en";
+  const style: VisualStyle = opts.style ?? "auto";
+  const detailLevel = opts.detailLevel ?? "standard";
+  const customPrompt = opts.customPrompt ?? "";
 
   try {
     const LANG_NAME = language === "es" ? "Spanish" : "English";
-    const langInstr = `IMPORTANT: Generate ALL titles, narration, and labels in ${LANG_NAME}. Do not mix languages. The imagePrompt itself may be in ${LANG_NAME} prose but MUST NOT contain any text/words INSIDE the image.`;
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, narration, all user-facing text. The imagePrompt must still contain NO text inside the image.`;
+    const userInstr = customPrompt.trim()
+      ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this into the output.\n`
+      : "";
+    const styleInstr = getStyleInstructions(style);
+
+    const detailMap = {
+      concise: { count: "4-5", perChapter: "45-60 words" },
+      standard: { count: "5-7", perChapter: "60-90 words" },
+      detailed: { count: "7-9", perChapter: "90-120 words with extra context" },
+    } as const;
+    const detailPick = detailMap[detailLevel] ?? detailMap.standard;
+
     await updateProgress(outputId, { status: "generating" });
-    await fs.mkdir(workDir, { recursive: true });
 
     // ── Step 1: Pull sources & generate the script ─────────────────
     const notebookSources = await db
@@ -192,48 +183,50 @@ export const generateVideo = async (
       model: getModel("gemini-2.5-flash"),
       schema: scriptSchema,
       prompt: `${langInstr}
-
-You are an expert educator writing a short narrated explainer video. Your #1 job is to TEACH — every chapter must deliver specific, factual, actionable information from the sources, not vague filler.
+${userInstr}
+You are an expert teacher writing a short narrated explainer video. Your #1 priority is TEACHING real, specific facts from the provided sources. Vague filler is a failure.
 
 ═══════════════════════════════════════
-CONTENT EXTRACTION (do this FIRST)
+STEP 1 — EXTRACT (do this first, silently)
 ═══════════════════════════════════════
 
-Before writing chapters, analyze the sources and extract:
-- Every specific fact, number, date, statistic, or measurable claim
-- Every named tool, technology, framework, method, or concept
+Read the sources and pull out:
+- Every specific fact, number, date, duration, or measurable claim
+- Every named tool, technology, framework, method, person, place, or product
 - Every process, step, or technique
 - Every comparison, trade-off, or cause-effect relationship
 - Key definitions and expert insights
 
-Organize these into 5-7 teachable chapters.
+Organize these extractions into ${detailPick.count} teachable chapters. All narration content must come from these extractions.
 
 ═══════════════════════════════════════
-CHAPTER STRUCTURE
+STEP 2 — CHAPTER STRUCTURE
 ═══════════════════════════════════════
 
 Return an object with:
 - title: 4-8 words naming the overall topic (in ${LANG_NAME})
-- chapters: an ordered array of 5-7 entries. Each chapter has { title, narration, imagePrompt }.
+- chapters: ${detailPick.count} ordered entries, each with { title, narration, imagePrompt }.
 
 Per-chapter rules:
 
-● title (3-7 words): names the specific sub-topic the chapter teaches. NOT generic ("The Basics", "Overview"). Specific ("HTML5 Semantic Structure", "Deployment with Vercel").
+● title (3-7 words): names the specific sub-topic the chapter teaches. Be concrete — "HTML5 Semantic Structure", not "The Basics".
 
-● narration (60-90 words, natural spoken ${LANG_NAME}):
-  - Teach a SPECIFIC, factual insight drawn from the sources.
+● narration (${detailPick.perChapter} of natural spoken ${LANG_NAME}):
+  - Teach ONE specific, factual insight drawn directly from the sources.
   - Include at least one named entity, concrete example, number, or tool reference.
   - Speak directly to the viewer ("you", "we") — this is read aloud by TTS.
-  - Sound natural — no bullet-point formatting, no headings. Flowing spoken prose.
+  - Sound natural: flowing spoken prose, no bullet-point formatting, no headings.
   - GOOD: "When a browser loads your HTML, it walks the markup tag by tag and builds a tree called the Document Object Model, or DOM. JavaScript talks to this tree through functions like querySelector to pick a node, or addEventListener to react to a click. Understanding the DOM is what separates a static page from a truly interactive one."
-  - BAD: "HTML is important. The DOM is something you should learn about. It helps with things."
+  - BAD:  "HTML is important. The DOM is something you should learn about. It helps with things."
 
-● imagePrompt (60-120 words): purely visual description for the chapter's still background image. NO text, NO letters, NO numbers, NO labels, NO words, NO typography inside the image. Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook (Leonardo's Codex, old physics textbooks). Describe small illustrated vignettes positioned in specific zones (top-left, center, bottom-right), leaving whitespace between them. Confident thin ink lines, slightly off-register hand-drawn feel, occasional muted orange or sepia watercolor wash on focal elements. The illustration should visually relate to the chapter's content.
+● imagePrompt: a purely visual description of a still background image for the chapter. NO text, NO letters, NO numbers, NO labels, NO words, NO typography anywhere in the image.
 
-Example imagePrompt (chapter about the DOM): "Vintage engineering sketchbook page on cream graph paper. In the upper-left vignette, a pen-and-ink browser window frame with a miniature page layout inside — header bar, sidebar, content area. In the center, a branching tree diagram drawn with thin confident lines — a root node with children and grandchildren, each represented by small stylized boxes. In the lower-right, a magnifying glass hovering over one of the tree's leaf nodes, a soft sepia watercolor wash on its lens. Slightly off-register hand-drawn lines. Plenty of open whitespace between vignettes."
+${styleInstr}
+
+Write each imagePrompt as 60-120 words describing small vignettes positioned in specific zones (top-left, center, bottom-right), with whitespace between each. The illustration must visually RELATE to the chapter's content.
 
 ═══════════════════════════════════════
-GLOBAL RULES
+STEP 3 — GLOBAL RULES
 ═══════════════════════════════════════
 
 - First chapter introduces the topic and teases what will be learned.
@@ -249,19 +242,23 @@ ${sourceContext}`,
       title: c.title,
       narration: c.narration,
       imagePrompt: c.imagePrompt,
+      imageUrl: "",
+      audioUrl: "",
+      duration: estimateDurationSec(c.narration),
     }));
 
-    // Save partial progress (script ready, images/audio coming)
+    // Save partial progress — script ready, media coming next.
     await updateProgress(outputId, {
       content: {
         script,
         chapters,
         progress: 20,
         phase: "script_ready",
+        mode: "slideshow",
       },
     });
 
-    // ── Step 2: Generate chapter images via fal.ai ─────────────────
+    // ── Step 2: Generate chapter images via fal.ai (best-effort) ────
     const hasFal = !!process.env.FAL_KEY;
     if (hasFal) {
       for (let i = 0; i < chapters.length; i++) {
@@ -282,10 +279,11 @@ ${sourceContext}`,
               const buf = await downloadToBuffer(falUrl);
               chapters[i].imageUrl = await uploadFile(
                 buf,
-                `video/${outputId}/${createId()}.png`,
+                `videos/${notebookId}/${outputId}/images/${i}-${createId()}.png`,
                 "image/png",
               );
             } catch {
+              // Fall back to the short-lived fal URL — better than nothing.
               chapters[i].imageUrl = falUrl;
             }
           }
@@ -298,127 +296,68 @@ ${sourceContext}`,
             chapters,
             progress: 20 + Math.round(((i + 1) / chapters.length) * 30),
             phase: "images",
+            mode: "slideshow",
           },
         });
       }
     }
 
-    // If there's no ElevenLabs key, stop here — save as script-only output
-    // with chapter images. The viewer renders the script-only mode.
+    // ── Step 3: Synthesize TTS per chapter (ElevenLabs) ─────────────
     const hasEleven = !!process.env.ELEVENLABS_API_KEY;
-    if (!hasEleven) {
-      await db
-        .update(outputs)
-        .set({
-          status: "ready",
+    let partial = !hasEleven;
+    const voiceId = resolveVoice();
+
+    if (hasEleven) {
+      for (let i = 0; i < chapters.length; i++) {
+        try {
+          const audio = await synthesizeNarration(
+            chapters[i].narration,
+            voiceId,
+          );
+          const key = `videos/${notebookId}/${outputId}/chapters/${i}.mp3`;
+          chapters[i].audioUrl = await uploadFile(audio, key, "audio/mpeg");
+        } catch (err) {
+          console.warn(`Chapter ${i} TTS failed:`, err);
+          partial = true;
+          chapters[i].audioUrl = "";
+        }
+
+        await updateProgress(outputId, {
           content: {
             script,
             chapters,
-            mode: "script_only",
-            note: "Full video composition requires ELEVENLABS_API_KEY (and fal.ai keys for images).",
+            progress: 50 + Math.round(((i + 1) / chapters.length) * 40),
+            phase: "tts",
+            mode: "slideshow",
           },
-          updatedAt: new Date(),
-        })
-        .where(eq(outputs.id, outputId));
-      return;
-    }
+        });
 
-    // ── Step 3: Synthesize TTS per chapter ─────────────────────────
-    const audioPaths: string[] = [];
-    const imagePaths: string[] = [];
-    for (let i = 0; i < chapters.length; i++) {
-      const audio = await synthesizeNarration(chapters[i].narration);
-      const audioPath = path.join(workDir, `chapter-${i}.mp3`);
-      await fs.writeFile(audioPath, audio);
-      audioPaths.push(audioPath);
-
-      // Resolve a usable image: prefer the persisted R2/local URL; if that's
-      // not reachable (e.g. local path not yet served) fall back to a
-      // pre-generated cream-colored 1280×720 placeholder PNG.
-      let imgBuf: Buffer | null = null;
-      const url = chapters[i].imageUrl;
-      if (url) {
-        try {
-          if (url.startsWith("http")) {
-            imgBuf = await downloadToBuffer(url);
-          } else if (url.startsWith("/uploads/")) {
-            const localFs = path.join(process.cwd(), "public", url);
-            imgBuf = await fs.readFile(localFs);
-          }
-        } catch {
-          imgBuf = null;
-        }
+        // Soft rate limit — ElevenLabs per-second cap guardrail.
+        await new Promise((r) => setTimeout(r, 150));
       }
-      if (!imgBuf) {
-        imgBuf = await makeCreamFrame();
-      }
-      const imagePath = path.join(workDir, `chapter-${i}.png`);
-      await fs.writeFile(imagePath, imgBuf);
-      imagePaths.push(imagePath);
-
-      await updateProgress(outputId, {
-        content: {
-          script,
-          chapters,
-          progress: 50 + Math.round(((i + 1) / chapters.length) * 25),
-          phase: "tts",
-        },
-      });
-
-      // Soft rate limit
-      await new Promise((r) => setTimeout(r, 150));
     }
 
-    // ── Step 4: Build per-chapter MP4s then concatenate ───────────
-    const chapterVideoPaths: string[] = [];
-    for (let i = 0; i < chapters.length; i++) {
-      const out = path.join(workDir, `chapter-${i}.mp4`);
-      await buildChapterVideo(imagePaths[i], audioPaths[i], out);
-      const dur = await probeDurationMs(out).catch(() => 0);
-      chapters[i].durationMs = dur;
-      chapterVideoPaths.push(out);
-
-      await updateProgress(outputId, {
-        content: {
-          script,
-          chapters,
-          progress: 75 + Math.round(((i + 1) / chapters.length) * 15),
-          phase: "compose",
-        },
-      });
-    }
-
-    // Cumulative start timestamps
-    let t = 0;
-    for (const ch of chapters) {
-      ch.startMs = t;
-      t += ch.durationMs ?? 0;
-    }
-    const totalDurationSec = Math.round(t / 1000);
-
-    const finalPath = path.join(workDir, "final.mp4");
-    await concatVideos(chapterVideoPaths, finalPath, workDir);
-
-    // ── Step 5: Upload to R2/local + finalize ─────────────────────
-    const finalBuf = await fs.readFile(finalPath);
-    const fileUrl = await uploadFile(
-      finalBuf,
-      `video/${outputId}/final.mp4`,
-      "video/mp4",
+    // ── Step 4: Finalize as slideshow (image + audio per chapter) ───
+    const totalDuration = chapters.reduce(
+      (sum, c) => sum + (c.duration ?? 0),
+      0,
     );
+
+    const finalContent: Record<string, unknown> = {
+      script,
+      chapters,
+      duration: totalDuration,
+      mode: "slideshow",
+    };
+    if (partial) finalContent.partial = true;
 
     await db
       .update(outputs)
       .set({
         status: "ready",
-        fileUrl,
-        duration: totalDurationSec,
-        content: {
-          script,
-          chapters,
-          totalDurationSec,
-          mode: "full_video",
-        },
+        fileUrl: null,
+        duration: totalDuration,
+        content: finalContent,
         updatedAt: new Date(),
       })
       .where(eq(outputs.id, outputId));
@@ -434,27 +373,5 @@ ${sourceContext}`,
         updatedAt: new Date(),
       })
       .where(eq(outputs.id, outputId));
-  } finally {
-    // Clean up the temp working dir — best-effort.
-    try {
-      await fs.rm(workDir, { recursive: true, force: true });
-    } catch {
-      // ignore
-    }
   }
 };
-
-// 1280×720 cream-colored PNG used as a placeholder when a chapter's image
-// failed to generate or couldn't be fetched. Same cream tone used by the
-// compose-slide fallback background so it reads consistently.
-const makeCreamFrame = (): Promise<Buffer> =>
-  sharp({
-    create: {
-      width: 1280,
-      height: 720,
-      channels: 3,
-      background: { r: 249, g: 241, b: 225 },
-    },
-  })
-    .png()
-    .toBuffer();

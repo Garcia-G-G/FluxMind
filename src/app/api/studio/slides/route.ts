@@ -11,7 +11,12 @@ import {
   composeSlide,
   type SlideSpec,
   type SlideLayout,
+  type SlideComposeOptions,
 } from "@/lib/media/compose-slide";
+import {
+  getStyleInstructions,
+  type VisualStyle,
+} from "@/lib/media/styles";
 
 // ---------- Zod deck schema ----------
 
@@ -114,18 +119,74 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     const body = await request.json();
     const {
       notebookId,
-      count = 6,
       model: modelId = "gemini-2.5-flash",
       language: rawLanguage = "en",
+      style: rawStyle = "auto",
+      detailLevel: rawDetail = "standard",
+      customPrompt: rawCustom = "",
+      slideCount: rawSlideCount,
+      accentColor: rawAccent,
     } = body as {
       notebookId: string;
-      count?: number;
       model?: string;
       language?: string;
+      style?: string;
+      detailLevel?: string;
+      customPrompt?: string;
+      slideCount?: number;
+      accentColor?: string;
     };
+
+    // Coerce enums — unknowns fall back to defaults.
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const ALLOWED_STYLES: VisualStyle[] = [
+      "auto",
+      "sketch",
+      "kawaii",
+      "professional",
+      "scientific",
+      "minimalist",
+    ];
+    const style: VisualStyle = ALLOWED_STYLES.includes(rawStyle as VisualStyle)
+      ? (rawStyle as VisualStyle)
+      : "auto";
+    const ALLOWED_DETAIL = ["concise", "standard", "detailed"] as const;
+    const detailLevel: (typeof ALLOWED_DETAIL)[number] =
+      ALLOWED_DETAIL.includes(rawDetail as (typeof ALLOWED_DETAIL)[number])
+        ? (rawDetail as (typeof ALLOWED_DETAIL)[number])
+        : "standard";
+    const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
+    const ALLOWED_ACCENTS = [
+      "orange",
+      "violet",
+      "blue",
+      "rose",
+      "emerald",
+      "amber",
+    ] as const;
+    const accentOverride: (typeof ALLOWED_ACCENTS)[number] | null =
+      typeof rawAccent === "string" &&
+      ALLOWED_ACCENTS.includes(rawAccent as (typeof ALLOWED_ACCENTS)[number])
+        ? (rawAccent as (typeof ALLOWED_ACCENTS)[number])
+        : null;
+
+    const detailMap = {
+      concise: { count: 4, points: "2-3 key points each" },
+      standard: { count: 6, points: "3-5 key points each" },
+      detailed: { count: 8, points: "4-5 key points with deep context" },
+    } as const;
+    const detailPick = detailMap[detailLevel] ?? detailMap.standard;
+    const count =
+      typeof rawSlideCount === "number" && rawSlideCount >= 4 && rawSlideCount <= 16
+        ? rawSlideCount
+        : detailPick.count;
+
     const LANG_NAME = language === "es" ? "Spanish" : "English";
-    const langInstr = `IMPORTANT: Generate ALL textual content (titles, subtitles, bullets, stats, quotes, flow steps, narrationHint) in ${LANG_NAME}. Do NOT mix languages. HOWEVER, the illustrationPrompt must contain NO text of ANY kind, in any language — describe visuals only (objects, scenes, metaphors).`;
+    const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, labels, all user-facing text. The illustrationPrompt must still contain NO text inside the image.`;
+    const userInstr = customPrompt.trim()
+      ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this into the output.\n`
+      : "";
+    const styleInstr = getStyleInstructions(style);
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) {
@@ -151,111 +212,98 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         model: getModel(modelId),
         schema: deckSchema,
         prompt: `${langInstr}
-
-You are an expert educator designing a visual presentation. Your #1 job is to TEACH — every slide must contain specific, factual, actionable information extracted from the sources.
-
-═══════════════════════════════════════
-CONTENT EXTRACTION (do this FIRST)
-═══════════════════════════════════════
-
-Before designing slides, analyze the sources and extract:
-- Every specific fact, number, percentage, date, or statistic
-- Every named tool, technology, framework, method, or concept
-- Every process, workflow, or step-by-step procedure
-- Every comparison, trade-off, or alternative
-- Every cause-effect relationship
-- Every definition or key term
-- Any notable quotes or expert opinions
-
-Organize these extractions into teachable chunks. Each chunk becomes one slide.
+${userInstr}
+You are an expert teacher building a slide deck that TEACHES real, specific facts from the provided sources. Your #1 priority is content accuracy and factual density; visual polish is secondary.
 
 ═══════════════════════════════════════
-SLIDE DESIGN RULES
+STEP 1 — EXTRACT (do this first, silently)
 ═══════════════════════════════════════
 
-Create ${count} slides (default 6). Structure:
-- Slide 1: layout "title" → topic title + subtitle that tells the user WHAT they will learn (e.g. "5 key steps from blank page to live deployment")
-- Slides 2 through N-1: teaching slides using "content", "stat", "comparison", "flow", or "quote" layouts. Pick the layout that BEST matches the information type:
-  → Explaining concepts with multiple facets? → "content" (3-5 dense bullets)
-  → A striking number that anchors the topic? → "stat" (real number + context)
-  → Comparing tools/methods/approaches? → "comparison" (2-4 items with specifics)
-  → A step-by-step process? → "flow" (3-6 actionable steps)
-  → A powerful statement from the source? → "quote" (with attribution)
-- Last slide: layout "closing" → a specific, actionable takeaway (NOT "this is important", but a concrete conclusion like "Start with semantic HTML, add CSS Grid for layout, and deploy to Vercel in under 5 minutes")
+Read the sources and pull out:
+- Every specific number, percentage, date, duration, price, or measurable claim
+- Every named tool, technology, framework, method, person, place, or product
+- Every process, workflow, or ordered set of steps
+- Every comparison, trade-off, or alternative mentioned
+- Every cause-effect relationship ("X leads to Y because…")
+- Every key definition or domain term
+- Any notable quotes, expert opinions, or surprising insights
 
-NEVER repeat the same layout consecutively. Vary the layouts to keep the presentation dynamic.
-
-═══════════════════════════════════════
-CONTENT DENSITY REQUIREMENTS (CRITICAL)
-═══════════════════════════════════════
-
-Each layout type has structured fields. You MUST populate ALL relevant fields with SUBSTANTIVE content:
-
-● "content" layout:
-  - title: 3-8 words naming the specific concept (e.g. "HTML5 Semantic Structure" not "The Basics")
-  - bullets: EXACTLY 3-5 bullets. Each bullet is 40-75 characters containing ONE specific fact, technique, or tool name.
-  - GOOD bullets: "Use <header>, <nav>, <main>, <footer> for accessibility + SEO", "Flexbox handles 1D layouts; CSS Grid handles 2D layouts"
-  - BAD bullets: "It's important to use good practices", "Design matters a lot"
-
-● "stat" layout:
-  - stat.value: A REAL number from the sources (or a well-known domain statistic). Format: "53%", "4.9B", "3s", "$12K"
-  - stat.label: 15-40 words explaining WHY this number matters and providing context
-  - title: 3-6 word eyebrow that categorizes the stat
-  - GOOD: value="53%", label="of mobile users abandon sites loading over 3 seconds — speed directly impacts your conversion rate and revenue"
-  - BAD: value="Many", label="things to think about"
-
-● "comparison" layout:
-  - comparisonItems: 2-4 items, each with a specific NAMED entity and a differentiating value
-  - GOOD: [{label:"React", value:"Component-based, 40% market share"}, {label:"Vue", value:"Progressive framework, gentle learning curve"}, {label:"Svelte", value:"No virtual DOM, smallest bundle size"}]
-  - BAD: [{label:"Option A", value:"Good"}, {label:"Option B", value:"Also good"}]
-
-● "flow" layout:
-  - flowSteps: 3-6 steps. Each step has a label (2-4 words) and a detail (one concrete action sentence).
-  - GOOD: {label:"Wireframe Layout", detail:"Sketch page structure in Figma — define header, content zones, sidebar, and footer grid"}
-  - BAD: {label:"Plan", detail:"Think about what you want to do"}
-
-● "quote" layout:
-  - quote.text: An actual statement from the sources, or a synthesis of a key insight phrased as a memorable quote
-  - quote.attribution: The source document title, author, or "— Source analysis"
-
-● "closing" layout:
-  - title: A specific, memorable takeaway sentence derived from the content (NOT generic motivation)
-  - subtitle: A short eyebrow like "KEY TAKEAWAY" or "RESUMEN" (will be uppercased)
-
-All text must be in ${LANG_NAME}. For each slide, populate ONLY the fields its layout uses and set the others to null.
+You will use these extractions — and ONLY these — as the content of the slides. Do NOT invent facts. Do NOT pad with generic filler.
 
 ═══════════════════════════════════════
-narrationHint (for every slide)
+STEP 2 — DESIGN (pick layouts that fit content)
 ═══════════════════════════════════════
 
-Write 2-3 sentences a teacher would SAY to explain this slide. Add context BEYOND what's written on screen — an example, an analogy, a "why this matters" insight. This powers the TTS narration. Keep it in ${LANG_NAME}.
+Produce exactly ${count} slides (detail level: ${detailLevel} — ${detailPick.points}).
+
+- Slide 1 MUST use layout "title": the deck title + a subtitle that previews WHAT the viewer will learn (e.g. "6 concrete techniques to cut page load time in half").
+- Slides 2 … ${count - 1} are teaching slides. Pick the layout that fits the extracted content:
+  → Dense conceptual explanation? → "content" (${detailPick.points})
+  → A striking real number that anchors the idea? → "stat"
+  → Named alternatives being compared? → "comparison"
+  → An ordered procedure? → "flow"
+  → A powerful line from the sources? → "quote"
+- Slide ${count} MUST use layout "closing": a specific, memorable, actionable takeaway sentence — NOT motivational filler.
+
+NEVER use the same layout on two consecutive slides. Vary to keep the deck dynamic.
 
 ═══════════════════════════════════════
-ILLUSTRATION PROMPT (secondary priority)
+STEP 3 — DENSITY (every field must teach)
 ═══════════════════════════════════════
 
-The illustrationPrompt creates the visual background. It must describe ONLY visual elements — NO text, NO letters, NO numbers, NO labels, NO words, NO typography of any kind. 80-160 words.
+Populate the fields for the chosen layout. All other layout-specific fields MUST be null.
 
-Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook (Leonardo's Codex, old physics textbooks). Describe small illustrated vignettes positioned in specific zones of the canvas (top-left, center-right, bottom, etc.), with plenty of whitespace around each for the text overlay. Confident thin ink lines, slightly off-register hand-drawn feel, occasional muted orange or sepia watercolor wash on focal elements.
+● "content":
+  - title: 3-8 words naming the specific concept (e.g. "HTML5 Semantic Structure", not "The Basics")
+  - bullets: ${detailPick.points}. Each bullet is 40-75 chars and delivers ONE concrete fact, technique, tool name, or metric.
+  - GOOD: "Use <header>, <nav>, <main>, <footer> for accessibility + SEO"
+  - BAD:  "It's important to use good practices"
 
-The illustration should visually RELATE to the slide's content — if the slide is about database indexing, draw a filing cabinet with index cards and a magnifying glass, not random decorative shapes.
+● "stat":
+  - stat.value: a REAL number from the sources or a well-known domain statistic ("53%", "4.9B", "3s", "$12K")
+  - stat.label: 15-40 words explaining WHY that number matters and what it implies
+  - title: a 3-6 word eyebrow categorizing the stat
 
-EXAMPLE illustrationPrompt (for a slide about HTML structure):
-"A vintage engineering sketchbook page on cream graph paper. In the upper-right, a pen-and-ink tree diagram branching downward with thin confident lines, representing nested structure. In the lower-left, a small browser window frame with a miniature page layout sketched inside — header bar, sidebar, content area. In the center, a detailed magnifying glass hovering over a code bracket symbol. Soft sepia watercolor wash on the tree's root node and the magnifying glass lens. Plenty of open whitespace in the left half and bottom-center for text overlay."
+● "comparison":
+  - comparisonItems: 2-4 items — each has a specific NAMED entity and a differentiating value
+  - GOOD: [{label:"React", value:"Component-based, ~22M weekly npm installs"}, {label:"Svelte", value:"No virtual DOM, smallest bundles"}]
+
+● "flow":
+  - flowSteps: 3-6 steps. Each step has a 2-4 word label and a ONE concrete-action sentence detail.
+  - GOOD: {label:"Wireframe Layout", detail:"Sketch page structure in Figma — header, content zones, sidebar, footer"}
+
+● "quote":
+  - quote.text: an actual line from the sources, or a faithful synthesis phrased as a memorable quote
+  - quote.attribution: the source document title, author, or "— Source analysis"
+
+● "closing":
+  - title: a specific, memorable takeaway sentence derived directly from the content (NOT generic)
+  - subtitle: a short eyebrow like "KEY TAKEAWAY" or "RESUMEN"
+
+Write a narrationHint (2-3 natural spoken ${LANG_NAME} sentences) for every slide. Add context BEYOND what's on the slide — an example, an analogy, a "why this matters" insight. This powers the TTS narration.
 
 ═══════════════════════════════════════
-FULL WORKED EXAMPLE
+STEP 4 — ILLUSTRATION (visual-only, never text)
 ═══════════════════════════════════════
 
-Topic: "How to Create a Website"
-Sources mention: HTML, CSS, JavaScript, planning, wireframes, responsive design, SEO, hosting, WordPress vs custom code, performance stats.
+${styleInstr}
+
+Write illustrationPrompt as 80-160 words describing small vignettes positioned in specific zones (top-left, center-right, bottom-center, etc.) with plenty of whitespace around each for the text overlay. The illustration should visually RELATE to the slide's content (indexing → filing cabinet + index cards + magnifying glass; network latency → stopwatch + globe + data packets — NEVER random decorative shapes).
+
+═══════════════════════════════════════
+FULL WORKED EXAMPLE — 6-slide deck on "How to Create a Website"
+═══════════════════════════════════════
+
+Sources mention: HTML5, CSS (Grid/Flexbox), JavaScript/DOM, wireframes, responsive design, SEO, hosting, WordPress vs custom, 53% mobile abandonment stat.
 
 Slide 1 (title): title="Building Your First Website", subtitle="From blank page to live site — the 6 essential concepts every web creator needs"
-Slide 2 (content): title="The Foundation: HTML5 Structure", bullets=["Every page starts with <!DOCTYPE html> — tells browsers to use modern standards", "Semantic tags: <header>, <nav>, <main>, <article>, <footer>", "The <head> holds metadata, CSS links, and <title> for SEO", "Forms use <input>, <select>, <textarea> — the web's interactive building blocks", "Images need alt text: accessibility + SEO + fallback when images fail"]
-Slide 3 (stat): title="PERFORMANCE IMPACT", stat={value:"53%", label:"of mobile visitors leave a page that takes over 3 seconds to load — Google research shows every extra second costs 7% in conversions"}
-Slide 4 (comparison): title="Choosing Your Platform", comparisonItems=[{label:"WordPress", value:"60% of CMS market, 55K+ plugins"}, {label:"Custom Code", value:"Full control, zero bloat"}, {label:"Shopify", value:"Built-in payments, $29/mo"}, {label:"Next.js", value:"React framework, SSR + SSG"}]
-Slide 5 (flow): title="From Idea to Live Website", flowSteps=[{label:"Plan & Wireframe", detail:"Define pages, navigation, and content layout in Figma or on paper"}, {label:"Write HTML", detail:"Build semantic structure — sections, headings, forms, links"}, {label:"Style with CSS", detail:"Add layout (Grid/Flexbox), colors, typography, responsive breakpoints"}, {label:"Add JavaScript", detail:"Interactivity: form validation, menus, API calls, dynamic content"}, {label:"Test & Deploy", detail:"Cross-browser testing, then push to Vercel/Netlify/GitHub Pages"}]
-Slide 6 (closing): title="Start with semantic HTML, layer CSS for layout, add JS for interactivity — deploy in minutes with modern hosting", subtitle="KEY TAKEAWAY"
+Slide 2 (content): title="HTML5 Semantic Structure", bullets=["Every page opens with <!DOCTYPE html> to trigger modern standards","Semantic tags <header>, <nav>, <main>, <article>, <footer> boost accessibility + SEO","The <head> holds metadata, CSS links, and <title> for SEO","Forms rely on <input>, <select>, <textarea> for interactivity","Images need alt text for accessibility, SEO, and broken-image fallback"]
+Slide 3 (stat): title="PERFORMANCE IMPACT", stat={value:"53%", label:"of mobile visitors leave a page that takes over 3 seconds to load — every extra second costs 7% in conversions per Google research"}
+Slide 4 (comparison): title="Choose Your Platform", comparisonItems=[{label:"WordPress", value:"~43% of all websites, 60K+ plugins"},{label:"Custom Code", value:"Full control, zero bloat, highest upkeep"},{label:"Shopify", value:"Hosted e-commerce, starts at $29/mo"},{label:"Next.js", value:"React framework with SSR + SSG + ISR"}]
+Slide 5 (flow): title="Idea to Live Website", flowSteps=[{label:"Plan & Wireframe", detail:"Define pages, navigation, and content zones in Figma"},{label:"Write HTML", detail:"Build semantic structure with sections, headings, forms, links"},{label:"Style with CSS", detail:"Apply Grid/Flexbox layout, typography, responsive breakpoints"},{label:"Add JavaScript", detail:"Layer in form validation, menus, API calls, dynamic content"},{label:"Test & Deploy", detail:"Cross-browser test, then push to Vercel, Netlify, or GitHub Pages"}]
+Slide 6 (closing): title="Start with semantic HTML, layer CSS for layout, add JS for interactivity — deploy in minutes on modern hosting", subtitle="KEY TAKEAWAY"
+
+All text must be in ${LANG_NAME}. The illustrationPrompt must contain NO text of ANY kind.
 
 Sources:
 ${ctx.sourceContext}`,
@@ -278,6 +326,10 @@ ${ctx.sourceContext}`,
       );
     }
 
+    // Caller may override the LLM's accent pick.
+    if (accentOverride) {
+      deck.accent = accentOverride;
+    }
     const hex = ACCENT_HEX[deck.accent];
 
     // Phase 2 — compose every slide in parallel.
@@ -298,11 +350,16 @@ ${ctx.sourceContext}`,
           narrationHint: s.narrationHint,
         };
         try {
-          const r = await composeSlide(spec, {
+          // The composer accepts a `style` pass-through for future compose
+          // implementations to forward to generateInfographicImage. Until the
+          // composer reads it, the style selection is preserved as metadata.
+          const composeOpts: SlideComposeOptions & { style?: VisualStyle } = {
             notebookId: ctx.notebookId,
             outputId: outputId!,
             deckAccent: hex,
-          });
+            style,
+          };
+          const r = await composeSlide(spec, composeOpts);
           return {
             slide: s,
             imageUrl: r.imageUrl,

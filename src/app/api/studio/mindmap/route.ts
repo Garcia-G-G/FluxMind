@@ -43,10 +43,30 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       notebookId,
       model: modelId = "gemini-2.5-flash",
       language: rawLanguage = "en",
+      detailLevel: rawDetail = "standard",
+      customPrompt: rawCustom = "",
     } = body;
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
+    const ALLOWED_DETAIL = ["concise", "standard", "detailed"] as const;
+    const detailLevel: (typeof ALLOWED_DETAIL)[number] =
+      ALLOWED_DETAIL.includes(rawDetail as (typeof ALLOWED_DETAIL)[number])
+        ? (rawDetail as (typeof ALLOWED_DETAIL)[number])
+        : "standard";
+    const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
+
+    // Hard caps per detail level — enforced both in prompt and by trimming.
+    const detailMap = {
+      concise: { subtopics: 3, details: 2 },
+      standard: { subtopics: 4, details: 3 },
+      detailed: { subtopics: 5, details: 3 },
+    } as const;
+    const pick = detailMap[detailLevel];
+
     const LANG_NAME = language === "es" ? "Spanish" : "English";
     const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
+    const userInstr = customPrompt.trim()
+      ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this into the output.\n`
+      : "";
 
     const ctx = await getStudioContext(notebookId);
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -62,8 +82,32 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const { object: mindMap } = await generateObject({
         model: getModel(modelId),
         schema: mindMapSchema,
-        prompt: `${langInstr}\n\nAnalyze these sources and create a mind map. Identify the central topic, then 4-7 subtopics, each with 2-4 details. Use IDs like st1, st2 for subtopics and d1, d2 for details.\n\nSources:\n${ctx.sourceContext}`,
+        prompt: `${langInstr}
+${userInstr}
+You are building a mind map that TEACHES real, specific facts from the provided sources. Do NOT use filler like "important concept" or "key idea" — every node must carry a concrete piece of information extracted from the sources.
+
+STRUCTURE (detail level: ${detailLevel}):
+- Identify ONE central topic (2-4 words).
+- Produce EXACTLY ${pick.subtopics} subtopics (hard cap: no more than 5).
+- Each subtopic gets EXACTLY ${pick.details} details (hard cap: no more than 3).
+
+CONTENT RULES:
+- Every node "label" is 2-4 words max — short, scannable, concrete (e.g. "DOM Tree Traversal", not "How the DOM works").
+- Every "description" is ONE sentence containing a REAL, specific fact from the sources — a named entity, a number, a technique, a cause-effect, or a direct definition.
+  GOOD description: "React re-renders a component whenever its state or props change, using a virtual DOM diff to batch updates."
+  BAD description:  "Important concept" / "This is a key idea in the domain"
+- Subtopic IDs: st1, st2, st3, ... Detail IDs (globally unique): d1, d2, d3, ...
+- All text in ${LANG_NAME}.
+
+Sources:
+${ctx.sourceContext}`,
       });
+
+      // Defensive cap: trim to hard limits even if the LLM over-generates.
+      mindMap.subtopics = mindMap.subtopics.slice(0, 5).map((st) => ({
+        ...st,
+        details: st.details.slice(0, 3),
+      }));
 
       // Transform to React Flow nodes and edges
       const nodes: Array<{

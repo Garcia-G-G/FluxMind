@@ -4,22 +4,29 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Play,
   Pause,
-  Maximize,
-  Volume2,
-  VolumeX,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
-  AlertCircle,
-  RotateCcw,
 } from "lucide-react";
-import { GlassCard } from "@/components/shared/glass-card";
 
 type Chapter = {
   title: string;
   narration: string;
+  imagePrompt?: string;
   imageUrl?: string;
+  audioUrl?: string;
+  duration?: number;
+};
+
+const CARD_STYLE: React.CSSProperties = {
+  background: "var(--fm-surface)",
+  border: "1px solid var(--fm-surface-border)",
+  borderRadius: "1rem",
+  padding: "1.25rem",
 };
 
 const formatTime = (s: number): string => {
+  if (!Number.isFinite(s) || s < 0) return "0:00";
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, "0")}`;
@@ -36,155 +43,355 @@ export const VideoPlayer = ({
   status: string;
   chapters?: Chapter[];
 }): React.ReactNode => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [activeChapter, setActiveChapter] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [activeChapter, setActiveChapter] = useState(0);
+  const [chapterDuration, setChapterDuration] = useState(0);
+
+  const hasChapters = Array.isArray(chapters) && chapters.length > 0;
+  const hasSlideshow =
+    hasChapters && chapters!.some((c) => c.audioUrl && c.imageUrl);
+  const currentChapter =
+    hasChapters && chapters![activeChapter] ? chapters![activeChapter] : null;
+
+  const goToChapter = useCallback(
+    (index: number): void => {
+      if (!hasChapters) return;
+      const clamped = Math.max(0, Math.min(chapters!.length - 1, index));
+      setActiveChapter(clamped);
+      setCurrentTime(0);
+    },
+    [hasChapters, chapters],
+  );
+
+  const handleEnded = useCallback((): void => {
+    if (!hasChapters) return;
+    if (activeChapter < chapters!.length - 1) {
+      setActiveChapter(activeChapter + 1);
+      setCurrentTime(0);
+    } else {
+      setIsPlaying(false);
+    }
+  }, [activeChapter, chapters, hasChapters]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const onTime = (): void => setCurrentTime(video.currentTime);
-    const onMeta = (): void => setDuration(video.duration);
-    const onEnd = (): void => setIsPlaying(false);
-    video.addEventListener("timeupdate", onTime);
-    video.addEventListener("loadedmetadata", onMeta);
-    video.addEventListener("ended", onEnd);
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onTime = (): void => setCurrentTime(audio.currentTime);
+    const onMeta = (): void => setChapterDuration(audio.duration);
+    const onPlay = (): void => setIsPlaying(true);
+    const onPause = (): void => setIsPlaying(false);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
     return () => {
-      video.removeEventListener("timeupdate", onTime);
-      video.removeEventListener("loadedmetadata", onMeta);
-      video.removeEventListener("ended", onEnd);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
     };
-  }, [fileUrl]);
+  }, [activeChapter, hasSlideshow]);
 
   const togglePlay = useCallback((): void => {
-    if (!videoRef.current) return;
-    if (isPlaying) videoRef.current.pause();
-    else videoRef.current.play();
-    setIsPlaying(!isPlaying);
-  }, [isPlaying]);
-
-  const seek = useCallback((fraction: number): void => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = fraction * videoRef.current.duration;
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      void audio.play();
+    } else {
+      audio.pause();
+    }
   }, []);
 
-  const progress = duration > 0 ? currentTime / duration : 0;
+  const seek = useCallback((fraction: number): void => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(audio.duration)) return;
+    audio.currentTime = Math.max(0, Math.min(1, fraction)) * audio.duration;
+  }, []);
 
-  // Processing state
-  if (status === "pending" || status === "generating") {
+  // Loading state
+  if (status === "generating" || status === "pending") {
     return (
-      <GlassCard padding="lg">
+      <div style={CARD_STYLE}>
         <div className="text-center py-8">
-          <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin" style={{ color: "var(--fm-accent-violet)" }} />
-          <h3 className="font-medium mb-2" style={{ color: "var(--fm-text)" }}>Generating Video Overview</h3>
-          <p className="text-sm" style={{ color: "var(--fm-text-secondary)", animation: "typingPulse 2s ease-in-out infinite" }}>
+          <Loader2
+            className="h-8 w-8 mx-auto mb-4 animate-spin"
+            style={{ color: "var(--fm-accent-orange)" }}
+          />
+          <h3
+            className="font-medium mb-2"
+            style={{ color: "var(--fm-text)" }}
+          >
+            Generating Video Overview
+          </h3>
+          <p className="text-sm" style={{ color: "var(--fm-text-secondary)" }}>
             This may take a few minutes...
           </p>
         </div>
-      </GlassCard>
+      </div>
     );
   }
 
-  if (status === "error") {
+  // Slideshow mode
+  if (hasSlideshow && currentChapter) {
+    const totalDuration = chapters!.reduce(
+      (acc, c) => acc + (typeof c.duration === "number" ? c.duration : 0),
+      0,
+    );
+    const progress =
+      chapterDuration > 0 ? currentTime / chapterDuration : 0;
+
     return (
-      <GlassCard padding="lg">
-        <div className="text-center py-8">
-          <AlertCircle className="h-8 w-8 mx-auto mb-4" style={{ color: "var(--fm-error)" }} />
-          <h3 className="font-medium mb-2" style={{ color: "var(--fm-text)" }}>Generation Failed</h3>
-          <button className="flex items-center gap-1.5 mx-auto px-4 py-2 text-sm font-medium text-white" style={{ background: "var(--fm-accent-gradient)", borderRadius: 12 }}>
-            <RotateCcw className="h-4 w-4" /> Retry
+      <div style={CARD_STYLE}>
+        <h3
+          className="text-lg font-bold mb-4"
+          style={{ color: "var(--fm-text)" }}
+        >
+          {title}
+        </h3>
+
+        <div
+          className="relative rounded-xl overflow-hidden aspect-video"
+          style={{
+            background: "var(--fm-surface-hover)",
+            border: "1px solid var(--fm-surface-border)",
+          }}
+        >
+          {currentChapter.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={currentChapter.imageUrl}
+              alt={currentChapter.title}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+          ) : null}
+        </div>
+
+        <div className="mt-4">
+          <h4
+            className="text-xs font-medium mb-1"
+            style={{ color: "var(--fm-accent-orange)" }}
+          >
+            Chapter {activeChapter + 1} of {chapters!.length}
+          </h4>
+          <h5
+            className="text-base font-semibold mb-2"
+            style={{ color: "var(--fm-text)" }}
+          >
+            {currentChapter.title}
+          </h5>
+          <p
+            className="text-sm"
+            style={{ color: "var(--fm-text-secondary)" }}
+          >
+            {currentChapter.narration}
+          </p>
+        </div>
+
+        {/* Audio element (hidden, controlled via custom UI) */}
+        <audio
+          ref={audioRef}
+          src={currentChapter.audioUrl}
+          autoPlay
+          onEnded={handleEnded}
+          preload="auto"
+        />
+
+        {/* Progress bar - tracks current chapter's audio */}
+        <div className="mt-4">
+          <div
+            className="h-1.5 rounded-full cursor-pointer"
+            style={{ background: "var(--fm-surface-hover)" }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              seek((e.clientX - rect.left) / rect.width);
+            }}
+          >
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${progress * 100}%`,
+                background: "var(--fm-accent-orange)",
+              }}
+            />
+          </div>
+          <div
+            className="flex items-center justify-between mt-1.5 text-xs font-mono"
+            style={{
+              color: "var(--fm-text-tertiary)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            <span>
+              {formatTime(currentTime)} / {formatTime(chapterDuration)}
+            </span>
+            {totalDuration > 0 && (
+              <span>Total: {formatTime(totalDuration)}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => goToChapter(activeChapter - 1)}
+            disabled={activeChapter === 0}
+            className="p-2 rounded-full transition-opacity disabled:opacity-40"
+            style={{
+              background: "var(--fm-surface-hover)",
+              color: "var(--fm-text)",
+            }}
+            aria-label="Previous chapter"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="p-3 rounded-full"
+            style={{
+              background: "var(--fm-accent-orange)",
+              color: "white",
+            }}
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => goToChapter(activeChapter + 1)}
+            disabled={activeChapter >= chapters!.length - 1}
+            className="p-2 rounded-full transition-opacity disabled:opacity-40"
+            style={{
+              background: "var(--fm-surface-hover)",
+              color: "var(--fm-text)",
+            }}
+            aria-label="Next chapter"
+          >
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-      </GlassCard>
-    );
-  }
 
-  // Script-only mode (no video file)
-  if (!fileUrl || fileUrl.startsWith("local://")) {
-    return (
-      <GlassCard padding="lg">
-        <h3 className="text-lg font-bold mb-4" style={{ color: "var(--fm-text)" }}>{title}</h3>
-        {chapters && chapters.length > 0 ? (
-          <div className="space-y-4">
-            {chapters.map((ch, i) => (
-              <div key={i} className="rounded-xl p-4" style={{ background: "var(--fm-surface)", border: "1px solid var(--fm-surface-border)" }}>
-                <h4 className="font-medium text-sm mb-1" style={{ color: "var(--fm-accent-violet)" }}>
-                  Chapter {i + 1}: {ch.title}
-                </h4>
-                <p className="text-sm" style={{ color: "var(--fm-text-secondary)" }}>{ch.narration}</p>
-                {ch.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ch.imageUrl} alt={ch.title} className="mt-2 rounded-lg w-full aspect-video object-cover" />
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: "var(--fm-text-secondary)" }}>Video script generated. Configure FAL_KEY and ELEVENLABS_API_KEY for full video generation.</p>
-        )}
-      </GlassCard>
-    );
-  }
-
-  // Full video player
-  return (
-    <GlassCard padding="md">
-      <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
-        <video ref={videoRef} src={fileUrl} className="w-full h-full" onClick={togglePlay} />
-
-        {/* Controls overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3" style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.8))" }}>
-          {/* Progress bar */}
-          <div className="h-1 rounded-full mb-2 cursor-pointer" style={{ background: "rgba(255,255,255,0.2)" }} onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); seek((e.clientX - rect.left) / rect.width); }}>
-            <div className="h-full rounded-full" style={{ width: `${progress * 100}%`, background: "var(--fm-accent-gradient)" }} />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button onClick={togglePlay} className="text-white">
-                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-              </button>
-              <span className="text-xs text-white/70 font-mono" style={{ fontVariantNumeric: "tabular-nums" }}>
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => { if (videoRef.current) { videoRef.current.muted = !isMuted; setIsMuted(!isMuted); } }} className="text-white/70">
-                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </button>
-              <button onClick={() => videoRef.current?.requestFullscreen()} className="text-white/70">
-                <Maximize className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Chapter list */}
-      {chapters && chapters.length > 0 && (
-        <div className="mt-4 space-y-1">
-          <h4 className="text-xs font-medium mb-2" style={{ color: "var(--fm-text-tertiary)" }}>Chapters</h4>
-          {chapters.map((ch, i) => (
+        {/* Thumbnail strip */}
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {chapters!.map((ch, i) => (
             <button
               key={i}
-              className="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors relative"
+              type="button"
+              onClick={() => goToChapter(i)}
+              className="flex-shrink-0 rounded-lg overflow-hidden transition-all"
               style={{
-                background: activeChapter === i ? "var(--fm-surface-hover)" : undefined,
-                color: activeChapter === i ? "var(--fm-text)" : "var(--fm-text-secondary)",
+                width: 96,
+                height: 54,
+                border:
+                  i === activeChapter
+                    ? "2px solid var(--fm-accent-orange)"
+                    : "1px solid var(--fm-surface-border)",
+                opacity: i === activeChapter ? 1 : 0.6,
+                background: "var(--fm-surface-hover)",
               }}
-              onClick={() => setActiveChapter(i)}
+              aria-label={`Jump to chapter ${i + 1}: ${ch.title}`}
             >
-              {activeChapter === i && (
-                <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r" style={{ background: "var(--fm-accent-gradient)" }} />
+              {ch.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={ch.imageUrl}
+                  alt={ch.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-xs"
+                  style={{ color: "var(--fm-text-tertiary)" }}
+                >
+                  {i + 1}
+                </div>
               )}
-              <span className="font-medium">{ch.title}</span>
             </button>
           ))}
         </div>
-      )}
-    </GlassCard>
+      </div>
+    );
+  }
+
+  // Script-only mode (chapters without audio)
+  if (hasChapters) {
+    return (
+      <div style={CARD_STYLE}>
+        <h3
+          className="text-lg font-bold mb-4"
+          style={{ color: "var(--fm-text)" }}
+        >
+          {title}
+        </h3>
+        <div className="space-y-4">
+          {chapters!.map((ch, i) => (
+            <div
+              key={i}
+              className="rounded-xl p-4"
+              style={{
+                background: "var(--fm-surface-hover)",
+                border: "1px solid var(--fm-surface-border)",
+              }}
+            >
+              <h4
+                className="font-medium text-sm mb-1"
+                style={{ color: "var(--fm-accent-orange)" }}
+              >
+                Chapter {i + 1}: {ch.title}
+              </h4>
+              <p
+                className="text-sm mb-2"
+                style={{ color: "var(--fm-text-secondary)" }}
+              >
+                {ch.narration}
+              </p>
+              {ch.imagePrompt && (
+                <p
+                  className="text-xs italic"
+                  style={{ color: "var(--fm-text-tertiary)" }}
+                >
+                  Image: {ch.imagePrompt}
+                </p>
+              )}
+              {ch.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={ch.imageUrl}
+                  alt={ch.title}
+                  loading="lazy"
+                  className="mt-2 rounded-lg w-full aspect-video object-cover"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Empty/fallback
+  return (
+    <div style={CARD_STYLE}>
+      <h3
+        className="text-lg font-bold mb-2"
+        style={{ color: "var(--fm-text)" }}
+      >
+        {title}
+      </h3>
+      <p style={{ color: "var(--fm-text-secondary)" }}>
+        {fileUrl
+          ? "Video available."
+          : "Video script generated. Configure FAL_KEY and ELEVENLABS_API_KEY for full video generation."}
+      </p>
+    </div>
   );
 };
