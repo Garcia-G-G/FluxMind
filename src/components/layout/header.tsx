@@ -19,9 +19,18 @@ export const Header = ({
   const { mode, toggleMode } = useFluxTheme();
   const [themeRotation, setThemeRotation] = useState(0);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
 
-  const initial = session?.user?.name?.[0]?.toUpperCase() ?? "G";
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Gate anything session-dependent on mount so server-rendered HTML doesn't
+  // disagree with the first client render (better-auth's useSession is async).
+  const initial = mounted
+    ? session?.user?.name?.[0]?.toUpperCase() ?? "G"
+    : "";
 
   // Close dropdown on outside click
   useEffect(() => {

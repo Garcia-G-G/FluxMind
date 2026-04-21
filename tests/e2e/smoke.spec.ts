@@ -182,9 +182,12 @@ test.describe("FluxMind smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("domcontentloaded");
 
-    // Greeting with shimmer class
-    const shimmer = page.locator(".fm-shimmer-text").first();
-    await expect(shimmer).toBeVisible({ timeout: 10000 });
+    // Greeting h1 (gradient text via inline style — matches any time-of-day)
+    await expect(
+      page.getByRole("heading", {
+        name: /Good (morning|afternoon|evening)/i,
+      }).first(),
+    ).toBeVisible({ timeout: 10000 });
 
     // 4 stat cards. AppShell renders the main content twice (desktop md:flex +
     // mobile md:hidden), so each label appears twice in the DOM. Use .first().
