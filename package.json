@@ -70,7 +70,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/fluent-ffmpeg": "^2.1.28",
     "shadcn": "^4.2.0",
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/papaparse": "^5.5.2",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",

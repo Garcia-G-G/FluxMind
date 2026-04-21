@@ -109,6 +109,22 @@ export const FlashcardView = ({
     return { total, gotIt, missed, unseen, due };
   }, [cards, progress, isCardDue]);
 
+  const goNext = useCallback((): void => {
+    setFlipped(false);
+    setCurrentIndex((i) =>
+      filteredOrder.length > 0 ? (i + 1) % filteredOrder.length : 0,
+    );
+  }, [filteredOrder.length]);
+
+  const goPrev = useCallback((): void => {
+    setFlipped(false);
+    setCurrentIndex((i) =>
+      filteredOrder.length > 0
+        ? (i - 1 + filteredOrder.length) % filteredOrder.length
+        : 0,
+    );
+  }, [filteredOrder.length]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === " " || e.key === "Enter") {
@@ -122,23 +138,7 @@ export const FlashcardView = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
-
-  const goNext = (): void => {
-    setFlipped(false);
-    setCurrentIndex((i) =>
-      filteredOrder.length > 0 ? (i + 1) % filteredOrder.length : 0
-    );
-  };
-
-  const goPrev = (): void => {
-    setFlipped(false);
-    setCurrentIndex((i) =>
-      filteredOrder.length > 0
-        ? (i - 1 + filteredOrder.length) % filteredOrder.length
-        : 0
-    );
-  };
+  }, [goNext, goPrev]);
 
   const handleResponse = (gotIt: boolean): void => {
     updateProgress.mutate({ outputId, cardIndex: actualIndex, gotIt });

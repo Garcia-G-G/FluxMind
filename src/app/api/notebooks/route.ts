@@ -20,6 +20,17 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
     const sort = searchParams.get("sort") ?? "updatedAt";
     const order = searchParams.get("order") ?? "desc";
 
+    // Pagination — power users with hundreds of notebooks shouldn't ship
+    // unbounded JSON. Default 100 per page, cap at 500.
+    const rawLimit = Number(searchParams.get("limit") ?? "100");
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(1, Math.floor(rawLimit)), 500)
+      : 100;
+    const rawOffset = Number(searchParams.get("offset") ?? "0");
+    const offset = Number.isFinite(rawOffset)
+      ? Math.max(0, Math.floor(rawOffset))
+      : 0;
+
     const sortColumn =
       sort === "title"
         ? notebooks.title
@@ -60,7 +71,9 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
             )`
       )
       .groupBy(notebooks.id)
-      .orderBy(sortOrder);
+      .orderBy(sortOrder)
+      .limit(limit)
+      .offset(offset);
 
     return NextResponse.json(userNotebooks);
   } catch (error) {

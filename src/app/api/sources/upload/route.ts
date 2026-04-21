@@ -103,8 +103,27 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       const queue = getDocumentQueue();
       await queue.add(`process-${sourceId}`, jobData);
     } catch (queueError) {
-      // If Redis/queue is unavailable, process inline as fallback
-      console.warn("Queue unavailable, processing will happen on next worker start:", queueError);
+      // If the queue is down we can't process — surface it as an errored
+      // source so the UI shows something actionable instead of a forever-
+      // pending row. Old behavior just logged a warning.
+      console.error("Queue unavailable — marking source errored:", queueError);
+      await db
+        .update(sources)
+        .set({
+          status: "error",
+          metadata: {
+            error:
+              queueError instanceof Error
+                ? queueError.message
+                : "Queue unavailable",
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(sources.id, sourceId));
+      return NextResponse.json(
+        { ...source, status: "error", error: "Queue unavailable" },
+        { status: 201 },
+      );
     }
 
     return NextResponse.json(source, { status: 201 });

@@ -232,9 +232,18 @@ export const SourcePanel = ({
                       />
                     )}
                     <button
+                      aria-label={`Delete source ${source.title}`}
                       className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ color: "var(--fm-text-tertiary)" }}
-                      onClick={() => deleteSource.mutate({ id: source.id, notebookId })}
+                      onClick={() => {
+                        // Native confirm keeps the surface minimal; a dialog
+                        // can replace this later when we have a shared
+                        // destructive-action component.
+                        const ok = window.confirm(
+                          `Delete "${source.title}"? This can't be undone.`,
+                        );
+                        if (ok) deleteSource.mutate({ id: source.id, notebookId });
+                      }}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLButtonElement).style.color = "var(--fm-error)";
                       }}

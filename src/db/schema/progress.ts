@@ -69,6 +69,12 @@ export const flashcardProgress = pgTable(
   (table) => [
     index("flashcard_progress_output_id_idx").on(table.outputId),
     index("flashcard_progress_user_id_idx").on(table.userId),
+    // Composite for the SRS lookup: "which cards are due for this user on
+    // this deck?" — filters by (outputId, userId) and orders by nextReview.
+    index("flashcard_progress_output_user_idx").on(
+      table.outputId,
+      table.userId,
+    ),
   ]
 );
 

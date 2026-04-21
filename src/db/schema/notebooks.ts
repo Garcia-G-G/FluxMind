@@ -51,6 +51,10 @@ export const notebookCollaborators = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.notebookId, table.userId] }),
+    // Secondary index on userId for the "notebooks shared with me" query —
+    // the PK is leading-notebookId so userId-only scans hit the full table
+    // without this.
+    index("notebook_collaborators_user_id_idx").on(table.userId),
   ]
 );
 

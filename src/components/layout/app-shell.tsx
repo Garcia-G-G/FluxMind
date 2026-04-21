@@ -31,7 +31,23 @@ export const AppShell = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const sidebarWidth = sidebarCollapsed ? 60 : 240;
+  // Update the sidebar-pad CSS variable directly on :root. Previously we
+  // injected a fresh <style>{`...`}</style> element every render, which
+  // created and destroyed a stylesheet on every toggle (hydration mismatch
+  // risk + layout thrash). `setProperty` is a single style-attribute write.
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px)");
+    const apply = (): void => {
+      const width = sidebarCollapsed ? 60 : 240;
+      document.documentElement.style.setProperty(
+        "--fm-sidebar-pad",
+        mql.matches ? `${width}px` : "0px",
+      );
+    };
+    apply();
+    mql.addEventListener("change", apply);
+    return () => mql.removeEventListener("change", apply);
+  }, [sidebarCollapsed]);
 
   return (
     <div className="min-h-screen relative" style={{ background: "var(--fm-bg)" }}>
@@ -44,11 +60,6 @@ export const AppShell = ({
         className="flex flex-col min-h-screen transition-[padding-left] duration-200 ease-in-out"
         style={{ paddingLeft: `var(--fm-sidebar-pad, 0px)` }}
       >
-        <style>{`
-          @media (min-width: 768px) {
-            :root { --fm-sidebar-pad: ${sidebarWidth}px; }
-          }
-        `}</style>
         <Header
           onOpenCommandPalette={() => setCommandOpen(true)}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}

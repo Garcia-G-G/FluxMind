@@ -56,13 +56,22 @@ export const ChatPanel = ({
     [notebookId, selectedModel, conversationId]
   );
 
+  // Memoize the translated initialMessages so useChat doesn't see a new
+  // array reference on every render (which would re-seed the conversation
+  // and reset streaming state).
+  const seededMessages = useMemo(
+    () =>
+      initialMessages?.map((m) => ({
+        id: m.id,
+        role: m.role,
+        parts: [{ type: "text" as const, text: m.content }],
+      })),
+    [initialMessages],
+  );
+
   const { messages, sendMessage, stop, regenerate, status, error } = useChat({
     transport,
-    messages: initialMessages?.map((m) => ({
-      id: m.id,
-      role: m.role,
-      parts: [{ type: "text" as const, text: m.content }],
-    })),
+    messages: seededMessages,
     onFinish: () => {
       // Conversation ID comes back in headers — handled by transport
     },

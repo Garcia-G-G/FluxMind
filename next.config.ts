@@ -36,6 +36,10 @@ const nextConfig: NextConfig = {
     "ioredis",
     "bullmq",
     "stripe",
+    // ~60 MB native binary — never bundle it into route chunks. The
+    // worker imports it at runtime.
+    "@ffmpeg-installer/ffmpeg",
+    "fluent-ffmpeg",
   ],
 
   // Dev server: keep compiled routes warm for longer so flipping back to a
