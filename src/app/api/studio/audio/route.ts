@@ -1,16 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { eq, and, desc } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { outputs } from "@/db/schema/outputs";
+import { notebooks } from "@/db/schema/notebooks";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 import { getDocumentQueue } from "@/lib/queue";
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const notebookId = request.nextUrl.searchParams.get("notebookId");
     if (!notebookId) {
       return NextResponse.json({ error: "notebookId required" }, { status: 400 });
+    }
+
+    // Verify ownership — notebookId alone is not a capability.
+    const [notebook] = await db
+      .select({ userId: notebooks.userId })
+      .from(notebooks)
+      .where(eq(notebooks.id, notebookId));
+    if (!notebook || notebook.userId !== session.user.id) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const [latest] = await db
@@ -34,7 +51,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     const body = await request.json();
     const { notebookId } = body;
 
-    const ctx = await getStudioContext(notebookId);
+    const ctx = await getStudioContext(notebookId, "studioPodcast");
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
     const outputId = createId();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Wand2 } from "lucide-react";
+import { Loader2, Search, Wand2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { useLanguage } from "@/lib/i18n/language";
 import type { VisualStyle } from "@/lib/media/styles";
+import type { DiscoveredSource } from "@/app/api/studio/discover-sources/route";
+import type { ScrapedResult } from "@/app/api/studio/scrape-sources/route";
 
 /** Output types that open the customization dialog. */
 type OutputType = "slides" | "infographic" | "video" | "mindmap";
@@ -23,12 +25,17 @@ export type GenerateConfig = {
   customPrompt: string;
   slideCount?: number;
   accentColor?: "orange" | "violet" | "blue" | "rose" | "emerald" | "amber";
+  /** IDs of existing notebook sources the user selected. Forward-compat plumbing. */
+  selectedSourceIds?: string[];
+  /** Scraped content from discovered sources, concatenated. */
+  extraSourceContent?: string;
 };
 
 type GenerateDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   outputType: OutputType;
+  notebookId: string;
   onGenerate: (config: GenerateConfig) => void | Promise<void>;
   isGenerating?: boolean;
 };
@@ -116,10 +123,15 @@ const tileBaseStyle = (selected: boolean): React.CSSProperties => ({
   color: "var(--fm-text)",
 });
 
+const MAX_EXTRA_SOURCE_CONTENT = 80_000;
+
+type ExistingSource = { id: string; title: string };
+
 export const GenerateDialog = ({
   open,
   onOpenChange,
   outputType,
+  notebookId,
   onGenerate,
   isGenerating = false,
 }: GenerateDialogProps): React.ReactNode => {
@@ -138,6 +150,22 @@ export const GenerateDialog = ({
   const [accentColor, setAccentColor] =
     useState<NonNullable<GenerateConfig["accentColor"]>>("orange");
 
+  // ── Sources section state ──
+  const [existingSources, setExistingSources] = useState<ExistingSource[]>([]);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const [isDiscovering, setIsDiscovering] = useState<boolean>(false);
+  const [hasDiscovered, setHasDiscovered] = useState<boolean>(false);
+  const [discoveredSources, setDiscoveredSources] = useState<
+    DiscoveredSource[]
+  >([]);
+  const [selectedDiscoveredUrls, setSelectedDiscoveredUrls] = useState<
+    Set<string>
+  >(new Set());
+  const [isScrapingOnSubmit, setIsScrapingOnSubmit] = useState<boolean>(false);
+
   // Reset defaults whenever the dialog opens with a new type
   useEffect(() => {
     if (open) {
@@ -148,14 +176,105 @@ export const GenerateDialog = ({
       setCustomPrompt("");
       setSlideCount(8);
       setAccentColor("orange");
+      setIsDiscovering(false);
+      setHasDiscovered(false);
+      setDiscoveredSources([]);
+      setSelectedDiscoveredUrls(new Set());
+      setIsScrapingOnSubmit(false);
     }
   }, [open, currentLanguage]);
+
+  // Fetch existing sources when dialog opens.
+  useEffect(() => {
+    if (!open || !notebookId) return;
+    let cancelled = false;
+    void (async (): Promise<void> => {
+      try {
+        const res = await fetch(
+          `/api/sources?notebookId=${encodeURIComponent(notebookId)}`,
+        );
+        if (!res.ok) return;
+        const list = (await res.json()) as Array<{
+          id: string;
+          title: string;
+          status: string;
+        }>;
+        if (cancelled) return;
+        const mapped = list.map((s) => ({ id: s.id, title: s.title }));
+        setExistingSources(mapped);
+        // Start with ALL existing sources selected.
+        setSelectedSourceIds(new Set(mapped.map((s) => s.id)));
+      } catch {
+        // silently ignore — existing sources just won't appear
+      }
+    })();
+    return (): void => {
+      cancelled = true;
+    };
+  }, [open, notebookId]);
 
   const showOrientation = outputType === "infographic";
   const showStyle = outputType !== "mindmap";
   const showSlideCount = outputType === "slides";
   const showAccent =
     outputType === "slides" || outputType === "infographic";
+
+  const toggleExistingSource = (id: string): void => {
+    setSelectedSourceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleDiscovered = (url: string): void => {
+    setSelectedDiscoveredUrls((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const selectAllDiscovered = (): void => {
+    setSelectedDiscoveredUrls(new Set(discoveredSources.map((d) => d.url)));
+  };
+  const deselectAllDiscovered = (): void => {
+    setSelectedDiscoveredUrls(new Set());
+  };
+
+  const findSources = async (): Promise<void> => {
+    if (isDiscovering) return;
+    setIsDiscovering(true);
+    try {
+      const res = await fetch("/api/studio/discover-sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notebookId,
+          query: customPrompt.trim() || undefined,
+        }),
+      });
+      const json = (await res.json()) as {
+        sources?: DiscoveredSource[];
+      };
+      const list = json.sources ?? [];
+      setDiscoveredSources(list);
+      // Default-select the first 5 (or however many returned).
+      setSelectedDiscoveredUrls(
+        new Set(list.slice(0, 5).map((d) => d.url)),
+      );
+      setHasDiscovered(true);
+    } catch (err) {
+      console.error("discover-sources request failed:", err);
+      setDiscoveredSources([]);
+      setSelectedDiscoveredUrls(new Set());
+      setHasDiscovered(true);
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
 
   const submit = async (): Promise<void> => {
     const config: GenerateConfig = {
@@ -167,8 +286,53 @@ export const GenerateDialog = ({
     };
     if (showSlideCount) config.slideCount = slideCount;
     if (showAccent) config.accentColor = accentColor;
+
+    // Thread selected existing source ids through (forward-compat).
+    config.selectedSourceIds = Array.from(selectedSourceIds);
+
+    // Scrape discovered selections on demand.
+    const urlsToScrape = Array.from(selectedDiscoveredUrls);
+    if (urlsToScrape.length > 0) {
+      setIsScrapingOnSubmit(true);
+      try {
+        const res = await fetch("/api/studio/scrape-sources", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urls: urlsToScrape }),
+        });
+        if (res.ok) {
+          const { results } = (await res.json()) as {
+            results: ScrapedResult[];
+          };
+          const chunks: string[] = [];
+          for (const r of results) {
+            if (!r.content || r.error) continue;
+            chunks.push(
+              `\n\n[Source: ${r.title || r.url} — ${r.url}]\n${r.content}`,
+            );
+          }
+          let combined = chunks.join("");
+          if (combined.length > MAX_EXTRA_SOURCE_CONTENT) {
+            combined = combined.slice(0, MAX_EXTRA_SOURCE_CONTENT);
+          }
+          if (combined.trim().length > 0) {
+            config.extraSourceContent = combined;
+          }
+        }
+      } catch (err) {
+        console.error("scrape-sources request failed:", err);
+        // Non-fatal — proceed without extraSourceContent.
+      } finally {
+        setIsScrapingOnSubmit(false);
+      }
+    }
+
     await onGenerate(config);
   };
+
+  const submitDisabled = isGenerating || isScrapingOnSubmit;
+  const discoveredSelectedCount = selectedDiscoveredUrls.size;
+  const discoveredTotal = discoveredSources.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -329,6 +493,204 @@ export const GenerateDialog = ({
             </div>
           </div>
 
+          {/* ── Sources section ── */}
+          <div className="flex flex-col gap-3 pt-2">
+            <div
+              className="h-px w-full"
+              style={{ background: "var(--fm-surface-border)" }}
+            />
+            <span className={sectionLabelClass} style={sectionLabelStyle}>
+              Sources
+            </span>
+
+            {/* Existing notebook sources */}
+            {existingSources.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span
+                  className="text-[11px]"
+                  style={{ color: "var(--fm-text-tertiary)" }}
+                >
+                  Your sources
+                </span>
+                <div
+                  className="flex max-h-[160px] flex-col gap-1 overflow-y-auto rounded-lg border p-2"
+                  style={{
+                    background: "var(--fm-surface)",
+                    borderColor: "var(--fm-surface-border)",
+                  }}
+                >
+                  {existingSources.map((s) => {
+                    const selected = selectedSourceIds.has(s.id);
+                    return (
+                      <label
+                        key={s.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors"
+                        style={{
+                          background: selected
+                            ? "color-mix(in srgb, var(--fm-accent-orange) 12%, transparent)"
+                            : "transparent",
+                          borderColor: selected
+                            ? "var(--fm-accent-orange)"
+                            : "transparent",
+                          color: "var(--fm-text)",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleExistingSource(s.id)}
+                          className="accent-[var(--fm-accent-orange)]"
+                        />
+                        <span className="truncate">{s.title}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Discover more from the web */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-[11px]"
+                  style={{ color: "var(--fm-text-tertiary)" }}
+                >
+                  Discover more from the web
+                </span>
+                <button
+                  type="button"
+                  onClick={findSources}
+                  disabled={isDiscovering || isGenerating}
+                  className="flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+                  style={{
+                    background: "var(--fm-surface)",
+                    borderColor: "var(--fm-surface-border)",
+                    color: "var(--fm-text-secondary)",
+                  }}
+                >
+                  {isDiscovering ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Search className="h-3 w-3" />
+                  )}
+                  Find sources
+                </button>
+              </div>
+
+              {hasDiscovered && discoveredSources.length === 0 && (
+                <p
+                  className="rounded-md border px-2 py-1.5 text-[11px]"
+                  style={{
+                    background: "var(--fm-surface)",
+                    borderColor: "var(--fm-surface-border)",
+                    color: "var(--fm-text-tertiary)",
+                  }}
+                >
+                  No results. If nothing shows up repeatedly, configure
+                  SERPER_API_KEY to enable web discovery.
+                </p>
+              )}
+
+              {discoveredSources.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-[11px]"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      Selected: {discoveredSelectedCount} of{" "}
+                      {discoveredTotal}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={selectAllDiscovered}
+                        className="h-6 rounded px-1.5 text-[11px]"
+                        style={{ color: "var(--fm-text-secondary)" }}
+                      >
+                        Select all
+                      </button>
+                      <span
+                        style={{ color: "var(--fm-text-tertiary)" }}
+                        className="text-[11px]"
+                      >
+                        ·
+                      </span>
+                      <button
+                        type="button"
+                        onClick={deselectAllDiscovered}
+                        className="h-6 rounded px-1.5 text-[11px]"
+                        style={{ color: "var(--fm-text-secondary)" }}
+                      >
+                        Deselect all
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    className="flex max-h-[200px] flex-col gap-1 overflow-y-auto rounded-lg border p-2"
+                    style={{
+                      background: "var(--fm-surface)",
+                      borderColor: "var(--fm-surface-border)",
+                    }}
+                  >
+                    {discoveredSources.map((d) => {
+                      const selected = selectedDiscoveredUrls.has(d.url);
+                      return (
+                        <label
+                          key={d.url}
+                          className="flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors"
+                          style={{
+                            background: selected
+                              ? "color-mix(in srgb, var(--fm-accent-orange) 12%, transparent)"
+                              : "transparent",
+                            borderColor: selected
+                              ? "var(--fm-accent-orange)"
+                              : "transparent",
+                            color: "var(--fm-text)",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => toggleDiscovered(d.url)}
+                            className="mt-0.5 accent-[var(--fm-accent-orange)]"
+                          />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={d.favicon}
+                            alt=""
+                            width={16}
+                            height={16}
+                            className="mt-0.5 shrink-0 rounded-sm"
+                            style={{ objectFit: "contain" }}
+                          />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate font-medium">
+                              {d.title}
+                            </span>
+                            <span
+                              className="truncate text-[10px]"
+                              style={{ color: "var(--fm-text-tertiary)" }}
+                            >
+                              {d.domain}
+                            </span>
+                            <span
+                              className="line-clamp-2 text-[11px]"
+                              style={{ color: "var(--fm-text-secondary)" }}
+                            >
+                              {d.snippet}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Custom prompt — all */}
           <div className="flex flex-col gap-2">
             <span className={sectionLabelClass} style={sectionLabelStyle}>
@@ -366,16 +728,16 @@ export const GenerateDialog = ({
           <button
             type="button"
             onClick={submit}
-            disabled={isGenerating}
+            disabled={submitDisabled}
             className="flex h-9 items-center gap-1.5 rounded-lg px-4 text-xs font-medium text-white transition-opacity disabled:opacity-50"
             style={{ background: "var(--fm-accent-orange)" }}
           >
-            {isGenerating ? (
+            {isGenerating || isScrapingOnSubmit ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Wand2 className="h-3.5 w-3.5" />
             )}
-            Generate
+            {isScrapingOnSubmit ? "Fetching…" : "Generate"}
           </button>
         </div>
       </DialogContent>

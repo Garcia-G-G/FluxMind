@@ -34,7 +34,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     const LANG_NAME = language === "es" ? "Spanish" : "English";
     const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
-    const ctx = await getStudioContext(notebookId);
+    const ctx = await getStudioContext(notebookId, "studioGenerate");
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
     const outputId = createId();

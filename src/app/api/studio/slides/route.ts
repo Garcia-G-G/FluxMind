@@ -126,6 +126,8 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       customPrompt: rawCustom = "",
       slideCount: rawSlideCount,
       accentColor: rawAccent,
+      selectedSourceIds: rawSelectedSourceIds,
+      extraSourceContent: rawExtraSourceContent,
     } = body as {
       notebookId: string;
       model?: string;
@@ -135,7 +137,17 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       customPrompt?: string;
       slideCount?: number;
       accentColor?: string;
+      selectedSourceIds?: string[];
+      extraSourceContent?: string;
     };
+
+    const selectedSourceIds: string[] = Array.isArray(rawSelectedSourceIds)
+      ? rawSelectedSourceIds.filter((s): s is string => typeof s === "string")
+      : [];
+    const extraSourceContent: string =
+      typeof rawExtraSourceContent === "string"
+        ? rawExtraSourceContent.slice(0, 80_000)
+        : "";
 
     // Coerce enums — unknowns fall back to defaults.
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
@@ -188,10 +200,20 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       : "";
     const styleInstr = getStyleInstructions(style);
 
-    const ctx = await getStudioContext(notebookId);
+    const ctx = await getStudioContext(notebookId, "studioGenerate");
     if (isError(ctx)) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
+
+    // Forward-compat: log picked sources; do NOT filter ctx.sourceContext yet.
+    if (selectedSourceIds.length > 0) {
+      console.info(
+        `[slides] selectedSourceIds=${selectedSourceIds.length} (forward-compat, not filtering)`,
+      );
+    }
+    const finalContext = extraSourceContent
+      ? `${ctx.sourceContext}\n\n--- Additional sources ---\n${extraSourceContent}`
+      : ctx.sourceContext;
 
     outputId = createId();
     await db.insert(outputs).values({
@@ -306,7 +328,7 @@ Slide 6 (closing): title="Start with semantic HTML, layer CSS for layout, add JS
 All text must be in ${LANG_NAME}. The illustrationPrompt must contain NO text of ANY kind.
 
 Sources:
-${ctx.sourceContext}`,
+${finalContext}`,
       });
       deck = object;
     } catch (err) {
@@ -350,10 +372,9 @@ ${ctx.sourceContext}`,
           narrationHint: s.narrationHint,
         };
         try {
-          // The composer accepts a `style` pass-through for future compose
-          // implementations to forward to generateInfographicImage. Until the
-          // composer reads it, the style selection is preserved as metadata.
-          const composeOpts: SlideComposeOptions & { style?: VisualStyle } = {
+          // Style drives the composer's readability sheet tint via
+          // STYLE_CONFIGS[style].overlayBg.
+          const composeOpts: SlideComposeOptions = {
             notebookId: ctx.notebookId,
             outputId: outputId!,
             deckAccent: hex,

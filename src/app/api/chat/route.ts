@@ -17,6 +17,7 @@ import {
   parseCitations,
   type RetrievedChunk,
 } from "@/lib/ai/rag";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
@@ -33,6 +34,13 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "chat",
+      ...RATE_LIMITS.chat,
+    });
+    if (limited) return limited;
 
     const body = await request.json();
     const {

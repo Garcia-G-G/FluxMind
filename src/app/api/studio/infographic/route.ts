@@ -155,6 +155,8 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       detailLevel: rawDetail = "standard",
       customPrompt: rawCustom = "",
       orientation: rawOrientation = "vertical",
+      selectedSourceIds: rawSelectedSourceIds,
+      extraSourceContent: rawExtraSourceContent,
     } = body as {
       notebookId: string;
       model?: string;
@@ -163,7 +165,17 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       detailLevel?: string;
       customPrompt?: string;
       orientation?: string;
+      selectedSourceIds?: string[];
+      extraSourceContent?: string;
     };
+
+    const selectedSourceIds: string[] = Array.isArray(rawSelectedSourceIds)
+      ? rawSelectedSourceIds.filter((s): s is string => typeof s === "string")
+      : [];
+    const extraSourceContent: string =
+      typeof rawExtraSourceContent === "string"
+        ? rawExtraSourceContent.slice(0, 80_000)
+        : "";
 
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
     const ALLOWED_STYLES: VisualStyle[] = [
@@ -214,10 +226,19 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       : "";
     const styleInstr = getStyleInstructions(style);
 
-    const ctx = await getStudioContext(notebookId);
+    const ctx = await getStudioContext(notebookId, "studioGenerate");
     if (isError(ctx)) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
+
+    if (selectedSourceIds.length > 0) {
+      console.info(
+        `[infographic] selectedSourceIds=${selectedSourceIds.length} (forward-compat, not filtering)`,
+      );
+    }
+    const finalContext = extraSourceContent
+      ? `${ctx.sourceContext}\n\n--- Additional sources ---\n${extraSourceContent}`
+      : ctx.sourceContext;
 
     outputId = createId();
     await db.insert(outputs).values({
@@ -316,7 +337,7 @@ Write illustrationPrompt as 100-200 words describing small vignettes positioned 
 All text must be in ${LANG_NAME}. The illustrationPrompt itself may be prose in ${LANG_NAME} but must contain NO text/words/letters/numbers INSIDE the image.
 
 Sources:
-${ctx.sourceContext}`,
+${finalContext}`,
       });
       content = object;
     } catch (err) {
@@ -345,10 +366,9 @@ ${ctx.sourceContext}`,
     let thumbnailUrl: string | null = null;
     let composeError: string | null = null;
     try {
-      // The composer accepts a `style` pass-through so future compose
-      // implementations can forward it to generateInfographicImage. Until the
-      // composer reads it, style selection is preserved as metadata.
-      const composeOpts: ComposeOptions & { style?: VisualStyle } = {
+      // Style drives the composer's readability sheet tint via
+      // STYLE_CONFIGS[style].overlayBg.
+      const composeOpts: ComposeOptions = {
         notebookId,
         outputId,
         width: canvasSize.width,

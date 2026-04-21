@@ -45,6 +45,8 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       language: rawLanguage = "en",
       detailLevel: rawDetail = "standard",
       customPrompt: rawCustom = "",
+      selectedSourceIds: rawSelectedSourceIds,
+      extraSourceContent: rawExtraSourceContent,
     } = body;
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
     const ALLOWED_DETAIL = ["concise", "standard", "detailed"] as const;
@@ -53,6 +55,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         ? (rawDetail as (typeof ALLOWED_DETAIL)[number])
         : "standard";
     const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
+    const selectedSourceIds: string[] = Array.isArray(rawSelectedSourceIds)
+      ? rawSelectedSourceIds.filter((s): s is string => typeof s === "string")
+      : [];
+    const extraSourceContent: string =
+      typeof rawExtraSourceContent === "string"
+        ? rawExtraSourceContent.slice(0, 80_000)
+        : "";
 
     // Hard caps per detail level — enforced both in prompt and by trimming.
     const detailMap = {
@@ -68,8 +77,17 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this into the output.\n`
       : "";
 
-    const ctx = await getStudioContext(notebookId);
+    const ctx = await getStudioContext(notebookId, "studioGenerate");
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
+
+    if (selectedSourceIds.length > 0) {
+      console.info(
+        `[mindmap] selectedSourceIds=${selectedSourceIds.length} (forward-compat, not filtering)`,
+      );
+    }
+    const finalContext = extraSourceContent
+      ? `${ctx.sourceContext}\n\n--- Additional sources ---\n${extraSourceContent}`
+      : ctx.sourceContext;
 
     const outputId = createId();
     await db.insert(outputs).values({
@@ -100,7 +118,7 @@ CONTENT RULES:
 - All text in ${LANG_NAME}.
 
 Sources:
-${ctx.sourceContext}`,
+${finalContext}`,
       });
 
       // Defensive cap: trim to hard limits even if the LLM over-generates.

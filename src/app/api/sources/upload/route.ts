@@ -9,6 +9,7 @@ import { notebooks } from "@/db/schema/notebooks";
 import { uploadFile, getStorageKey } from "@/lib/storage/r2";
 import { validateFile } from "@/lib/processing/parsers";
 import { getDocumentQueue, type DocumentJobData } from "@/lib/queue";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -16,6 +17,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "upload",
+      ...RATE_LIMITS.uploadFile,
+    });
+    if (limited) return limited;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -60,16 +68,10 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileKey = getStorageKey(notebookId, sourceId, file.name);
 
-    // Upload to R2 (or store locally if R2 not configured)
-    let fileUrl: string;
-    let localBuffer: string | undefined;
-    try {
-      fileUrl = await uploadFile(buffer, fileKey, file.type);
-    } catch {
-      // R2 not configured — store buffer in metadata for the worker to use
-      fileUrl = `local://${fileKey}`;
-      localBuffer = buffer.toString("base64");
-    }
+    // Upload via the storage helper — it transparently falls back to local
+    // disk (public/uploads/) when R2 isn't configured. Never store the raw
+    // bytes inside Postgres: it bloats rows and breaks large PDFs.
+    const fileUrl = await uploadFile(buffer, fileKey, file.type);
 
     // Create source record
     const now = new Date();
@@ -82,7 +84,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         title: file.name,
         fileUrl,
         status: "pending",
-        metadata: localBuffer ? { localBuffer } : {},
+        metadata: {},
         createdAt: now,
         updatedAt: now,
       })

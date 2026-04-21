@@ -13,6 +13,7 @@
 import sharp from "sharp";
 import { generateInfographicImage } from "@/lib/media/generate-image";
 import { uploadFile } from "@/lib/storage/r2";
+import { STYLE_CONFIGS, type VisualStyle } from "@/lib/media/styles";
 import {
   arrowheadMarkerDef,
   embeddedFontFace,
@@ -95,6 +96,8 @@ export type ComposeOptions = {
   height?: number;
   notebookId: string;
   outputId: string;
+  /** Visual style — drives the overlay sheet tint (readability "cream"). */
+  style?: VisualStyle;
 };
 
 export type ComposedInfographic = {
@@ -513,16 +516,17 @@ export const composeInfographic = async (
   const svg = buildSvgOverlay(layout, W, H);
   const svgBuffer = Buffer.from(svg);
 
-  // 3. Cream-colored readability sheet between bg and text. RGB ~253,250,243
-  // at 60% alpha so the illustration still reads through but the text keeps
-  // contrast. Warmer than white — makes the composite feel like paper not
-  // glass.
+  // 3. Readability sheet between bg and text. Tint varies per visual style
+  // — auto encodes {r:253,g:250,b:243,alpha:0.6} so the default case is byte
+  // identical to the previous hardcoded value. Kawaii = pastel, minimalist =
+  // near-white, etc.
+  const overlayTint = STYLE_CONFIGS[options.style ?? "auto"].overlayBg;
   const creamSheet = await sharp({
     create: {
       width: W,
       height: H,
       channels: 4,
-      background: { r: 253, g: 250, b: 243, alpha: 0.6 },
+      background: overlayTint,
     },
   })
     .png()

@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+const TTS_MAX_CHARS = 5000;
 
 export const POST = async (request: NextRequest): Promise<Response> => {
   try {
@@ -9,10 +12,23 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "tts",
+      ...RATE_LIMITS.ttsStream,
+    });
+    if (limited) return limited;
+
     const { text, voiceId } = await request.json();
 
     if (!text) {
       return new Response("text is required", { status: 400 });
+    }
+    if (typeof text !== "string" || text.length > TTS_MAX_CHARS) {
+      return new Response(
+        `text must be a string up to ${TTS_MAX_CHARS} characters`,
+        { status: 400 },
+      );
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -44,8 +60,11 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     );
 
     if (!ttsResponse.ok) {
-      const error = await ttsResponse.text();
-      return new Response(`TTS failed: ${error}`, { status: ttsResponse.status });
+      // Log the provider's message server-side, return a generic error so
+      // raw ElevenLabs internals don't leak to the client.
+      const upstreamError = await ttsResponse.text();
+      console.error("ElevenLabs TTS failed:", ttsResponse.status, upstreamError.slice(0, 500));
+      return new Response("TTS generation failed", { status: 502 });
     }
 
     // Stream the audio response directly to the client

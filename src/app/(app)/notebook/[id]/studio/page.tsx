@@ -713,6 +713,7 @@ const StudioPage = ({
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           outputType={dialogType}
+          notebookId={notebookId}
           onGenerate={runDialogGenerate}
           isGenerating={dialogIsPending}
         />

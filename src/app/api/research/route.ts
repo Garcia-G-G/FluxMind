@@ -8,6 +8,7 @@ import { notebooks } from "@/db/schema/notebooks";
 import { sources } from "@/db/schema/sources";
 import { outputs } from "@/db/schema/outputs";
 import { runResearchPipeline, type ResearchStep } from "@/lib/research/pipeline";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const maxDuration = 120;
 
@@ -17,6 +18,13 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "research",
+      ...RATE_LIMITS.deepResearch,
+    });
+    if (limited) return limited;
 
     const { query, notebookId, language: rawLanguage = "en" } = await request.json();
 

@@ -10,6 +10,7 @@ import { notebooks } from "@/db/schema/notebooks";
 import { sources } from "@/db/schema/sources";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 const quizSchema = z.object({
   title: z.string(),
@@ -53,6 +54,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "studio.quiz",
+      ...RATE_LIMITS.studioGenerate,
+    });
+    if (limited) return limited;
 
     const body = await request.json();
     const {

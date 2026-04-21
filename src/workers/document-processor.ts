@@ -40,31 +40,10 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
   try {
     await updateSourceStatus(sourceId, "processing");
 
-    // Download file — try R2 first, fall back to base64 in metadata
-    let buffer: Buffer;
-    try {
-      buffer = await downloadFile(fileKey);
-    } catch (downloadError) {
-      console.warn(`[Worker] R2 download failed, trying local fallback:`, downloadError instanceof Error ? downloadError.message : downloadError);
-      const [source] = await db
-        .select({ metadata: sources.metadata })
-        .from(sources)
-        .where(eq(sources.id, sourceId));
-      if (
-        source?.metadata &&
-        typeof source.metadata === "object" &&
-        "localBuffer" in source.metadata
-      ) {
-        buffer = Buffer.from(
-          source.metadata.localBuffer as string,
-          "base64"
-        );
-      } else {
-        throw new Error(
-          "File not accessible: R2 not configured and no local fallback"
-        );
-      }
-    }
+    // Download file — downloadFile transparently handles both R2 (when
+    // configured) and the local public/uploads/ fallback. No base64 fallback
+    // needed: we no longer stuff file bytes into the DB metadata column.
+    const buffer: Buffer = await downloadFile(fileKey);
 
     console.log(`[Worker] Downloaded ${buffer.length} bytes for ${filename}`);
 

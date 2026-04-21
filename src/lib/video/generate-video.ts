@@ -73,6 +73,8 @@ export type VideoGenerateOpts = {
   style?: VisualStyle;
   detailLevel?: "concise" | "standard" | "detailed";
   customPrompt?: string;
+  /** Scraped content from discovered sources, concatenated. */
+  extraSourceContent?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -150,6 +152,7 @@ export const generateVideo = async (
   const style: VisualStyle = opts.style ?? "auto";
   const detailLevel = opts.detailLevel ?? "standard";
   const customPrompt = opts.customPrompt ?? "";
+  const extraSourceContent = (opts.extraSourceContent ?? "").slice(0, 80_000);
 
   try {
     const LANG_NAME = language === "es" ? "Spanish" : "English";
@@ -174,10 +177,14 @@ export const generateVideo = async (
       .from(sources)
       .where(eq(sources.notebookId, notebookId));
 
-    const sourceContext = notebookSources
+    const baseSourceContext = notebookSources
       .filter((s) => s.rawText)
       .map((s) => `[${s.title}]\n${s.rawText!.slice(0, 5000)}`)
       .join("\n\n---\n\n");
+
+    const sourceContext = extraSourceContent
+      ? `${baseSourceContext}\n\n--- Additional sources ---\n${extraSourceContent}`
+      : baseSourceContext;
 
     const { object: script } = await generateObject({
       model: getModel("gemini-2.5-flash"),

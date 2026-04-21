@@ -12,6 +12,7 @@
 import sharp from "sharp";
 import { generateInfographicImage } from "@/lib/media/generate-image";
 import { uploadFile } from "@/lib/storage/r2";
+import { STYLE_CONFIGS, type VisualStyle } from "@/lib/media/styles";
 import {
   arrowheadMarkerDef,
   embeddedFontFace,
@@ -52,6 +53,8 @@ export type SlideComposeOptions = {
   notebookId: string;
   outputId: string;
   deckAccent: string; // hex accent, e.g. "#ff6b35"
+  /** Visual style — drives the overlay sheet tint (readability "cream"). */
+  style?: VisualStyle;
 };
 
 export type ComposedSlide = {
@@ -516,18 +519,24 @@ export const composeSlide = async (
   const svg = buildSlideSvg(slide, W, H, deckAccent);
   const svgBuffer = Buffer.from(svg);
 
-  // 3. Cream-colored readability sheet for legibility.
-  // Title / closing are hero slides → more illustration shows through (alpha 0.45).
-  // All other layouts use 0.6 so bullets / stats / quotes are legible while
-  // still feeling like paper, not glass.
-  const sheetAlpha =
-    slide.layout === "title" || slide.layout === "closing" ? 0.45 : 0.6;
+  // 3. Readability sheet for legibility — tint driven by visual style.
+  // Title / closing are hero slides → more illustration shows through
+  // (alpha scaled 0.75x for those layouts). Auto style preserves the
+  // byte-exact RGBA of the prior hardcoded sheet (0.6 base → 0.45 hero).
+  const overlayTint = STYLE_CONFIGS[options.style ?? "auto"].overlayBg;
+  const heroLayout = slide.layout === "title" || slide.layout === "closing";
+  const sheetAlpha = heroLayout ? overlayTint.alpha * 0.75 : overlayTint.alpha;
   const creamSheet = await sharp({
     create: {
       width: W,
       height: H,
       channels: 4,
-      background: { r: 253, g: 250, b: 243, alpha: sheetAlpha },
+      background: {
+        r: overlayTint.r,
+        g: overlayTint.g,
+        b: overlayTint.b,
+        alpha: sheetAlpha,
+      },
     },
   })
     .png()

@@ -48,6 +48,66 @@ const nextConfig: NextConfig = {
   // Turbopack opt-in for `next dev` (stable in 15.5). The empty object is
   // a valid config; also requires `--turbopack` on the dev script.
   turbopack: {},
+
+  // `next/image` remote sources: R2 public bucket, fal.ai, ElevenLabs CDN,
+  // Google / GitHub avatars (for OAuth profile images).
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
+      { protocol: "https", hostname: "**.r2.dev" },
+      { protocol: "https", hostname: "*.fal.media" },
+      { protocol: "https", hostname: "fal.media" },
+      { protocol: "https", hostname: "*.fal.run" },
+      { protocol: "https", hostname: "fal.run" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+    ],
+  },
+
+  // Security headers.
+  // CSP allows Stripe (checkout, webhooks), ElevenLabs audio streams,
+  // fal.ai image + api, R2 storage, and the user's own origin. Next.js
+  // requires 'unsafe-inline' for styles; scripts use 'self' + 'unsafe-eval'
+  // only because dev + Next runtime inline-eval some chunks (production
+  // removes most but not all).
+  async headers() {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https:",
+      "media-src 'self' blob: https://api.elevenlabs.io https:",
+      "connect-src 'self' https: wss:",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "upgrade-insecure-requests",
+    ].join("; ");
+
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          { key: "X-DNS-Prefetch-Control", value: "on" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

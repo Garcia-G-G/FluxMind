@@ -10,6 +10,7 @@ import { sources, sourceChunks } from "@/db/schema/sources";
 import { chunkText, estimateTokenCount } from "@/lib/processing/chunker";
 import { generateEmbeddings } from "@/lib/ai/embeddings";
 import { getModel } from "@/lib/ai/models";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
@@ -19,6 +20,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "sources.search",
+      ...RATE_LIMITS.searchSource,
+    });
+    if (limited) return limited;
 
     const { query, notebookId } = await request.json();
     if (!query?.trim() || !notebookId) {
