@@ -11,7 +11,7 @@ describe("models config", () => {
     for (const model of models) {
       expect(model.id).toBeTruthy();
       expect(model.name).toBeTruthy();
-      expect(model.provider).toBe("openai");
+      expect(model.provider).toMatch(/^(openai|google)$/);
       expect(model.tier).toMatch(/^(free|pro|ultra)$/);
     }
   });

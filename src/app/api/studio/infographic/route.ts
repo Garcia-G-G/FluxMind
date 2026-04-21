@@ -180,33 +180,119 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         schema: layoutSchema,
         prompt: `${langInstr}
 
-You are a world-class data visualization designer building a hybrid infographic. An AI model will render an ILLUSTRATION background, and a deterministic code layer will render ALL TEXT, CHARTS, CALLOUTS, AND STATS on top. Therefore:
+You are a world-class data visualization designer and expert educator. Your job is to create an infographic that TEACHES complex information through dense, specific, visual data. Every block must contain REAL data extracted from the sources.
 
-1. illustrationPrompt — describe the visual scene ONLY. Think "what would I draw if I could only communicate with pictures?" Icons, metaphoric objects, scenes, diagrams without labels. 100-200 words. NO text, NO letters, NO numbers, NO words, NO typography INSIDE the image. Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook, Leonardo da Vinci's Codex meets old physics textbook. Describe small illustrated vignettes positioned in specific zones of the canvas (top-left beach scene, center-right airplane, bottom-right pressure cooker, etc.), scenes at different "points" of a larger picture, leaving whitespace around each for text overlay. Example good prompt: "a cross-section cutaway of a rice cooker with thin ink lines in the center-left, steam curling upward in a soft sepia watercolor wash toward the upper edge, a small thermometer vignette in the lower-left, a minimalist radial heat-distribution pattern in the upper-right, all rendered on cream graph paper with confident off-register hand-drawn lines and plenty of open space between vignettes for overlaid text."
+═══════════════════════════════════════
+CONTENT EXTRACTION (do this FIRST)
+═══════════════════════════════════════
 
-2. blocks — the interactive text/chart layer. Pick 4 to 10 blocks from these types:
-   - stat: a single big number with a short label, placed at a semantic position (e.g. top-left)
-   - callout: 2-4 line note with a leader line to an area of the illustration (pick leaderTo: left|right|up|down)
-   - comparison: 2-4 side-by-side value+label cards
-   - chart: line, bar, or area chart with 3-8 data points. y values are any scale (we normalize). x is a short string label per point. Optional annotation per point.
-   - flow: 3-6 numbered steps forming a process
-   - takeaway: a single standout insight in a highlighted banner
-   - text: a short paragraph (fills a ~3-line slot)
-   - timeline: 3-6 dated events
+Deeply analyze the sources. Extract:
+- Every number, percentage, statistic, date, or measurable fact
+- Every process or workflow (ordered steps)
+- Every comparison or trade-off between alternatives
+- Every timeline or historical progression
+- Every cause-effect chain
+- Every definition of a key concept
+- Every expert insight or notable finding
 
-3. Mix block types — a great infographic usually has 1 chart, 2-3 stats, 1-2 callouts, and 1 takeaway.
+You will structure these extractions into 4-10 visual blocks.
 
-4. title: max 8 words. subtitle: max 14 words. footer: short attribution or source note.
+═══════════════════════════════════════
+BLOCK SELECTION STRATEGY
+═══════════════════════════════════════
 
-5. sections (3-6) and keyStats (2-5) are backwards-compatible fields for the text-only fallback view — make them faithful to the source.
+A great infographic tells a visual STORY. Structure it:
 
-6. accentColor: pick ONE from the allowed palette that matches the topic's mood.
+Opening (hook the reader):
+→ 1-2 "stat" blocks with surprising numbers to grab attention
 
-EXAMPLE (for reference, a rice-thermodynamics topic):
-- illustrationPrompt: vintage engineering sketchbook page on cream graph paper — a pen-and-ink cross-section of a rice grain in the upper-left vignette, concentric heat-wave rings sketched faintly in the center, a small spoon and a simmering pot with steam curling up in the lower-right rendered in thin confident ink lines, a tiny thermometer vignette in the top-right, soft sepia-orange watercolor wash on steam and grain focal points, slightly off-register hand-drawn lines, plenty of open whitespace between vignettes in the upper-center and lower-left for text overlay
-- blocks: a chart (line, x="minutes", y="temperature", 5 points with an annotation on point 3 "gelatinization begins"); 2 stats at top-left and top-right showing "60%" water ratio and "18m" cook time; a callout at mid-right pointing up at the steam area with a note about latent heat; a takeaway summarizing the optimal cooking window
-- sections: 3 accessibility-oriented heading+summary pairs
-- keyStats: 3 cards repeating the most critical numbers
+Body (teach the details):
+→ 1 "chart" block if there's quantitative data (trends, growth, distributions)
+→ 1-2 "callout" blocks for concepts that need deeper explanation
+→ 1 "flow" or "timeline" block if there's a process or chronology
+→ 1 "comparison" block if alternatives are discussed
+→ 0-1 "text" blocks for essential context
+
+Closing (seal the insight):
+→ 1 "takeaway" block with a specific, memorable conclusion
+
+Mix 5-8 block types total. Never use more than 2 of the same type.
+
+═══════════════════════════════════════
+BLOCK CONTENT DENSITY (CRITICAL)
+═══════════════════════════════════════
+
+● "stat" block:
+  value = a REAL number ("68%", "$4.2T", "3.2s", "1.8B")
+  label = 10-25 words explaining significance
+  position = place semantically (important stats at top)
+  GOOD: {value:"68%", label:"of all online experiences begin with a search engine — SEO is the #1 organic traffic source", position:"top-left"}
+  BAD: {value:"Lots", label:"of people use the internet", position:"top-left"}
+
+● "callout" block:
+  title = 3-6 words naming the concept
+  body = 2-4 sentences of REAL explanation with specifics — tool names, techniques, concrete details
+  position = place near related illustration area
+  leaderTo = direction pointing toward related visual element
+  GOOD: {title:"The DOM Tree", body:"When a browser loads HTML, it builds a Document Object Model — a tree structure where every element becomes a node. JavaScript's querySelector() finds nodes; addEventListener() makes them respond to clicks, hovers, and keyboard input. Understanding the DOM is the key to dynamic web pages.", position:"mid-right", leaderTo:"left"}
+  BAD: {title:"Important Concept", body:"This is something you should know about because it matters.", position:"mid-right", leaderTo:"left"}
+
+● "chart" block:
+  chartType = "line" for trends, "bar" for comparisons, "area" for volume/cumulative
+  dataPoints = 3-8 points with REAL or realistic data. x = specific label (year, category, stage name). y = numeric value. annotation = highlight key inflection points.
+  GOOD: {chartType:"bar", xLabel:"Framework", yLabel:"npm Downloads/week (M)", dataPoints:[{x:"React",y:22.5,annotation:"Market leader"},{x:"Vue",y:4.2,annotation:null},{x:"Angular",y:3.1,annotation:null},{x:"Svelte",y:0.8,annotation:"Fastest growing"}]}
+  BAD: {chartType:"bar", xLabel:"Things", yLabel:"Amount", dataPoints:[{x:"A",y:10,annotation:null},{x:"B",y:20,annotation:null}]}
+
+● "flow" block:
+  steps = 3-6, each with label (2-4 words) and detail (concrete action sentence)
+  Same quality bar as slides — every step is specific and actionable
+
+● "timeline" block:
+  events = 3-6 entries with real dates/periods and specific event descriptions
+  GOOD: [{date:"1991", label:"Tim Berners-Lee publishes the first website at CERN"}, {date:"1995", label:"JavaScript created in 10 days by Brendan Eich at Netscape"}, ...]
+  BAD: [{date:"Long ago", label:"The web started"}, {date:"Recently", label:"Things changed"}]
+
+● "comparison" block:
+  items = 2-4 with named entities and quantifiable differences (same bar as slides)
+
+● "takeaway" block:
+  text = A specific, memorable insight (not "this topic is important")
+  GOOD: "Every second of load time costs 7% in conversions — optimize images, minify CSS, and use a CDN to keep your site under the 3-second threshold"
+  BAD: "Web development is an important field with many opportunities"
+
+● "text" block:
+  text = 2-3 sentences of essential context (use sparingly — prefer visual blocks)
+
+═══════════════════════════════════════
+METADATA FIELDS
+═══════════════════════════════════════
+
+- title: max 8 words, punchy, specific to the topic (not "Important Information")
+- subtitle: max 14 words framing what the reader will learn
+- header.text: the big heading at the top of the infographic
+- header.subtext: optional one-liner beneath it
+- footer: short attribution or source note
+- accentColor: pick one that matches the topic's mood (orange=energy, blue=tech, emerald=nature/growth, violet=creative, rose=health/people, amber=finance/caution)
+
+═══════════════════════════════════════
+SECTIONS and KEYSTATS (fallback view)
+═══════════════════════════════════════
+
+These power the text-only fallback when images can't render:
+- sections (3-6): each has a heading + a 2-3 sentence summary of a major topic area from the sources. Be comprehensive — this is the user's backup way to consume the information.
+- keyStats (2-5): the most impactful numbers repeated as {value, label} pairs.
+
+═══════════════════════════════════════
+ILLUSTRATION PROMPT (secondary priority)
+═══════════════════════════════════════
+
+illustrationPrompt creates the visual background (1280×1600 portrait). Describe ONLY visual elements — NO text, NO letters, NO numbers, NO labels, NO words, NO typography.
+
+100-200 words. Style: pen-and-ink technical illustration on cream-colored graph paper, vintage engineering sketchbook (Leonardo's Codex, old physics textbooks). Describe small illustrated vignettes positioned in specific zones of the canvas (top-left, center-right, bottom, etc.), leaving whitespace between each for the text/chart overlay. Thin ink lines, off-register hand-drawn feel, occasional muted orange/sepia watercolor wash on focal elements.
+
+The illustration should visually RELATE to the infographic's topic. If the topic is cooking, draw utensils and ingredients. If it's web development, draw browsers and code brackets and server racks.
+
+All textual content must be in ${LANG_NAME}. The illustrationPrompt itself may be in ${LANG_NAME} prose but must contain NO text/words INSIDE the image.
 
 Sources:
 ${ctx.sourceContext}`,
