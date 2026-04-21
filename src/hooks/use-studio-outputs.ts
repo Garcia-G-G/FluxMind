@@ -75,5 +75,70 @@ export const useGenerateMindMap = () =>
   useGenerate<{ notebookId: string; model?: string }>("/api/studio/mindmap");
 export const useGenerateAudio = () =>
   useGenerate<{ notebookId: string }>("/api/studio/audio");
-export const useGenerateVideo = () =>
-  useGenerate<{ notebookId: string }>("/api/studio/video");
+/**
+ * Video generation is async on the server (fire-and-forget pipeline:
+ * script → images → TTS → composition). POST returns immediately with
+ * { id, status: "pending" }. This hook kicks off generation and then
+ * polls /api/studio/video?notebookId=X until the latest row is "ready"
+ * or "error" (or the 10 min safety timeout elapses).
+ */
+type VideoResult = {
+  id: string;
+  title: string;
+  status: string;
+  fileUrl?: string;
+  chapters?: unknown[];
+};
+
+export const useGenerateVideo = () => {
+  const qc = useQueryClient();
+  const { language } = useLanguage();
+  return useMutation<VideoResult, Error, { notebookId: string }>({
+    mutationFn: async (data) => {
+      await generateStudioOutput("/api/studio/video", { ...data, language });
+
+      const deadline = Date.now() + 10 * 60 * 1000;
+      let delay = 2000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, delay));
+        const res = await fetch(
+          `/api/studio/video?notebookId=${encodeURIComponent(data.notebookId)}`,
+        );
+        if (!res.ok) throw new Error("Failed to poll video status");
+        const row = (await res.json()) as {
+          id: string;
+          title: string;
+          status: string;
+          fileUrl?: string;
+          content?: Record<string, unknown>;
+        } | null;
+        if (row && row.status === "ready") {
+          const content = (row.content ?? {}) as Record<string, unknown>;
+          const script = content.script as { chapters?: unknown[] } | undefined;
+          const chapters =
+            (content.chapters as unknown[] | undefined) ?? script?.chapters;
+          return {
+            id: row.id,
+            title: row.title,
+            status: "ready",
+            fileUrl: row.fileUrl ?? undefined,
+            chapters,
+          };
+        }
+        if (row && row.status === "error") {
+          const content = (row.content ?? {}) as Record<string, unknown>;
+          throw new Error(
+            typeof content.error === "string" ? content.error : "Video generation failed",
+          );
+        }
+        // Slow the poll from 2s → 5s after the first 30s so we don't hammer
+        // the DB during the long image/TTS phase.
+        if (delay < 5000) delay = 5000;
+      }
+      throw new Error("Video generation timed out after 10 minutes");
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["outputs", vars.notebookId] });
+    },
+  });
+};
