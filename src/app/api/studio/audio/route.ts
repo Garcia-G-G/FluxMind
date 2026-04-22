@@ -50,29 +50,37 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     const body = await request.json();
     const { notebookId } = body;
+    const language: "en" | "es" = body?.language === "es" ? "es" : "en";
 
     const ctx = await getStudioContext(notebookId, undefined, "studioPodcast");
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
     const outputId = createId();
+    const title =
+      language === "es"
+        ? `Resumen en audio: ${ctx.notebookTitle}`
+        : `Audio Overview: ${ctx.notebookTitle}`;
     await db.insert(outputs).values({
       id: outputId,
       notebookId,
       userId: ctx.userId,
       type: "podcast",
-      title: `Audio Overview: ${ctx.notebookTitle}`,
+      title,
       status: "pending",
+      content: { language },
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    // Enqueue generation job
+    // Enqueue generation job — worker reads `language` from job data so the
+    // pipeline picks Spanish summary/script/voices when the user toggled ES.
     try {
       const queue = getDocumentQueue();
       await queue.add(`podcast-${outputId}`, {
         type: "podcast",
         notebookId,
         outputId,
+        language,
       });
     } catch {
       // Queue unavailable — generation will need to be triggered manually

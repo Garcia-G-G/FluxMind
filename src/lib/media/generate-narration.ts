@@ -3,8 +3,16 @@ import { getModel } from "@/lib/ai/models";
 import { uploadFile } from "@/lib/storage/r2";
 
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-// Rachel — warm, friendly, widely used for educational/explainer narration.
-const DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM";
+// Matilda — "Knowledgeable, Professional" multilingual premade voice. Reads
+// both English and Spanish cleanly on eleven_multilingual_v2 when no
+// per-language override is configured. Rachel (21m00Tcm4TlvDq8ikWAM) is gone
+// from new ElevenLabs accounts, so hardcoding her as a fallback breaks TTS
+// out-of-the-box for anyone without explicit env overrides.
+const DEFAULT_VOICE_EN = "XrExE9yKIg1WjnnlVkGX";
+// Default Spanish narrator. Still a multilingual premade voice so it works
+// without a cloned voice — if the account has a Spanish-cloned voice, set
+// ELEVENLABS_NARRATOR_VOICE_ES in .env to override.
+const DEFAULT_VOICE_ES = "XrExE9yKIg1WjnnlVkGX";
 
 export type NarrationResult = {
   audioUrl: string;
@@ -103,7 +111,7 @@ export const generateNarration = async (
       ? process.env.ELEVENLABS_NARRATOR_VOICE_ES
       : process.env.ELEVENLABS_NARRATOR_VOICE_EN) ??
     process.env.ELEVENLABS_NARRATOR_VOICE ??
-    DEFAULT_VOICE;
+    (language === "es" ? DEFAULT_VOICE_ES : DEFAULT_VOICE_EN);
   const audioBuffer = await synthesizeSpeech(script, voiceId);
 
   // Rough MP3 duration at ~128kbps (~16KB/sec).

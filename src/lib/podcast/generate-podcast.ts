@@ -11,9 +11,28 @@ export type PodcastSegment = {
 };
 
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-// Two contrasting voices — configure via env or defaults
-const VOICE_ALEX = process.env.ELEVENLABS_VOICE_ALEX ?? "21m00Tcm4TlvDq8ikWAM"; // warm/curious
-const VOICE_JORDAN = process.env.ELEVENLABS_VOICE_JORDAN ?? "AZnzlk1XvdvUeBnXmlld"; // authoritative
+// Two contrasting voices per language — all default to premade multilingual
+// voices that exist on every ElevenLabs account, so podcasts work OOTB. The
+// old Rachel/Bella IDs (21m00Tcm4TlvDq8ikWAM / AZnzlk1XvdvUeBnXmlld) are no
+// longer provisioned on new accounts and caused TTS to 404.
+const VOICE_ALEX_EN =
+  process.env.ELEVENLABS_VOICE_ALEX ?? "EXAVITQu4vr4xnSDxMaL"; // Sarah — warm, curious
+const VOICE_JORDAN_EN =
+  process.env.ELEVENLABS_VOICE_JORDAN ?? "pNInz6obpgDQGcFmaJgB"; // Adam — authoritative
+const VOICE_ALEX_ES =
+  process.env.ELEVENLABS_VOICE_ALEX_ES ?? VOICE_ALEX_EN;
+const VOICE_JORDAN_ES =
+  process.env.ELEVENLABS_VOICE_JORDAN_ES ?? VOICE_JORDAN_EN;
+
+const resolveVoice = (
+  speaker: "Alex" | "Jordan",
+  language: "en" | "es",
+): string => {
+  if (language === "es") {
+    return speaker === "Alex" ? VOICE_ALEX_ES : VOICE_JORDAN_ES;
+  }
+  return speaker === "Alex" ? VOICE_ALEX_EN : VOICE_JORDAN_EN;
+};
 
 const updateProgress = async (
   outputId: string,
@@ -27,7 +46,10 @@ const updateProgress = async (
 };
 
 // Step 1: Summarize sources
-const summarizeSources = async (notebookId: string): Promise<string> => {
+const summarizeSources = async (
+  notebookId: string,
+  language: "en" | "es",
+): Promise<string> => {
   const notebookSources = await db
     .select({ title: sources.title, rawText: sources.rawText })
     .from(sources)
@@ -38,19 +60,42 @@ const summarizeSources = async (notebookId: string): Promise<string> => {
     .map((s) => `[${s.title}]\n${s.rawText!.slice(0, 5000)}`)
     .join("\n\n---\n\n");
 
+  const prompt =
+    language === "es"
+      ? `Produce un resumen completo de 500-800 palabras de estas fuentes, cubriendo todos los temas clave, argumentos, datos relevantes y conclusiones. Escribe en español natural e idiomático:\n\n${context}`
+      : `Produce a 500-800 word comprehensive summary of these sources covering all key topics, arguments, data points, and conclusions:\n\n${context}`;
+
   const { text } = await generateText({
     model: getModel("gemini-2.5-flash"),
-    prompt: `Produce a 500-800 word comprehensive summary of these sources covering all key topics, arguments, data points, and conclusions:\n\n${context}`,
+    prompt,
   });
 
   return text;
 };
 
 // Step 2: Generate two-host script
-const generateScript = async (summary: string): Promise<PodcastSegment[]> => {
-  const { text } = await generateText({
-    model: getModel("gemini-2.5-flash"),
-    prompt: `Write a natural podcast conversation between two hosts about the following topic.
+const generateScript = async (
+  summary: string,
+  language: "en" | "es",
+): Promise<PodcastSegment[]> => {
+  const prompt =
+    language === "es"
+      ? `Escribe una conversación de podcast natural entre dos presentadores sobre el siguiente tema. ESCRIBE TODO EN ESPAÑOL NATURAL E IDIOMÁTICO — no traduzcas palabra por palabra desde el inglés.
+
+Presentadores:
+- Alex (entrevistador curioso): hace preguntas perspicaces, expresa interés genuino, ocasionalmente se sorprende con los datos
+- Jordan (experto informado): explica conceptos con claridad, aporta contexto, da ejemplos concretos
+
+Reglas:
+- 15-25 intercambios en total
+- Incluye micro-interjecciones naturales: "mmm", "claro", "interesante", "exacto", "¡vaya!"
+- Comienza con una breve introducción al tema
+- Termina con una conclusión clara
+- Formatea cada línea como "ALEX: [diálogo]" o "JORDAN: [diálogo]"
+
+Resumen:
+${summary}`
+      : `Write a natural podcast conversation between two hosts about the following topic.
 
 Hosts:
 - Alex (curious interviewer): asks insightful questions, expresses genuine interest, occasionally surprised by facts
@@ -64,7 +109,11 @@ Rules:
 - Format each line as "ALEX: [dialogue]" or "JORDAN: [dialogue]"
 
 Summary:
-${summary}`,
+${summary}`;
+
+  const { text } = await generateText({
+    model: getModel("gemini-2.5-flash"),
+    prompt,
   });
 
   const segments: PodcastSegment[] = [];
@@ -85,14 +134,15 @@ ${summary}`,
 
 // Step 3: Synthesize audio via ElevenLabs
 const synthesizeSegment = async (
-  segment: PodcastSegment
+  segment: PodcastSegment,
+  language: "en" | "es",
 ): Promise<Buffer> => {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error("ELEVENLABS_API_KEY not configured");
   }
 
-  const voiceId = segment.speaker === "Alex" ? VOICE_ALEX : VOICE_JORDAN;
+  const voiceId = resolveVoice(segment.speaker, language);
 
   const res = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
     method: "POST",
@@ -124,24 +174,25 @@ const synthesizeSegment = async (
 // Main pipeline
 export const generatePodcast = async (
   notebookId: string,
-  outputId: string
+  outputId: string,
+  language: "en" | "es" = "en",
 ): Promise<void> => {
   try {
     await updateProgress(outputId, 5, { status: "generating" });
 
     // Step 1: Summarize
-    const summary = await summarizeSources(notebookId);
+    const summary = await summarizeSources(notebookId, language);
     await updateProgress(outputId, 20);
 
     // Step 2: Generate script
-    const segments = await generateScript(summary);
+    const segments = await generateScript(summary, language);
     await updateProgress(outputId, 35);
 
     // Step 3: Synthesize audio
     const audioBuffers: Buffer[] = [];
     for (let i = 0; i < segments.length; i++) {
       try {
-        const audio = await synthesizeSegment(segments[i]);
+        const audio = await synthesizeSegment(segments[i], language);
         audioBuffers.push(audio);
       } catch (error) {
         console.error(`Failed to synthesize segment ${i}:`, error);
@@ -187,6 +238,7 @@ export const generatePodcast = async (
             (sum, s) => sum + s.text.split(/\s+/).length,
             0
           ),
+          language,
         },
         updatedAt: new Date(),
       })

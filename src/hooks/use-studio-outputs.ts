@@ -157,8 +157,11 @@ export const useGenerateAudio = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Error,
-  { notebookId: string }
-> => useGenerate<{ notebookId: string }>("/api/studio/audio");
+  { notebookId: string; language?: "en" | "es" }
+> =>
+  useGenerate<{ notebookId: string; language?: "en" | "es" }>(
+    "/api/studio/audio",
+  );
 
 /**
  * Video generation is async on the server (fire-and-forget pipeline:
