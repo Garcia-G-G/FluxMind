@@ -146,7 +146,12 @@ Do NOT include disclaimers about being an AI. Just provide the information direc
       );
     }
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? "Unknown error");
     console.error("Search source failed:", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: message || "Research failed" },
+      { status: 500 },
+    );
   }
 };
