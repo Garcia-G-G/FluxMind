@@ -52,108 +52,97 @@ type GenerateDialogProps = {
   isGenerating?: boolean;
 };
 
-/** Small inline SVGs — one per style option. stroke=currentColor so the
- *  selected-state tint flows through from the parent's `color` style. */
-const STYLE_ICONS: Record<VisualStyle, React.ReactNode> = {
+/** Large illustrated SVG previews — one per style. These go inside coloured
+ *  gradient tile backgrounds so fills use semi-transparent white/dark rather
+ *  than theme vars (the tile itself handles light/dark adaptation). */
+const STYLE_PREVIEWS: Record<VisualStyle, React.ReactNode> = {
   auto: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v8M8 12h8" />
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M32 8L35 20L44 16L38 26L50 28L38 32L44 42L35 38L32 50L29 38L20 42L26 32L14 28L26 26L20 16L29 20Z" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
+      <circle cx="32" cy="28" r="4" fill="rgba(255,255,255,0.5)"/>
+      <circle cx="18" cy="12" r="2" fill="rgba(255,255,255,0.3)"/>
+      <circle cx="50" cy="46" r="1.5" fill="rgba(255,255,255,0.2)"/>
+      <circle cx="12" cy="44" r="1" fill="rgba(255,255,255,0.15)"/>
     </svg>
   ),
   sketch: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 21l3.5-1 11.5-11.5a2.121 2.121 0 0 0-3-3L3.5 17 3 21z" />
-      <path d="M14 6l3 3" />
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <rect x="12" y="14" width="40" height="28" rx="2" fill="none" stroke="rgba(100,70,30,0.4)" strokeWidth="1.5" strokeDasharray="3 2"/>
+      <path d="M18 22C20 21 23 23 26 22C29 21 32 23 36 22" stroke="rgba(100,70,30,0.35)" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M18 28C21 27 24 29 28 28C31 27 34 29 38 28" stroke="rgba(100,70,30,0.25)" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M18 34C22 33 25 35 30 34" stroke="rgba(100,70,30,0.2)" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M42 44L48 38L52 42L46 48Z" fill="rgba(100,70,30,0.3)"/>
+      <path d="M41 45L42 44L46 48L45 49L40 50Z" fill="rgba(100,70,30,0.5)"/>
     </svg>
   ),
   kawaii: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9 10h.01M15 10h.01" />
-      <path d="M9 15c.83.7 1.85 1 3 1s2.17-.3 3-1" />
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <circle cx="32" cy="28" r="16" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+      <circle cx="26" cy="26" r="2.5" fill="rgba(80,40,100,0.6)"/>
+      <circle cx="38" cy="26" r="2.5" fill="rgba(80,40,100,0.6)"/>
+      <circle cx="27" cy="25" r="0.8" fill="rgba(255,255,255,0.8)"/>
+      <circle cx="39" cy="25" r="0.8" fill="rgba(255,255,255,0.8)"/>
+      <path d="M27 32C29 35 35 35 37 32" stroke="rgba(80,40,100,0.5)" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+      <ellipse cx="22" cy="31" rx="3" ry="2" fill="rgba(244,63,94,0.2)"/>
+      <ellipse cx="42" cy="31" rx="3" ry="2" fill="rgba(244,63,94,0.2)"/>
+      <path d="M12 14L13.5 17L17 17.5L14.5 20L15 23.5L12 22L9 23.5L9.5 20L7 17.5L10.5 17Z" fill="rgba(255,255,255,0.4)"/>
+      <path d="M50 10L51 12L53 12.3L51.5 14L52 16L50 15L48 16L48.5 14L47 12.3L49 12Z" fill="rgba(255,255,255,0.3)"/>
+      <path d="M48 42C48 40 50 39 51 40.5C52 39 54 40 54 42C54 44 51 46 51 46C51 46 48 44 48 42Z" fill="rgba(255,255,255,0.35)"/>
     </svg>
   ),
   professional: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="8" height="8" rx="1" />
-      <rect x="13" y="3" width="8" height="5" rx="1" />
-      <rect x="13" y="10" width="8" height="11" rx="1" />
-      <rect x="3" y="13" width="8" height="8" rx="1" />
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <rect x="8" y="10" width="48" height="6" rx="2" fill="rgba(255,255,255,0.08)"/>
+      <rect x="11" y="12" width="12" height="2" rx="1" fill="rgba(255,255,255,0.2)"/>
+      <rect x="8" y="20" width="20" height="34" rx="2" fill="rgba(255,255,255,0.05)"/>
+      <rect x="12" y="24" width="12" height="2" rx="1" fill="rgba(255,255,255,0.15)"/>
+      <rect x="12" y="29" width="10" height="1.5" rx="0.75" fill="rgba(255,255,255,0.08)"/>
+      <rect x="12" y="33" width="8" height="1.5" rx="0.75" fill="rgba(255,255,255,0.06)"/>
+      <rect x="32" y="20" width="24" height="34" rx="2" fill="rgba(255,255,255,0.04)"/>
+      <rect x="36" y="36" width="4" height="14" rx="1" fill="rgba(100,180,255,0.3)"/>
+      <rect x="42" y="30" width="4" height="20" rx="1" fill="rgba(100,180,255,0.4)"/>
+      <rect x="48" y="26" width="4" height="24" rx="1" fill="rgba(100,180,255,0.5)"/>
     </svg>
   ),
   scientific: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M9 3h6" />
-      <path d="M10 3v6.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9.5V3" />
-      <path d="M7 14h10" />
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <circle cx="24" cy="20" r="5" fill="rgba(27,94,32,0.15)" stroke="rgba(27,94,32,0.4)" strokeWidth="1.5"/>
+      <circle cx="38" cy="14" r="3.5" fill="rgba(27,94,32,0.1)" stroke="rgba(27,94,32,0.3)" strokeWidth="1.2"/>
+      <circle cx="16" cy="32" r="3.5" fill="rgba(27,94,32,0.1)" stroke="rgba(27,94,32,0.3)" strokeWidth="1.2"/>
+      <circle cx="36" cy="28" r="3" fill="rgba(27,94,32,0.08)" stroke="rgba(27,94,32,0.25)" strokeWidth="1"/>
+      <line x1="28" y1="17" x2="35" y2="15" stroke="rgba(27,94,32,0.3)" strokeWidth="1.2"/>
+      <line x1="21" y1="24" x2="17" y2="29" stroke="rgba(27,94,32,0.3)" strokeWidth="1.2"/>
+      <line x1="27" y1="24" x2="34" y2="26" stroke="rgba(27,94,32,0.25)" strokeWidth="1"/>
+      <path d="M10 50L18 46L26 48L34 40L42 42L50 36L56 38" stroke="rgba(27,94,32,0.4)" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <circle cx="18" cy="46" r="1.5" fill="rgba(27,94,32,0.5)"/>
+      <circle cx="34" cy="40" r="1.5" fill="rgba(27,94,32,0.5)"/>
+      <circle cx="50" cy="36" r="1.5" fill="rgba(27,94,32,0.5)"/>
     </svg>
   ),
   minimalist: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M5 12h14" />
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <rect x="14" y="16" width="20" height="3" rx="1.5" fill="rgba(255,255,255,0.3)"/>
+      <rect x="14" y="24" width="36" height="1" rx="0.5" fill="rgba(255,255,255,0.08)"/>
+      <rect x="14" y="30" width="32" height="1" rx="0.5" fill="rgba(255,255,255,0.06)"/>
+      <rect x="14" y="36" width="28" height="1" rx="0.5" fill="rgba(255,255,255,0.04)"/>
+      <rect x="14" y="44" width="16" height="2" rx="1" fill="rgba(255,255,255,0.15)"/>
     </svg>
   ),
+};
+
+const STYLE_GRADIENTS: Record<VisualStyle, string> = {
+  auto: "linear-gradient(135deg, #667eea, #764ba2)",
+  sketch: "linear-gradient(135deg, #f5ebe0, #ddb892)",
+  kawaii: "linear-gradient(135deg, #fbc2eb, #a18cd1)",
+  professional: "linear-gradient(135deg, #141e30, #243b55)",
+  scientific: "linear-gradient(135deg, #d4f1d4, #81c784)",
+  minimalist: "linear-gradient(135deg, #2a2a2a, #111)",
+};
+
+/** Styles where the label reads better in a dark colour (light gradients). */
+const STYLE_DARK_LABEL: Partial<Record<VisualStyle, string>> = {
+  sketch: "#5a3e1a",
+  scientific: "#1e4d1e",
 };
 
 type StyleOption = { value: VisualStyle; label: string };
@@ -176,12 +165,55 @@ const ORIENTATION_OPTIONS: readonly OrientationOption[] = [
   { value: "square", label: "Square" },
 ] as const;
 
+/** Mini-infographic silhouettes showing the aspect shape + a generic content
+ *  skeleton. Uses theme tokens so the cards adapt to light/dark. */
+const ORIENTATION_PREVIEWS: Record<
+  GenerateConfig["orientation"],
+  React.ReactNode
+> = {
+  horizontal: (
+    <svg width="88" height="48" viewBox="0 0 88 48" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="86" height="46" rx="4" fill="var(--fm-surface)" stroke="var(--fm-surface-border)" strokeWidth="1"/>
+      <rect x="6" y="6" width="28" height="4" rx="1.5" fill="var(--fm-accent-rose)" fillOpacity="0.4"/>
+      <rect x="6" y="13" width="18" height="2" rx="1" fill="var(--fm-text-tertiary)" fillOpacity="0.3"/>
+      <rect x="6" y="20" width="22" height="20" rx="3" fill="var(--fm-accent-rose)" fillOpacity="0.12"/>
+      <rect x="32" y="20" width="22" height="20" rx="3" fill="var(--fm-accent-rose)" fillOpacity="0.09"/>
+      <rect x="58" y="20" width="22" height="20" rx="3" fill="var(--fm-accent-rose)" fillOpacity="0.06"/>
+    </svg>
+  ),
+  vertical: (
+    <svg width="36" height="60" viewBox="0 0 36 60" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="34" height="58" rx="4" fill="var(--fm-surface)" stroke="var(--fm-surface-border)" strokeWidth="1"/>
+      <rect x="5" y="5" width="16" height="3" rx="1.5" fill="var(--fm-text-tertiary)" fillOpacity="0.3"/>
+      <rect x="5" y="12" width="26" height="10" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.08"/>
+      <rect x="5" y="25" width="26" height="10" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.06"/>
+      <rect x="5" y="38" width="26" height="10" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.04"/>
+    </svg>
+  ),
+  square: (
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="50" height="50" rx="4" fill="var(--fm-surface)" stroke="var(--fm-surface-border)" strokeWidth="1"/>
+      <rect x="6" y="6" width="18" height="3" rx="1.5" fill="var(--fm-text-tertiary)" fillOpacity="0.3"/>
+      <rect x="6" y="14" width="18" height="14" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.08"/>
+      <rect x="28" y="14" width="18" height="14" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.06"/>
+      <rect x="6" y="32" width="18" height="14" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.05"/>
+      <rect x="28" y="32" width="18" height="14" rx="2" fill="var(--fm-text-tertiary)" fillOpacity="0.04"/>
+    </svg>
+  ),
+};
+
 type DetailOption = { value: GenerateConfig["detailLevel"]; label: string };
 const DETAIL_OPTIONS: readonly DetailOption[] = [
   { value: "concise", label: "Concise" },
   { value: "standard", label: "Standard" },
   { value: "detailed", label: "Detailed" },
 ] as const;
+
+const DETAIL_DESCRIPTIONS: Record<GenerateConfig["detailLevel"], string> = {
+  concise: "Key points only",
+  standard: "Balanced",
+  detailed: "Deep dive",
+};
 
 type LanguageOption = { value: GenerateConfig["language"]; label: string };
 const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
@@ -205,7 +237,21 @@ const ACCENT_OPTIONS: readonly AccentOption[] = [
   { value: "amber", color: "#f59e0b" },
 ] as const;
 
-const SLIDE_COUNTS: readonly number[] = [4, 6, 8, 10, 12] as const;
+/** Per-output accent used for the Generate button and the type dot in the
+ *  header. Kept in sync with the palette in studio/page.tsx's CARD_COLORS. */
+const OUTPUT_ACCENT: Record<OutputType, string> = {
+  slides: "#FF7A45",
+  infographic: "#F43F5E",
+  video: "#EC4899",
+  mindmap: "#10B981",
+  flashcards: "#3B82F6",
+  quiz: "#8B5CF6",
+  thread: "#0EA5E9",
+  newsletter: "#F59E0B",
+  reel: "#EC4899",
+  course: "#A855F7",
+  datatable: "#64748B",
+};
 
 const OUTPUT_TITLE: Record<OutputType, string> = {
   slides: "Generate slide deck",
@@ -249,18 +295,8 @@ const CUSTOM_PROMPT_PLACEHOLDER: Record<OutputType, string> = {
   datatable: "Any particular kind of tables or data to extract? (optional)",
 };
 
-const sectionLabelClass = "text-[13px] font-semibold";
-const sectionLabelStyle = { color: "var(--fm-text)" } as const;
-
-const tileBaseStyle = (selected: boolean): React.CSSProperties => ({
-  background: selected
-    ? "color-mix(in srgb, var(--fm-accent-orange) 8%, transparent)"
-    : "var(--fm-surface-elevated)",
-  borderColor: selected
-    ? "var(--fm-accent-orange)"
-    : "var(--fm-surface-border)",
-  color: selected ? "var(--fm-text)" : "var(--fm-text-secondary)",
-});
+const sectionLabelClass = "text-[10px] font-semibold uppercase tracking-wider";
+const sectionLabelStyle = { color: "var(--fm-text-tertiary)" } as const;
 
 const groupDividerStyle: React.CSSProperties = {
   border: "none",
@@ -484,6 +520,19 @@ export const GenerateDialog = ({
 
   const hasAppearance = showOrientation || showStyle;
 
+  const capitalize = (s: string): string =>
+    s.charAt(0).toUpperCase() + s.slice(1);
+  const sourceCount =
+    existingSources.filter((s) => selectedSourceIds.has(s.id)).length +
+    selectedDiscoveredUrls.size;
+  const summaryParts: string[] = [
+    showOrientation ? capitalize(orientation) : null,
+    showStyle ? capitalize(style) : null,
+    showSlideCount ? `${slideCount} slides` : null,
+    capitalize(detailLevel),
+    `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
+  ].filter((x): x is string => Boolean(x));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-lg overflow-y-auto max-h-[85vh]">
@@ -499,16 +548,16 @@ export const GenerateDialog = ({
             {/* ── Appearance group ── */}
             {hasAppearance && (
               <>
-                {/* Orientation — infographic only */}
+                {/* Orientation — infographic only (visual layout cards) */}
                 {showOrientation && (
                   <div className="flex flex-col gap-2">
                     <span
                       className={sectionLabelClass}
                       style={sectionLabelStyle}
                     >
-                      Orientation
+                      Layout
                     </span>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2.5">
                       {ORIENTATION_OPTIONS.map((opt) => {
                         const selected = orientation === opt.value;
                         return (
@@ -516,48 +565,22 @@ export const GenerateDialog = ({
                             key={opt.value}
                             type="button"
                             onClick={() => setOrientation(opt.value)}
-                            className="h-10 rounded-lg border text-xs font-medium transition-colors"
-                            style={tileBaseStyle(selected)}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Style — everything except mindmap */}
-                {showStyle && (
-                  <div className="flex flex-col gap-2">
-                    <span
-                      className={sectionLabelClass}
-                      style={sectionLabelStyle}
-                    >
-                      Style
-                    </span>
-                    <div className="grid grid-cols-3 gap-2">
-                      {STYLE_OPTIONS.map((opt) => {
-                        const selected = style === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setStyle(opt.value)}
-                            className="flex flex-col items-center justify-center gap-1.5 min-h-[4.5rem] rounded-lg border px-3 transition-colors"
+                            className="flex flex-col items-center justify-between gap-2 rounded-xl border p-3 transition-all min-h-[108px]"
                             style={{
-                              ...tileBaseStyle(selected),
-                              color: selected
-                                ? "var(--fm-accent-orange)"
-                                : "var(--fm-text-tertiary)",
+                              borderColor: selected
+                                ? "var(--fm-accent-rose)"
+                                : "var(--fm-surface-border)",
+                              background: selected
+                                ? "color-mix(in srgb, var(--fm-accent-rose) 6%, transparent)"
+                                : "var(--fm-surface-elevated)",
                             }}
                             aria-pressed={selected}
                           >
-                            <span aria-hidden="true">
-                              {STYLE_ICONS[opt.value]}
+                            <span className="flex flex-1 items-center justify-center" aria-hidden="true">
+                              {ORIENTATION_PREVIEWS[opt.value]}
                             </span>
                             <span
-                              className="text-[11px] uppercase tracking-wider font-medium"
+                              className="text-[11px] font-medium"
                               style={{
                                 color: selected
                                   ? "var(--fm-text)"
@@ -573,67 +596,198 @@ export const GenerateDialog = ({
                   </div>
                 )}
 
-                {/* Detail level — all (part of appearance group) */}
+                {/* Style — gradient tiles with illustrated previews */}
+                {showStyle && (
+                  <div className="flex flex-col gap-2">
+                    <span
+                      className={sectionLabelClass}
+                      style={sectionLabelStyle}
+                    >
+                      Visual style
+                    </span>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {STYLE_OPTIONS.map((opt) => {
+                        const selected = style === opt.value;
+                        const labelColor =
+                          STYLE_DARK_LABEL[opt.value] ?? "#fff";
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setStyle(opt.value)}
+                            className="relative flex flex-col items-center justify-end rounded-xl border-2 transition-all overflow-hidden"
+                            style={{
+                              aspectRatio: "1 / 1",
+                              background: STYLE_GRADIENTS[opt.value],
+                              borderColor: selected
+                                ? "#fff"
+                                : "transparent",
+                              boxShadow: selected
+                                ? "0 0 0 1px rgba(255,255,255,0.3)"
+                                : "none",
+                            }}
+                            aria-pressed={selected}
+                            aria-label={opt.label}
+                          >
+                            <span
+                              className="flex flex-1 items-center justify-center p-3"
+                              aria-hidden="true"
+                            >
+                              {STYLE_PREVIEWS[opt.value]}
+                            </span>
+                            <span
+                              className="pb-2.5 text-[11px] font-semibold relative z-[1]"
+                              style={{
+                                color: labelColor,
+                                textShadow:
+                                  STYLE_DARK_LABEL[opt.value]
+                                    ? "none"
+                                    : "0 1px 4px rgba(0,0,0,0.4)",
+                              }}
+                            >
+                              {opt.label}
+                            </span>
+                            {selected && (
+                              <span
+                                className="absolute top-1.5 right-1.5 w-[18px] h-[18px] rounded-full bg-white flex items-center justify-center z-[2]"
+                                aria-hidden="true"
+                              >
+                                <svg
+                                  width="10"
+                                  height="10"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="#1e1c1a"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Detail level — segmented bar with subtitles */}
                 <div className="flex flex-col gap-2">
                   <span
                     className={sectionLabelClass}
                     style={sectionLabelStyle}
                   >
-                    Detail
+                    Content depth
                   </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {DETAIL_OPTIONS.map((opt) => {
+                  <div
+                    className="flex rounded-xl overflow-hidden border"
+                    style={{
+                      borderColor: "var(--fm-surface-border)",
+                      height: 48,
+                    }}
+                  >
+                    {DETAIL_OPTIONS.map((opt, i) => {
                       const selected = detailLevel === opt.value;
                       return (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setDetailLevel(opt.value)}
-                          className="h-10 rounded-lg border text-xs font-medium transition-colors"
-                          style={tileBaseStyle(selected)}
+                          className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+                          style={{
+                            background: selected
+                              ? "color-mix(in srgb, var(--fm-accent-rose) 10%, transparent)"
+                              : "var(--fm-surface-elevated)",
+                            borderRight:
+                              i < DETAIL_OPTIONS.length - 1
+                                ? "1px solid var(--fm-surface-border)"
+                                : "none",
+                          }}
+                          aria-pressed={selected}
                         >
-                          {opt.label}
+                          <span
+                            className="text-xs font-semibold"
+                            style={{
+                              color: selected
+                                ? "var(--fm-text)"
+                                : "var(--fm-text-tertiary)",
+                            }}
+                          >
+                            {opt.label}
+                          </span>
+                          <span
+                            className="text-[9px]"
+                            style={{
+                              color: selected
+                                ? "var(--fm-text-secondary)"
+                                : "var(--fm-text-tertiary)",
+                            }}
+                          >
+                            {DETAIL_DESCRIPTIONS[opt.value]}
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Slide count — slides only (replaces range slider) */}
+                {/* Slide count — stepper replaces fixed pills */}
                 {showSlideCount && (
                   <div className="flex flex-col gap-2">
                     <span
                       className={sectionLabelClass}
                       style={sectionLabelStyle}
                     >
-                      Slide count
+                      Number of slides
                     </span>
-                    <div className="flex flex-wrap gap-2">
-                      {SLIDE_COUNTS.map((n) => {
-                        const selected = slideCount === n;
-                        return (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setSlideCount(n)}
-                            className="min-w-12 py-2 px-3 rounded-lg text-sm font-medium border transition-colors"
-                            style={{
-                              background: selected
-                                ? "var(--fm-accent-orange)"
-                                : "var(--fm-surface-elevated)",
-                              borderColor: selected
-                                ? "var(--fm-accent-orange)"
-                                : "var(--fm-surface-border)",
-                              color: selected
-                                ? "white"
-                                : "var(--fm-text-secondary)",
-                            }}
-                            aria-pressed={selected}
-                          >
-                            {n}
-                          </button>
-                        );
-                      })}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSlideCount(Math.max(4, slideCount - 2))
+                        }
+                        disabled={slideCount <= 4}
+                        aria-label="Decrease slide count"
+                        className="w-8 h-8 rounded-lg border flex items-center justify-center text-base transition-colors disabled:opacity-30"
+                        style={{
+                          background: "var(--fm-surface-elevated)",
+                          borderColor: "var(--fm-surface-border)",
+                          color: "var(--fm-text-secondary)",
+                        }}
+                      >
+                        −
+                      </button>
+                      <span
+                        className="text-xl font-bold min-w-[32px] text-center"
+                        style={{ color: "var(--fm-text)" }}
+                        aria-live="polite"
+                      >
+                        {slideCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSlideCount(Math.min(20, slideCount + 2))
+                        }
+                        disabled={slideCount >= 20}
+                        aria-label="Increase slide count"
+                        className="w-8 h-8 rounded-lg border flex items-center justify-center text-base transition-colors disabled:opacity-30"
+                        style={{
+                          background: "var(--fm-surface-elevated)",
+                          borderColor: "var(--fm-surface-border)",
+                          color: "var(--fm-text-secondary)",
+                        }}
+                      >
+                        +
+                      </button>
+                      <span
+                        className="text-[11px]"
+                        style={{ color: "var(--fm-text-tertiary)" }}
+                      >
+                        slides
+                      </span>
                     </div>
                   </div>
                 )}
@@ -642,56 +796,75 @@ export const GenerateDialog = ({
 
             <hr style={groupDividerStyle} />
 
-            {/* ── Personalization group ── */}
-            {showAccent && (
+            {/* ── Personalization row: accent + language side by side ── */}
+            <div className="flex flex-wrap gap-5">
+              {showAccent && (
+                <div className="flex flex-col gap-2">
+                  <span
+                    className={sectionLabelClass}
+                    style={sectionLabelStyle}
+                  >
+                    Accent
+                  </span>
+                  <div className="flex items-center gap-2 h-7">
+                    {ACCENT_OPTIONS.map((opt) => {
+                      const selected = accentColor === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          aria-label={opt.value}
+                          onClick={() => setAccentColor(opt.value)}
+                          className="rounded-full transition-all"
+                          style={{
+                            width: 22,
+                            height: 22,
+                            background: opt.color,
+                            boxShadow: selected
+                              ? "0 0 0 2px var(--fm-bg-secondary), 0 0 0 4px var(--fm-text)"
+                              : "none",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
-                <span className={sectionLabelClass} style={sectionLabelStyle}>
-                  Accent color
+                <span
+                  className={sectionLabelClass}
+                  style={sectionLabelStyle}
+                >
+                  Language
                 </span>
-                <div className="flex items-center gap-2">
-                  {ACCENT_OPTIONS.map((opt) => {
-                    const selected = accentColor === opt.value;
+                <div className="flex gap-1.5">
+                  {LANGUAGE_OPTIONS.map((opt) => {
+                    const selected = language === opt.value;
                     return (
                       <button
                         key={opt.value}
                         type="button"
-                        aria-label={opt.value}
-                        onClick={() => setAccentColor(opt.value)}
-                        className="rounded-full transition-all"
+                        onClick={() => setLanguage(opt.value)}
+                        className="h-7 px-3.5 rounded-full text-xs font-medium border transition-colors"
                         style={{
-                          width: 24,
-                          height: 24,
-                          background: opt.color,
-                          boxShadow: selected
-                            ? "0 0 0 2px var(--fm-bg-secondary), 0 0 0 4px var(--fm-text)"
-                            : "none",
+                          background: selected
+                            ? "var(--fm-text)"
+                            : "transparent",
+                          color: selected
+                            ? "var(--fm-bg)"
+                            : "var(--fm-text-tertiary)",
+                          borderColor: selected
+                            ? "var(--fm-text)"
+                            : "var(--fm-surface-border)",
                         }}
-                      />
+                        aria-pressed={selected}
+                      >
+                        {opt.value.toUpperCase()}
+                      </button>
                     );
                   })}
                 </div>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <span className={sectionLabelClass} style={sectionLabelStyle}>
-                Language
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {LANGUAGE_OPTIONS.map((opt) => {
-                  const selected = language === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setLanguage(opt.value)}
-                      className="h-10 rounded-lg border text-xs font-medium transition-colors"
-                      style={tileBaseStyle(selected)}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
               </div>
             </div>
 
@@ -915,28 +1088,41 @@ export const GenerateDialog = ({
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => onOpenChange(false)}
-              disabled={isGenerating}
+          {/* Summary + output-coloured Generate */}
+          <div
+            className="mt-4 flex items-center justify-between gap-3 border-t pt-3"
+            style={{ borderColor: "var(--fm-surface-border)" }}
+          >
+            <span
+              className="text-[11px] flex-1 min-w-0 truncate"
+              style={{ color: "var(--fm-text-tertiary)" }}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              size="default"
-              onClick={submit}
-              disabled={submitDisabled}
-            >
-              {isGenerating || isScrapingOnSubmit ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Wand2 className="h-3.5 w-3.5" />
-              )}
-              {isScrapingOnSubmit ? "Fetching…" : "Generate"}
-            </Button>
+              {summaryParts.join(" · ")}
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => onOpenChange(false)}
+                disabled={isGenerating}
+              >
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={submitDisabled}
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-medium text-white transition-[filter,transform] hover:brightness-110 hover:-translate-y-px active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:hover:translate-y-0"
+                style={{ background: OUTPUT_ACCENT[outputType] }}
+              >
+                {isGenerating || isScrapingOnSubmit ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5" />
+                )}
+                {isScrapingOnSubmit ? "Fetching…" : "Generate"}
+              </button>
+            </div>
           </div>
         </div>
       </DialogContent>
