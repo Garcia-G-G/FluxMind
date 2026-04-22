@@ -27,6 +27,12 @@ const nextConfig: NextConfig = {
       "remark-gfm",
       "sonner",
       "@ai-sdk/react",
+      // Heavy barrel exports that bloat client chunks without tree-shaking
+      // hints unless we opt them in here.
+      "jspdf",
+      "html2canvas-pro",
+      "yjs",
+      "y-websocket",
     ],
   },
 
@@ -38,9 +44,13 @@ const nextConfig: NextConfig = {
     "pdf-parse",
     "mammoth",
     "@aws-sdk/client-s3",
+    "@aws-sdk/s3-request-presigner",
     "ioredis",
     "bullmq",
     "stripe",
+    // Server-only packages — no reason to bundle into client chunks.
+    "@fal-ai/client",
+    "papaparse",
     // ~60 MB native binary — never bundle it into route chunks. The
     // worker imports it at runtime.
     "@ffmpeg-installer/ffmpeg",
@@ -51,14 +61,6 @@ const nextConfig: NextConfig = {
     "sharp",
   ],
 
-  // Dev server: keep compiled routes warm for longer so flipping back to a
-  // route doesn't recompile from scratch every time. Still respected by
-  // Next 15's App Router dev server.
-  onDemandEntries: {
-    maxInactiveAge: 5 * 60 * 1000,
-    pagesBufferLength: 8,
-  },
-
   // Turbopack opt-in for `next dev` (stable in 15.5). The empty object is
   // a valid config; also requires `--turbopack` on the dev script.
   turbopack: {},
@@ -66,6 +68,7 @@ const nextConfig: NextConfig = {
   // `next/image` remote sources: R2 public bucket, fal.ai, ElevenLabs CDN,
   // Google / GitHub avatars (for OAuth profile images).
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
       { protocol: "https", hostname: "**.r2.dev" },

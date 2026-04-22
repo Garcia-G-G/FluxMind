@@ -10,7 +10,10 @@ import { outputs } from "@/db/schema/outputs";
 import { count, eq } from "drizzle-orm";
 import type { Notebook } from "@/db/schema/notebooks";
 import type { Stats } from "@/hooks/use-stats";
+import { cacheGet, cacheSet, dashboardCacheKey } from "@/lib/cache/redis";
 import { DashboardClient } from "./dashboard-client";
+
+const DASHBOARD_TTL_SECONDS = 60;
 
 type NotebookWithCount = Notebook & { sourceCount: number };
 
@@ -20,9 +23,15 @@ const getGreeting = (hour: number): string => {
   return "Good evening";
 };
 
+type DashboardData = { notebooks: NotebookWithCount[]; stats: Stats };
+
 const loadDashboardData = async (
   userId: string,
-): Promise<{ notebooks: NotebookWithCount[]; stats: Stats }> => {
+): Promise<DashboardData> => {
+  // ── Redis cache: 60s TTL, graceful-fail ──
+  const cached = await cacheGet<DashboardData>(dashboardCacheKey(userId));
+  if (cached) return cached;
+
   // Single LEFT JOIN + GROUP BY — mirrors /api/notebooks. Paginated hard at
   // 100 so the dashboard paints fast even for power users.
   const notebooksPromise = db
@@ -79,7 +88,12 @@ const loadDashboardData = async (
     outputs: outRes[0]?.value ?? 0,
   };
 
-  return { notebooks: userNotebooks as NotebookWithCount[], stats };
+  const result: DashboardData = {
+    notebooks: userNotebooks as NotebookWithCount[],
+    stats,
+  };
+  await cacheSet(dashboardCacheKey(userId), result, DASHBOARD_TTL_SECONDS);
+  return result;
 };
 
 const DashboardPage = async (): Promise<ReactNode> => {

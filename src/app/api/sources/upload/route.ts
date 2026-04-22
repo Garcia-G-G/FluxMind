@@ -10,7 +10,7 @@ import { uploadFile, getStorageKey } from "@/lib/storage/r2";
 import { validateFile } from "@/lib/processing/parsers";
 import { getDocumentQueue, type DocumentJobData } from "@/lib/queue";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
+import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -95,6 +95,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     try {
       await cacheDel(statsCacheKey(session.user.id));
+      await cacheDel(dashboardCacheKey(session.user.id));
     } catch {
       /* no-op */
     }

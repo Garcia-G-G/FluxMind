@@ -10,7 +10,7 @@ import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getStudioContext, isError } from "@/lib/studio/generate";
-import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
+import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
 
 const quizSchema = z.object({
   title: z.string(),
@@ -131,6 +131,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     // Stats cache invalidation — fire-and-forget, never fails the request.
     try {
       await cacheDel(statsCacheKey(session.user.id));
+      await cacheDel(dashboardCacheKey(session.user.id));
     } catch {
       /* no-op */
     }

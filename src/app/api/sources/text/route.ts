@@ -8,7 +8,7 @@ import { notebooks } from "@/db/schema/notebooks";
 import { sources, sourceChunks } from "@/db/schema/sources";
 import { chunkText, estimateTokenCount } from "@/lib/processing/chunker";
 import { generateEmbeddings } from "@/lib/ai/embeddings";
-import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
+import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -62,6 +62,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     try {
       await cacheDel(statsCacheKey(session.user.id));
+      await cacheDel(dashboardCacheKey(session.user.id));
     } catch {
       /* no-op */
     }

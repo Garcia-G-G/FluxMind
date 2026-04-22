@@ -69,3 +69,11 @@ export const cacheDel = async (key: string): Promise<void> => {
  * the key format.
  */
 export const statsCacheKey = (userId: string): string => `stats:${userId}`;
+
+/**
+ * Dashboard-level cache key — the entire { notebooks, stats } payload the
+ * Server Component builds on load. 60s TTL, invalidated by every mutation
+ * route that changes notebooks / sources / outputs / conversations.
+ */
+export const dashboardCacheKey = (userId: string): string =>
+  `dashboard:${userId}`;

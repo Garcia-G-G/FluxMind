@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sources } from "@/db/schema/sources";
 import { notebooks } from "@/db/schema/notebooks";
-import { cacheDel, statsCacheKey } from "@/lib/cache/redis";
+import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
 
 export const GET = async (
   _request: NextRequest,
@@ -114,6 +114,7 @@ export const DELETE = async (
 
     try {
       await cacheDel(statsCacheKey(session.user.id));
+      await cacheDel(dashboardCacheKey(session.user.id));
     } catch {
       /* no-op */
     }
