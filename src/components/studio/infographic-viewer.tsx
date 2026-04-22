@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { motion } from "motion/react";
 import { Download, Maximize, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NarrationPlayer } from "@/components/studio/narration-player";
@@ -72,20 +73,22 @@ export const InfographicViewer = ({
             {infographic.keyStats.map((stat, i) => (
               <div
                 key={i}
-                className="rounded-lg p-3"
+                className="rounded-lg p-4"
                 style={{
-                  background: "var(--fm-surface-hover, var(--fm-surface))",
-                  border: "1px solid var(--fm-surface-border)",
+                  background:
+                    "color-mix(in srgb, var(--fm-accent-orange) 8%, transparent)",
+                  border:
+                    "1px solid color-mix(in srgb, var(--fm-accent-orange) 25%, transparent)",
                 }}
               >
                 <p
-                  className="text-xl font-bold"
-                  style={{ color: "var(--fm-text)" }}
+                  className="text-2xl font-bold"
+                  style={{ color: "var(--fm-accent-orange)" }}
                 >
                   {stat.value}
                 </p>
                 <p
-                  className="text-xs mt-0.5"
+                  className="text-xs mt-1"
                   style={{ color: "var(--fm-text-tertiary)" }}
                 >
                   {stat.label}
@@ -96,28 +99,38 @@ export const InfographicViewer = ({
         )}
 
         {infographic.sections && infographic.sections.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {infographic.sections.map((section, i) => (
               <div
                 key={i}
-                className="rounded-lg p-3"
+                className="rounded-lg overflow-hidden"
                 style={{
-                  background: "var(--fm-surface-hover, var(--fm-surface))",
+                  background:
+                    "var(--fm-surface-hover, var(--fm-surface))",
                   border: "1px solid var(--fm-surface-border)",
                 }}
               >
-                <p
-                  className="font-medium text-sm"
-                  style={{ color: "var(--fm-text)" }}
-                >
-                  {section.heading}
-                </p>
-                <p
-                  className="text-sm mt-1 leading-relaxed"
-                  style={{ color: "var(--fm-text-secondary)" }}
-                >
-                  {section.summary}
-                </p>
+                {/* Accent header bar — 3px tall stripe at the top of each card */}
+                <div
+                  style={{
+                    height: "3px",
+                    background: "var(--fm-accent-orange)",
+                  }}
+                />
+                <div className="p-3">
+                  <p
+                    className="font-medium text-sm"
+                    style={{ color: "var(--fm-text)" }}
+                  >
+                    {section.heading}
+                  </p>
+                  <p
+                    className="text-sm mt-1 leading-relaxed"
+                    style={{ color: "var(--fm-text-secondary)" }}
+                  >
+                    {section.summary}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -174,8 +187,11 @@ export const InfographicViewer = ({
         />
       )}
 
-      {/* Image */}
-      <div
+      {/* Image — fade in on mount so large composites don't pop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
         className="rounded-xl overflow-hidden"
         style={{
           background: "var(--fm-surface)",
@@ -192,7 +208,7 @@ export const InfographicViewer = ({
           priority
           onClick={() => setIsFullscreen(true)}
         />
-      </div>
+      </motion.div>
 
       {/* Key stats */}
       {infographic.keyStats && infographic.keyStats.length > 0 && (

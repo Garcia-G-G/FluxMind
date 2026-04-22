@@ -91,7 +91,11 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         : "standard";
     const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
 
-    const ctx = await getStudioContext(notebookId, "studioVideo");
+    const ctx = await getStudioContext(
+      notebookId,
+      selectedSourceIds,
+      "studioVideo",
+    );
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
     const outputId = createId();
@@ -105,12 +109,6 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-
-    if (selectedSourceIds.length > 0) {
-      console.info(
-        `[video] selectedSourceIds=${selectedSourceIds.length} (forward-compat, not filtering)`,
-      );
-    }
 
     // Enqueue via BullMQ instead of a fire-and-forget Promise. On serverless
     // runtimes, the route process dies after the response returns — a

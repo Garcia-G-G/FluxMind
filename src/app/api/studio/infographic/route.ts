@@ -34,7 +34,7 @@ const layoutSchema = z.object({
   illustrationPrompt: z
     .string()
     .describe(
-      "Visual-only prompt for AI image generation. NO text, NO labels, NO numbers, NO words anywhere. Style: pen-and-ink technical illustration on graph paper. Describe small illustrated vignettes positioned in specific zones of the canvas (e.g. top-left beach scene, center-right airplane, bottom-right pressure cooker), leaving whitespace around each for text overlay. 100-200 words. Think vintage engineering notebook: thin black line work with occasional muted orange or sepia watercolor wash on focal elements, scenes at different 'points' of a larger picture.",
+      "Visual-only prompt for AI image generation. NO text, NO labels, NO numbers, NO words anywhere. Describe small illustrated vignettes positioned in specific zones of the canvas, leaving whitespace for text overlay. 100-200 words. The style is defined by the system — focus only on the subject matter and spatial composition.",
     ),
   header: z.object({
     text: z.string(),
@@ -226,16 +226,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       : "";
     const styleInstr = getStyleInstructions(style);
 
-    const ctx = await getStudioContext(notebookId, "studioGenerate");
+    const ctx = await getStudioContext(
+      notebookId,
+      selectedSourceIds,
+      "studioGenerate",
+    );
     if (isError(ctx)) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
 
-    if (selectedSourceIds.length > 0) {
-      console.info(
-        `[infographic] selectedSourceIds=${selectedSourceIds.length} (forward-compat, not filtering)`,
-      );
-    }
     const finalContext = extraSourceContent
       ? `${ctx.sourceContext}\n\n--- Additional sources ---\n${extraSourceContent}`
       : ctx.sourceContext;

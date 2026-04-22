@@ -79,15 +79,19 @@ const useGenerate = <TArgs extends { notebookId: string }>(
   });
 };
 
-/* ── Dialog-driven generators accept an optional GenerateConfig ── */
+/* ── Every studio generator accepts an optional GenerateConfig ── */
 type DialogArgs = { notebookId: string } & Partial<GenerateConfig>;
 type SlidesArgs = DialogArgs & { count?: number; model?: string };
 type InfographicArgs = DialogArgs & { model?: string };
 type VideoArgs = DialogArgs & { model?: string };
 type MindMapArgs = DialogArgs & { model?: string };
-
-/* ── Instant-generate helpers keep their legacy shape ── */
-type InstantArgs = { notebookId: string; model?: string };
+type FlashcardsArgs = DialogArgs & { count?: number; model?: string };
+type QuizArgs = DialogArgs & { count?: number; model?: string };
+type CourseArgs = DialogArgs & { count?: number; model?: string };
+type ThreadArgs = DialogArgs & { model?: string };
+type NewsletterArgs = DialogArgs & { model?: string };
+type ReelArgs = DialogArgs & { model?: string };
+type DataTableArgs = DialogArgs & { model?: string };
 
 export const useGenerateSlides = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,32 +109,44 @@ export const useGenerateDataTable = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Error,
-  InstantArgs
-> => useGenerate<InstantArgs>("/api/studio/datatable");
+  DataTableArgs
+> => useGenerate<DataTableArgs>("/api/studio/datatable");
 export const useGenerateThread = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Error,
-  InstantArgs
-> => useGenerate<InstantArgs>("/api/studio/thread");
+  ThreadArgs
+> => useGenerate<ThreadArgs>("/api/studio/thread");
 export const useGenerateNewsletter = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Error,
-  InstantArgs
-> => useGenerate<InstantArgs>("/api/studio/newsletter");
+  NewsletterArgs
+> => useGenerate<NewsletterArgs>("/api/studio/newsletter");
 export const useGenerateReel = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Error,
-  InstantArgs
-> => useGenerate<InstantArgs>("/api/studio/reel");
+  ReelArgs
+> => useGenerate<ReelArgs>("/api/studio/reel");
 export const useGenerateCourse = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Error,
-  InstantArgs
-> => useGenerate<InstantArgs>("/api/studio/course");
+  CourseArgs
+> => useGenerate<CourseArgs>("/api/studio/course");
+export const useGenerateFlashcards = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  FlashcardsArgs
+> => useGenerate<FlashcardsArgs>("/api/studio/flashcards");
+export const useGenerateQuiz = (): UseMutationResult<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  Error,
+  QuizArgs
+> => useGenerate<QuizArgs>("/api/studio/quiz");
 export const useGenerateMindMap = (): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,

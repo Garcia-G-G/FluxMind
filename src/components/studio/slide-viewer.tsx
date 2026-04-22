@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NarrationPlayer } from "@/components/studio/narration-player";
+import { downloadImage } from "@/lib/utils/download";
 import type { SlidesContent } from "@/app/api/studio/slides/route";
 
 const ACCENT_VAR: Record<string, string> = {
@@ -24,32 +26,13 @@ const ACCENT_VAR: Record<string, string> = {
 
 type Props = { slides: SlidesContent & { id?: string } };
 
-const downloadImage = async (
-  url: string,
-  filename: string,
-): Promise<void> => {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(objectUrl);
-  } catch (e) {
-    console.error("download failed", e);
-  }
-};
-
 const safeName = (s: string): string =>
   (s || "slide").replace(/[^a-z0-9-_ ]/gi, "_");
 
 export const SlideViewer = ({ slides }: Props): React.ReactNode => {
   const [index, setIndex] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [imageLoaded, setImageLoaded] = useState<boolean>(false);
 
   const total = slides.slides.length;
   const current = slides.slides[index];
@@ -62,6 +45,12 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
     },
     [total],
   );
+
+  // Reset the "loaded" flag every time the current slide changes so the
+  // skeleton shows again while the new image streams in.
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [index, current?.imageUrl]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent): void => {
@@ -84,7 +73,7 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
     void downloadImage(
       current.imageUrl,
       `${safeName(slides.deckTitle)}-${current.id}.png`,
-    );
+    ).catch((err) => console.error("download failed", err));
   };
 
   if (!total || !current) {
@@ -181,16 +170,37 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
           }}
         >
           {current.imageUrl ? (
-            <Image
-              src={current.imageUrl}
-              alt={current.title}
-              width={1280}
-              height={1600}
-              sizes="(max-width: 768px) 100vw, 800px"
-              className="w-full h-auto block cursor-zoom-in"
-              priority={index === 0}
-              onClick={() => setIsFullscreen(true)}
-            />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={index}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative"
+              >
+                {!imageLoaded && (
+                  <div
+                    className="absolute inset-0 opacity-50 animate-pulse"
+                    style={{
+                      background: "var(--fm-surface-elevated)",
+                      aspectRatio: "1280 / 1600",
+                    }}
+                  />
+                )}
+                <Image
+                  src={current.imageUrl}
+                  alt={current.title}
+                  width={1280}
+                  height={1600}
+                  sizes="(max-width: 768px) 100vw, 800px"
+                  className="w-full h-auto block cursor-zoom-in"
+                  priority={index === 0}
+                  onLoad={() => setImageLoaded(true)}
+                  onClick={() => setIsFullscreen(true)}
+                />
+              </motion.div>
+            </AnimatePresence>
           ) : (
             <div className="p-8">
               <h3
@@ -238,7 +248,7 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
             type="button"
             onClick={() => goTo(index - 1)}
             aria-label="Previous slide"
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center"
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(255,255,255,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fm-accent-orange)]"
             style={{
               background: "var(--fm-surface)",
               border: "1px solid var(--fm-surface-border)",
@@ -253,7 +263,7 @@ export const SlideViewer = ({ slides }: Props): React.ReactNode => {
             type="button"
             onClick={() => goTo(index + 1)}
             aria-label="Next slide"
-            className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center"
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(255,255,255,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fm-accent-orange)]"
             style={{
               background: "var(--fm-surface)",
               border: "1px solid var(--fm-surface-border)",

@@ -13,7 +13,7 @@ const threadSchema = z.object({
   tweets: z.array(
     z.object({
       id: z.string(),
-      text: z.string(),
+      text: z.string().max(280),
       isHook: z.boolean().nullable(),
       isCTA: z.boolean().nullable(),
     })
@@ -29,12 +29,28 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       notebookId,
       model: modelId = "gemini-2.5-flash",
       language: rawLanguage = "en",
-    } = body;
+      customPrompt: rawCustom = "",
+      selectedSourceIds: rawSelectedSourceIds,
+    } = body as {
+      notebookId: string;
+      model?: string;
+      language?: string;
+      customPrompt?: string;
+      selectedSourceIds?: string[];
+    };
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
     const LANG_NAME = language === "es" ? "Spanish" : "English";
     const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
 
-    const ctx = await getStudioContext(notebookId, "studioGenerate");
+    const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
+    const selectedSourceIds: string[] = Array.isArray(rawSelectedSourceIds)
+      ? rawSelectedSourceIds.filter((s): s is string => typeof s === "string")
+      : [];
+    const userInstr = customPrompt.trim()
+      ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this focus into the output.\n`
+      : "";
+
+    const ctx = await getStudioContext(notebookId, selectedSourceIds, "studioGenerate");
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
     const outputId = createId();
@@ -49,19 +65,59 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         model: getModel(modelId),
         schema: threadSchema,
         prompt: `${langInstr}
+${userInstr}
+You are an expert X/Twitter ghostwriter turning the provided sources into a thread that TEACHES real, specific facts. Every tweet must carry a concrete idea — no "more soon" filler, no vague inspiration.
 
-Create a viral X/Twitter thread from the following source material.
+═══════════════════════════════════════
+STEP 1 — EXTRACT (silently first)
+═══════════════════════════════════════
+From the sources pull:
+- The single most counter-intuitive claim (hook candidate)
+- Specific numbers, benchmarks, or dates
+- Named tools, frameworks, people, or products
+- A contrarian take or common misconception being corrected
+- One memorable example, anecdote, or mini case study
+- Actionable steps the reader can do today
 
-Rules:
-- First tweet is the HOOK — grab attention with a bold claim, surprising stat, or provocative question. Mark isHook: true.
-- Each subsequent tweet adds value: insights, data, examples, frameworks.
-- Last tweet is the CTA: summary + call to action. Mark isCTA: true.
-- Each tweet MUST be under 280 characters.
-- Use line breaks for readability within tweets.
-- Include 1-2 tweets with bullet lists using •
-- Total: 8-15 tweets.
-- No hashtags. Maximum 1-2 emojis total.
-- Use sequential IDs: t1, t2, etc.
+Every tweet must be anchored in these extractions. Do NOT invent facts.
+
+═══════════════════════════════════════
+STEP 2 — STRUCTURE (8-15 tweets total)
+═══════════════════════════════════════
+- Tweet 1 = HOOK. Set isHook: true. Lead with a bold, specific claim, surprising stat, or provocative question drawn from the sources. No "A thread 🧵". Earn the click.
+- Tweets 2 .. N-1 = value tweets. Each carries ONE concrete idea:
+  • a specific claim + a number or named example
+  • or a short bullet list (use •) of 3-4 concrete items
+  • or a tiny before/after or do/don't contrast
+  Vary the rhythm — never two long blocks in a row.
+- Final tweet = CTA. Set isCTA: true. Recap the #1 takeaway in one line, then one low-friction ask (follow, reply with X, bookmark).
+
+Per-tweet rules:
+- MAX 280 characters per tweet. Count carefully — exceeding 280 is a failure.
+- Plain language. No jargon unless you define it inline.
+- Line breaks for rhythm, not padding.
+- Maximum 1-2 emojis TOTAL across the whole thread. Zero is fine.
+- NO hashtags anywhere.
+- Sequential IDs: t1, t2, t3, ...
+
+═══════════════════════════════════════
+STEP 3 — DENSITY CHECK
+═══════════════════════════════════════
+GOOD hook: "99% of React devs use useEffect wrong. Here's the 1-line fix that cut our re-renders by 40%:"
+BAD hook:  "Let's talk about React hooks. A thread 🧵"
+
+GOOD middle tweet: "React batches updates inside event handlers — but NOT inside setTimeout, promise callbacks, or native event listeners. That's where extra re-renders sneak in."
+BAD middle tweet:  "React is important. Many devs use it. Let's continue."
+
+Reject any tweet that does not carry a concrete fact, number, name, or instruction.
+
+═══════════════════════════════════════
+STEP 4 — QUALITY BAR
+═══════════════════════════════════════
+- All content in ${LANG_NAME}.
+- Exactly one tweet marked isHook: true (the first). Exactly one marked isCTA: true (the last). All others: both flags null or false.
+- Every tweet under 280 chars.
+- Thread should be re-shareable as-is by someone skimming their feed.
 
 Sources:
 ${ctx.sourceContext}`,

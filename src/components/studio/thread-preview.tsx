@@ -1,14 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Trash2, Plus } from "lucide-react";
+import {
+  Copy,
+  Check,
+  Trash2,
+  Plus,
+  MessageCircle,
+  Repeat2,
+  Heart,
+  BarChart2,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import type { ThreadContent } from "@/app/api/studio/thread/route";
 
 type Tweet = ThreadContent["tweets"][number];
+
+const tagPillStyle = (color: string): React.CSSProperties => ({
+  background: `color-mix(in srgb, ${color} 14%, transparent)`,
+  color,
+  borderRadius: "9999px",
+  padding: "0 0.5rem",
+  fontSize: "10px",
+  fontWeight: 600,
+  lineHeight: "1.4rem",
+});
 
 export const ThreadPreview = ({
   thread,
@@ -21,7 +38,9 @@ export const ThreadPreview = ({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const handleCopyAll = async (): Promise<void> => {
-    const text = tweets.map((t, i) => `${i + 1}/${tweets.length}\n${t.text}`).join("\n\n");
+    const text = tweets
+      .map((t, i) => `${i + 1}/${tweets.length}\n${t.text}`)
+      .join("\n\n");
     await navigator.clipboard.writeText(text);
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 2000);
@@ -61,7 +80,10 @@ export const ThreadPreview = ({
   return (
     <div className="max-w-xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">
+        <p
+          className="text-sm"
+          style={{ color: "var(--fm-text-tertiary)" }}
+        >
           {tweets.length} tweets
         </p>
         <Button
@@ -83,6 +105,7 @@ export const ThreadPreview = ({
         {tweets.map((tweet, index) => {
           const charCount = tweet.text.length;
           const isOverLimit = charCount > 280;
+          const isLast = index === tweets.length - 1;
 
           return (
             <motion.div
@@ -92,33 +115,73 @@ export const ThreadPreview = ({
               transition={{ delay: index * 0.05 }}
               className="relative group"
             >
-              {/* Thread line */}
-              {index < tweets.length - 1 && (
-                <div className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-border" />
+              {/* 2px connector from avatar bottom to next avatar top */}
+              {!isLast && (
+                <div
+                  className="absolute"
+                  style={{
+                    left: "19px",
+                    top: "40px",
+                    bottom: "0",
+                    width: "2px",
+                    background: "var(--fm-surface-border)",
+                  }}
+                />
               )}
 
               <div className="flex gap-3 pb-4">
-                <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarFallback className="text-xs bg-primary text-primary-foreground font-bold">
-                    F
-                  </AvatarFallback>
-                </Avatar>
+                {/* 40px avatar circle with initial */}
+                <div
+                  className="flex items-center justify-center shrink-0 font-bold text-sm"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "9999px",
+                    background: "var(--fm-accent-orange)",
+                    color: "white",
+                  }}
+                >
+                  F
+                </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-semibold">FluxMind</span>
-                    <span className="text-xs text-muted-foreground">
+                  {/* Header row: name + @handle + timestamp + numbering */}
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: "var(--fm-text)" }}
+                    >
+                      FluxMind
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
                       @fluxmind
                     </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      ·
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      just now
+                    </span>
+                    <span
+                      className="text-xs ml-auto font-medium tabular-nums"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      {index + 1}/{tweets.length}
+                    </span>
                     {tweet.isHook && (
-                      <Badge className="text-[10px] px-1 py-0 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                        Hook
-                      </Badge>
+                      <span style={tagPillStyle("#f59e0b")}>Hook</span>
                     )}
                     {tweet.isCTA && (
-                      <Badge className="text-[10px] px-1 py-0 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                        CTA
-                      </Badge>
+                      <span style={tagPillStyle("#3b82f6")}>CTA</span>
                     )}
                   </div>
 
@@ -128,25 +191,70 @@ export const ThreadPreview = ({
                       onChange={(e) => handleEdit(index, e.target.value)}
                       onBlur={() => setEditingIndex(null)}
                       autoFocus
-                      className="w-full text-sm bg-transparent border border-input rounded-md p-2 resize-none min-h-[60px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="w-full text-sm rounded-md p-2 resize-none min-h-[60px] outline-none"
+                      style={{
+                        background: "var(--fm-surface-elevated)",
+                        border: "1px solid var(--fm-surface-border)",
+                        color: "var(--fm-text)",
+                      }}
                       rows={3}
                     />
                   ) : (
                     <p
-                      className="text-sm whitespace-pre-wrap cursor-pointer hover:bg-accent/30 rounded px-1 -mx-1 transition-colors"
+                      className="text-sm whitespace-pre-wrap cursor-pointer rounded px-1 -mx-1 transition-colors"
+                      style={{ color: "var(--fm-text)" }}
                       onClick={() => setEditingIndex(index)}
                     >
                       {tweet.text}
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between mt-1.5">
+                  {/* Character count */}
+                  <div className="mt-1">
                     <span
-                      className={`text-xs ${isOverLimit ? "text-destructive font-medium" : "text-muted-foreground"}`}
+                      className="text-xs"
+                      style={{
+                        color: isOverLimit
+                          ? "#ef4444"
+                          : "var(--fm-text-tertiary)",
+                        fontWeight: isOverLimit ? 600 : 400,
+                      }}
                     >
                       {charCount}/280
                     </span>
-                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  </div>
+
+                  {/* Engagement row (static counts) */}
+                  <div className="flex items-center gap-6 mt-3">
+                    <span
+                      className="flex items-center gap-1.5 text-sm"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span>—</span>
+                    </span>
+                    <span
+                      className="flex items-center gap-1.5 text-sm"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      <Repeat2 className="h-4 w-4" />
+                      <span>—</span>
+                    </span>
+                    <span
+                      className="flex items-center gap-1.5 text-sm"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      <Heart className="h-4 w-4" />
+                      <span>—</span>
+                    </span>
+                    <span
+                      className="flex items-center gap-1.5 text-sm"
+                      style={{ color: "var(--fm-text-tertiary)" }}
+                    >
+                      <BarChart2 className="h-4 w-4" />
+                      <span>—</span>
+                    </span>
+                    <div className="ml-auto flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -171,10 +279,13 @@ export const ThreadPreview = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          className="h-6 w-6 p-0"
                           onClick={() => handleDelete(index)}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2
+                            className="h-3 w-3"
+                            style={{ color: "var(--fm-text-tertiary)" }}
+                          />
                         </Button>
                       )}
                     </div>

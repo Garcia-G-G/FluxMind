@@ -105,17 +105,34 @@ export type ComposedInfographic = {
   thumbnailUrl: string | null;
 };
 
-// Color palette — sketchbook/ink on cream. Near-black for primary text,
-// warm grey for muted, accent reserved for high-signal elements (stat
-// values, chart dots, leader dots, takeaway eyebrow).
-const COLOR_TEXT = "#1a1a1a";
-const COLOR_MUTED = "#4a4a4a";
-const COLOR_HAIRLINE = "#2a2a2a";
-
 // Append 2-digit hex alpha to a 6-digit hex color.
 const withAlpha = (hex: string, alphaHex: string): string => {
   const clean = hex.startsWith("#") ? hex : `#${hex}`;
   return `${clean}${alphaHex}`;
+};
+
+// ---------- Layout strategies ----------
+//
+// The renderer picks one of three strategies based on block composition so
+// successive infographics look materially different:
+//   • "dashboard" — stats-first grid, everything else below at full width.
+//   • "story"     — chart + flow rhythm, alternating full-width rows with
+//                   2-col callout chunks and gentle offsets.
+//   • "magazine"  — default flowing column, stats and callouts paired 2-up.
+
+type LayoutStrategy = "magazine" | "dashboard" | "story";
+
+const pickLayoutStrategy = (
+  blocks: InfographicLayout["blocks"],
+): LayoutStrategy => {
+  const hasChart = blocks.some((b) => b.type === "chart");
+  const statCount = blocks.filter((b) => b.type === "stat").length;
+  const hasFlow = blocks.some(
+    (b) => b.type === "flow" || b.type === "timeline",
+  );
+  if (statCount >= 3) return "dashboard";
+  if (hasChart && hasFlow) return "story";
+  return "magazine";
 };
 
 // ---------- Internal: chart renderer ----------
@@ -129,6 +146,7 @@ const renderChart = (
   accent: string,
   text: string,
   muted: string,
+  hairline: string,
 ): string => {
   const padding = 50;
   const plotW = w - padding * 2;
@@ -216,7 +234,7 @@ const renderChart = (
       const boxX = p.px - boxW / 2;
       const boxY = p.py - boxH - 10;
       parts.push(
-        `<rect x="${boxX.toFixed(1)}" y="${boxY.toFixed(1)}" width="${boxW}" height="${boxH}" rx="4" fill="white" fill-opacity="0.9" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
+        `<rect x="${boxX.toFixed(1)}" y="${boxY.toFixed(1)}" width="${boxW}" height="${boxH}" rx="4" fill="white" fill-opacity="0.9" stroke="${hairline}" stroke-width="0.75" />`,
       );
       annoLines.forEach((line, li) => {
         parts.push(
@@ -229,14 +247,105 @@ const renderChart = (
   return parts.join("\n");
 };
 
+// ---------- Block renderers (used by strategies) ----------
+//
+// Each renderer is self-contained: it receives its anchor point + sizing and
+// returns an SVG fragment. Strategies compose them at different positions
+// without touching the underlying geometry code.
+
+type ColorSet = {
+  text: string;
+  muted: string;
+  hairline: string;
+};
+
+const renderStatBox = (
+  block: Extract<LayoutBlock, { type: "stat" }>,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  accent: string,
+  colors: ColorSet,
+): string => {
+  const parts: string[] = [];
+  const cx = bx + bw / 2;
+  parts.push(
+    `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="6" fill="white" fill-opacity="0.95" stroke="${colors.hairline}" stroke-width="0.75" />`,
+  );
+  // Value — centered vertically in the upper ~40% of the box
+  const valueY = by + Math.round(bh * 0.4);
+  parts.push(
+    `<text x="${cx}" y="${valueY}" font-family="${FONT_SERIF}" font-size="32" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(block.value)}</text>`,
+  );
+  // Label wraps up to 2 lines at ~28 char width
+  const labelLines = wrapText(block.label, 28).slice(0, 2);
+  const labelStartY = by + Math.round(bh * 0.62);
+  labelLines.forEach((line, i) => {
+    parts.push(
+      `<text x="${cx}" y="${labelStartY + i * 15}" font-family="${FONT_TECHNICAL}" font-size="13" fill="${colors.muted}" text-anchor="middle">${escapeXml(line)}</text>`,
+    );
+  });
+  return parts.join("\n");
+};
+
+const renderCalloutBox = (
+  block: Extract<LayoutBlock, { type: "callout" }>,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  accent: string,
+  colors: ColorSet,
+  drawLeader: boolean,
+): string => {
+  const parts: string[] = [];
+  parts.push(
+    `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="4" fill="white" fill-opacity="0.92" stroke="${colors.hairline}" stroke-width="0.75" />`,
+  );
+  parts.push(
+    `<text x="${bx + 14}" y="${by + 26}" font-family="${FONT_HANDWRITTEN}" font-size="20" font-weight="700" fill="${colors.text}">${escapeXml(block.title)}</text>`,
+  );
+  const bodyLines = wrapText(block.body, 42).slice(0, 5);
+  bodyLines.forEach((line, i) => {
+    parts.push(
+      `<text x="${bx + 14}" y="${by + 50 + i * 16}" font-family="${FONT_HANDWRITTEN}" font-size="14" fill="${colors.text}">${escapeXml(line)}</text>`,
+    );
+  });
+  if (drawLeader) {
+    const lead = getLeaderEnd(block.leaderTo, bx, by, bw, bh);
+    parts.push(
+      `<line x1="${lead.x1}" y1="${lead.y1}" x2="${lead.x2}" y2="${lead.y2}" stroke="${colors.hairline}" stroke-width="0.75" stroke-dasharray="4,3" />`,
+    );
+    parts.push(
+      `<circle cx="${lead.x2}" cy="${lead.y2}" r="3.5" fill="${accent}" />`,
+    );
+  }
+  return parts.join("\n");
+};
+
 // ---------- Internal: full SVG overlay ----------
 
 const buildSvgOverlay = (
   layout: InfographicLayout,
   W: number,
   H: number,
+  style: VisualStyle = "auto",
 ): string => {
+  const styleConfig = STYLE_CONFIGS[style];
+  const COLOR_TEXT = styleConfig.textColor;
+  const COLOR_MUTED = styleConfig.mutedColor;
+  // Thin-line (hairline) color follows text color so ink-on-paper feel
+  // stays consistent even when the accent swings warm/cool.
+  const COLOR_HAIRLINE = styleConfig.textColor;
+  const colors: ColorSet = {
+    text: COLOR_TEXT,
+    muted: COLOR_MUTED,
+    hairline: COLOR_HAIRLINE,
+  };
+
   const accent = layout.accentColor;
+  const strategy = pickLayoutStrategy(layout.blocks);
   const parts: string[] = [];
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
@@ -265,199 +374,404 @@ const buildSvgOverlay = (
   );
   y += 130;
 
-  // ---- Blocks ----
-  for (const block of layout.blocks) {
-    switch (block.type) {
-      case "stat": {
-        const { x, y: py } = getPosition(block.position, W, H);
-        const bw = 120;
-        const bh = 70;
-        const bx = x - bw / 2;
-        const by = py - bh / 2;
+  // ---- Strategy dispatch ----
+  //
+  // We split blocks by type so each strategy can place them in its own
+  // rhythm while still rendering every block the layout specifies.
+  // Grouped by type so the magazine/dashboard strategies can pair stats and
+  // callouts 2-up before rendering the rest of the blocks in original order.
+  const stats = layout.blocks.filter(
+    (b): b is Extract<LayoutBlock, { type: "stat" }> => b.type === "stat",
+  );
+  const callouts = layout.blocks.filter(
+    (b): b is Extract<LayoutBlock, { type: "callout" }> => b.type === "callout",
+  );
+
+  // -- Sequential renderers for blocks that all strategies share --
+
+  const renderComparison = (
+    block: Extract<LayoutBlock, { type: "comparison" }>,
+    startX: number,
+    width: number,
+  ): void => {
+    const n = block.items.length;
+    const gap = 16;
+    const colW = (width - gap * (n - 1)) / n;
+    const rowH = 90;
+    block.items.forEach((item, i) => {
+      const bx = startX + i * (colW + gap);
+      parts.push(
+        `<rect x="${bx}" y="${y}" width="${colW}" height="${rowH}" rx="4" fill="white" fill-opacity="0.92" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
+      );
+      parts.push(
+        `<text x="${bx + colW / 2}" y="${y + 34}" font-family="${FONT_SERIF}" font-size="26" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(item.value)}</text>`,
+      );
+      const labelLines = wrapText(item.label, 16).slice(0, 2);
+      labelLines.forEach((line, li) => {
         parts.push(
-          `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="6" fill="white" fill-opacity="0.95" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
+          `<text x="${bx + colW / 2}" y="${y + 58 + li * 15}" font-family="${FONT_TECHNICAL}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
         );
+      });
+    });
+    y += rowH + 16;
+  };
+
+  const renderFlow = (
+    block: Extract<LayoutBlock, { type: "flow" }>,
+    startX: number,
+    endX: number,
+  ): void => {
+    const n = block.steps.length;
+    const r = 22;
+    const span = endX - startX;
+    const cy = y + r;
+    block.steps.forEach((step, i) => {
+      const stepX =
+        startX + (n === 1 ? span / 2 : (i / (n - 1)) * span);
+      parts.push(
+        `<circle cx="${stepX}" cy="${cy}" r="${r}" fill="${accent}" />`,
+      );
+      parts.push(
+        `<text x="${stepX}" y="${cy + 7}" font-family="${FONT_SERIF}" font-size="20" font-weight="700" fill="white" text-anchor="middle">${i + 1}</text>`,
+      );
+      parts.push(
+        `<text x="${stepX}" y="${cy + r + 20}" font-family="${FONT_HANDWRITTEN}" font-size="16" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(step.label)}</text>`,
+      );
+      const detailLines = wrapText(step.detail, 30).slice(0, 3);
+      detailLines.forEach((line, li) => {
         parts.push(
-          `<text x="${x}" y="${by + 36}" font-family="${FONT_SERIF}" font-size="32" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(block.value)}</text>`,
+          `<text x="${stepX}" y="${cy + r + 36 + li * 13}" font-family="${FONT_TECHNICAL}" font-size="11" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
         );
+      });
+      if (i < n - 1) {
+        const nextX = startX + ((i + 1) / (n - 1)) * span;
+        const ax1 = stepX + r + 4;
+        const ax2 = nextX - r - 4;
         parts.push(
-          `<text x="${x}" y="${by + 56}" font-family="${FONT_TECHNICAL}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(block.label)}</text>`,
+          `<line x1="${ax1}" y1="${cy}" x2="${ax2}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1" marker-end="url(#fm-arrowhead)" />`,
         );
-        // stat uses absolute positioning — y cursor unchanged
-        break;
       }
-      case "callout": {
-        const { x, y: py } = getPosition(block.position, W, H);
-        const bw = 260;
-        const bh = 80;
-        const bx = x - bw / 2;
-        const by = py - bh / 2;
+    });
+    y += 120;
+  };
+
+  const renderTimeline = (
+    block: Extract<LayoutBlock, { type: "timeline" }>,
+    startX: number,
+    endX: number,
+  ): void => {
+    const span = endX - startX;
+    const cy = y + 20;
+    const n = block.events.length;
+    parts.push(
+      `<line x1="${startX}" y1="${cy}" x2="${endX}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1.25" />`,
+    );
+    block.events.forEach((ev, i) => {
+      const ex = startX + (n === 1 ? span / 2 : (i / (n - 1)) * span);
+      parts.push(
+        `<circle cx="${ex}" cy="${cy}" r="5" fill="${accent}" stroke="white" stroke-width="1.5" />`,
+      );
+      parts.push(
+        `<text x="${ex}" y="${cy - 12}" font-family="${FONT_TECHNICAL}" font-size="12" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(ev.date)}</text>`,
+      );
+      const lines = wrapText(ev.label, 24).slice(0, 3);
+      lines.forEach((line, li) => {
         parts.push(
-          `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="4" fill="white" fill-opacity="0.92" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
+          `<text x="${ex}" y="${cy + 22 + li * 13}" font-family="${FONT_HANDWRITTEN}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
         );
-        parts.push(
-          `<text x="${bx + 14}" y="${by + 26}" font-family="${FONT_HANDWRITTEN}" font-size="20" font-weight="700" fill="${COLOR_TEXT}">${escapeXml(block.title)}</text>`,
-        );
-        const bodyLines = wrapText(block.body, 38).slice(0, 3);
-        bodyLines.forEach((line, i) => {
+      });
+    });
+    y += 80;
+  };
+
+  const renderTakeaway = (
+    block: Extract<LayoutBlock, { type: "takeaway" }>,
+    startX: number,
+    width: number,
+  ): void => {
+    const bh = 80;
+    parts.push(
+      `<rect x="${startX}" y="${y}" width="${width}" height="${bh}" rx="4" fill="${withAlpha(accent, "1a")}" stroke="${withAlpha(accent, "55")}" stroke-width="0.75" />`,
+    );
+    const eyebrow =
+      layout.language === "es" ? "IDEA CLAVE" : "KEY TAKEAWAY";
+    parts.push(
+      `<text x="${startX + 16}" y="${y + 20}" font-family="${FONT_TECHNICAL}" font-size="11" font-weight="700" fill="${accent}" letter-spacing="1.5">${escapeXml(eyebrow)}</text>`,
+    );
+    const bodyLines = wrapText(block.text, 80).slice(0, 3);
+    bodyLines.forEach((line, i) => {
+      parts.push(
+        `<text x="${startX + 16}" y="${y + 40 + i * 16}" font-family="${FONT_HANDWRITTEN}" font-size="16" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
+      );
+    });
+    y += bh + 16;
+  };
+
+  const renderText = (
+    block: Extract<LayoutBlock, { type: "text" }>,
+    startX: number,
+  ): void => {
+    const lines = wrapText(block.text, 80);
+    lines.forEach((line, i) => {
+      parts.push(
+        `<text x="${startX}" y="${y + 14 + i * 18}" font-family="${FONT_HANDWRITTEN}" font-size="16" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
+      );
+    });
+    y += lines.length * 18 + 16;
+  };
+
+  const renderChartBlock = (
+    block: Extract<LayoutBlock, { type: "chart" }>,
+    startX: number,
+    width: number,
+  ): void => {
+    const chartH = 200;
+    parts.push(
+      renderChart(
+        block,
+        startX,
+        y,
+        width,
+        chartH,
+        accent,
+        COLOR_TEXT,
+        COLOR_MUTED,
+        COLOR_HAIRLINE,
+      ),
+    );
+    y += chartH + 40;
+  };
+
+  // -- Strategy: dashboard --
+  if (strategy === "dashboard") {
+    // Big stats grid at top
+    const dashStatW = 200;
+    const dashStatH = 120;
+    const gap = 24;
+    const n = stats.length;
+    const cols = n <= 3 ? n : n === 4 ? 2 : 3;
+    const rows = Math.ceil(n / cols);
+    const gridW = cols * dashStatW + (cols - 1) * gap;
+    const gridStartX = (W - gridW) / 2;
+    stats.forEach((stat, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const bx = gridStartX + col * (dashStatW + gap);
+      const by = y + row * (dashStatH + gap);
+      parts.push(
+        renderStatBox(stat, bx, by, dashStatW, dashStatH, accent, colors),
+      );
+    });
+    if (n > 0) y += rows * dashStatH + (rows - 1) * gap + 32;
+
+    // Everything else full width, sequentially
+    for (const block of layout.blocks) {
+      switch (block.type) {
+        case "stat":
+          // already rendered in grid
+          break;
+        case "callout": {
+          // callouts in dashboard also stack 2-up
+          const idx = callouts.indexOf(block);
+          const colIdx = idx % 2;
+          const half = (W - 120 - 20) / 2;
+          const bx = 60 + colIdx * (half + 20);
+          const cbh = 130;
           parts.push(
-            `<text x="${bx + 14}" y="${by + 46 + i * 15}" font-family="${FONT_HANDWRITTEN}" font-size="14" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
+            renderCalloutBox(block, bx, y, half, cbh, accent, colors, false),
           );
-        });
-        // Leader — thin dashed with accent dot terminal (accent only here).
-        const lead = getLeaderEnd(block.leaderTo, bx, by, bw, bh);
-        parts.push(
-          `<line x1="${lead.x1}" y1="${lead.y1}" x2="${lead.x2}" y2="${lead.y2}" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" stroke-dasharray="4,3" />`,
-        );
-        parts.push(
-          `<circle cx="${lead.x2}" cy="${lead.y2}" r="3.5" fill="${accent}" />`,
-        );
-        // callout is also absolute — y cursor unchanged
-        break;
+          if (colIdx === 1 || idx === callouts.length - 1) {
+            y += cbh + 16;
+          }
+          break;
+        }
+        case "chart":
+          renderChartBlock(block, 80, W - 160);
+          break;
+        case "flow":
+          renderFlow(block, 80, W - 80);
+          break;
+        case "timeline":
+          renderTimeline(block, 80, W - 80);
+          break;
+        case "comparison":
+          renderComparison(block, 60, W - 120);
+          break;
+        case "takeaway":
+          renderTakeaway(block, 60, W - 120);
+          break;
+        case "text":
+          renderText(block, 60);
+          break;
       }
-      case "chart": {
-        const chartH = 200;
-        const chartW = W - 160;
-        const cx = 80;
+    }
+  } else if (strategy === "story") {
+    // Alternating full-width rows with a subtle offset applied to odd rows.
+    // We traverse the original block order so the story rhythm follows the
+    // spec the model produced.
+    let rowIdx = 0;
+    for (const block of layout.blocks) {
+      const offset = rowIdx % 2 === 1 ? 24 : 0;
+      switch (block.type) {
+        case "chart":
+          renderChartBlock(block, 80 + offset, W - 160 - offset);
+          rowIdx++;
+          break;
+        case "flow":
+          renderFlow(block, 80 + offset, W - 80 - offset);
+          rowIdx++;
+          break;
+        case "timeline":
+          renderTimeline(block, 80 + offset, W - 80 - offset);
+          rowIdx++;
+          break;
+        case "callout": {
+          // Pair callouts 2-up with the offset applied to the whole row
+          const idx = callouts.indexOf(block);
+          const colIdx = idx % 2;
+          const half = (W - 120 - 20) / 2;
+          const bx = 60 + offset + colIdx * (half + 20);
+          const cbh = 130;
+          parts.push(
+            renderCalloutBox(block, bx, y, half, cbh, accent, colors, false),
+          );
+          if (colIdx === 1 || idx === callouts.length - 1) {
+            y += cbh + 16;
+            rowIdx++;
+          }
+          break;
+        }
+        case "stat": {
+          // Stats paired 2-up in story mode as well
+          const idx = stats.indexOf(block);
+          const colIdx = idx % 2;
+          const half = (W - 120 - 20) / 2;
+          const bx = 60 + offset + colIdx * (half + 20);
+          const sh = 100;
+          parts.push(
+            renderStatBox(block, bx, y, half, sh, accent, colors),
+          );
+          if (colIdx === 1 || idx === stats.length - 1) {
+            y += sh + 16;
+            rowIdx++;
+          }
+          break;
+        }
+        case "comparison":
+          renderComparison(block, 60 + offset, W - 120 - offset * 2);
+          rowIdx++;
+          break;
+        case "takeaway":
+          renderTakeaway(block, 60 + offset, W - 120 - offset * 2);
+          rowIdx++;
+          break;
+        case "text":
+          renderText(block, 60 + offset);
+          rowIdx++;
+          break;
+      }
+    }
+  } else {
+    // -- Strategy: magazine (default) --
+    // Stats render 2-up as an inline grid row, callouts 2-up as well.
+    // Charts / flows / timelines / comparisons / takeaways / text stack
+    // full-width in the order they appear.
+    const boxW = 200;
+    const boxH = 100;
+    const gap = 24;
+
+    const halfW = (W - 120 - 20) / 2;
+    const leftX = 60;
+    const rightX = 60 + halfW + 20;
+
+    // Emit 2-up stats first as a banner row under the title
+    for (let i = 0; i < stats.length; i += 2) {
+      const totalW = i + 1 < stats.length ? boxW * 2 + gap : boxW;
+      const startX = Math.round((W - totalW) / 2);
+      parts.push(
+        renderStatBox(stats[i], startX, y, boxW, boxH, accent, colors),
+      );
+      if (i + 1 < stats.length) {
         parts.push(
-          renderChart(
-            block,
-            cx,
+          renderStatBox(
+            stats[i + 1],
+            startX + boxW + gap,
             y,
-            chartW,
-            chartH,
+            boxW,
+            boxH,
             accent,
-            COLOR_TEXT,
-            COLOR_MUTED,
+            colors,
           ),
         );
-        y += 240;
-        break;
       }
-      case "comparison": {
-        const n = block.items.length;
-        const gap = 16;
-        const totalW = W - 120;
-        const colW = (totalW - gap * (n - 1)) / n;
-        const rowH = 70;
-        const startX = 60;
-        block.items.forEach((item, i) => {
-          const bx = startX + i * (colW + gap);
-          parts.push(
-            `<rect x="${bx}" y="${y}" width="${colW}" height="${rowH}" rx="4" fill="white" fill-opacity="0.92" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
-          );
-          parts.push(
-            `<text x="${bx + colW / 2}" y="${y + 34}" font-family="${FONT_SERIF}" font-size="26" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(item.value)}</text>`,
-          );
-          parts.push(
-            `<text x="${bx + colW / 2}" y="${y + 56}" font-family="${FONT_TECHNICAL}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(item.label)}</text>`,
-          );
-        });
-        y += 80;
-        break;
-      }
-      case "flow": {
-        const n = block.steps.length;
-        const r = 22;
-        const startX = 80;
-        const endX = W - 80;
-        const span = endX - startX;
-        const cy = y + r;
-        block.steps.forEach((step, i) => {
-          const stepX =
-            startX + (n === 1 ? span / 2 : (i / (n - 1)) * span);
-          parts.push(
-            `<circle cx="${stepX}" cy="${cy}" r="${r}" fill="${accent}" />`,
-          );
-          parts.push(
-            `<text x="${stepX}" y="${cy + 7}" font-family="${FONT_SERIF}" font-size="20" font-weight="700" fill="white" text-anchor="middle">${i + 1}</text>`,
-          );
-          parts.push(
-            `<text x="${stepX}" y="${cy + r + 20}" font-family="${FONT_HANDWRITTEN}" font-size="16" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(step.label)}</text>`,
-          );
-          const detailLines = wrapText(step.detail, 24).slice(0, 2);
-          detailLines.forEach((line, li) => {
-            parts.push(
-              `<text x="${stepX}" y="${cy + r + 36 + li * 13}" font-family="${FONT_TECHNICAL}" font-size="11" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
-            );
-          });
-          // arrow to next step — thinner, hairline color with accent arrowhead
-          if (i < n - 1) {
-            const nextX = startX + ((i + 1) / (n - 1)) * span;
-            const ax1 = stepX + r + 4;
-            const ax2 = nextX - r - 4;
-            parts.push(
-              `<line x1="${ax1}" y1="${cy}" x2="${ax2}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1" marker-end="url(#fm-arrowhead)" />`,
-            );
-          }
-        });
-        y += 90;
-        break;
-      }
-      case "takeaway": {
-        const bw = W - 120;
-        const bh = 60;
-        const bx = 60;
+      y += boxH + 20;
+    }
+
+    // Emit 2-up callouts next as inline pairs
+    for (let i = 0; i < callouts.length; i += 2) {
+      const cbh = 130;
+      parts.push(
+        renderCalloutBox(
+          callouts[i],
+          leftX,
+          y,
+          halfW,
+          cbh,
+          accent,
+          colors,
+          false,
+        ),
+      );
+      if (i + 1 < callouts.length) {
         parts.push(
-          `<rect x="${bx}" y="${y}" width="${bw}" height="${bh}" rx="4" fill="${withAlpha(accent, "1a")}" stroke="${withAlpha(accent, "55")}" stroke-width="0.75" />`,
+          renderCalloutBox(
+            callouts[i + 1],
+            rightX,
+            y,
+            halfW,
+            cbh,
+            accent,
+            colors,
+            false,
+          ),
         );
-        const eyebrow =
-          layout.language === "es" ? "IDEA CLAVE" : "KEY TAKEAWAY";
-        parts.push(
-          `<text x="${bx + 16}" y="${y + 20}" font-family="${FONT_TECHNICAL}" font-size="11" font-weight="700" fill="${accent}" letter-spacing="1.5">${escapeXml(eyebrow)}</text>`,
-        );
-        const bodyLines = wrapText(block.text, 80).slice(0, 2);
-        bodyLines.forEach((line, i) => {
-          parts.push(
-            `<text x="${bx + 16}" y="${y + 40 + i * 16}" font-family="${FONT_HANDWRITTEN}" font-size="16" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
-          );
-        });
-        y += 70;
-        break;
       }
-      case "timeline": {
-        const startX = 80;
-        const endX = W - 80;
-        const span = endX - startX;
-        const cy = y + 20;
-        const n = block.events.length;
-        parts.push(
-          `<line x1="${startX}" y1="${cy}" x2="${endX}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1.25" />`,
-        );
-        block.events.forEach((ev, i) => {
-          const ex =
-            startX + (n === 1 ? span / 2 : (i / (n - 1)) * span);
-          parts.push(
-            `<circle cx="${ex}" cy="${cy}" r="5" fill="${accent}" stroke="white" stroke-width="1.5" />`,
-          );
-          parts.push(
-            `<text x="${ex}" y="${cy - 12}" font-family="${FONT_TECHNICAL}" font-size="12" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(ev.date)}</text>`,
-          );
-          const lines = wrapText(ev.label, 18).slice(0, 2);
-          lines.forEach((line, li) => {
-            parts.push(
-              `<text x="${ex}" y="${cy + 22 + li * 13}" font-family="${FONT_HANDWRITTEN}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
-            );
-          });
-        });
-        y += 60;
-        break;
+      y += cbh + 16;
+    }
+
+    // Everything else at full width, in original block order
+    for (const block of layout.blocks) {
+      switch (block.type) {
+        case "stat":
+        case "callout":
+          // already emitted in their grid rows
+          break;
+        case "chart":
+          renderChartBlock(block, 80, W - 160);
+          break;
+        case "flow":
+          renderFlow(block, 80, W - 80);
+          break;
+        case "timeline":
+          renderTimeline(block, 80, W - 80);
+          break;
+        case "comparison":
+          renderComparison(block, 60, W - 120);
+          break;
+        case "takeaway":
+          renderTakeaway(block, 60, W - 120);
+          break;
+        case "text":
+          renderText(block, 60);
+          break;
       }
-      case "text": {
-        const lines = wrapText(block.text, 72).slice(0, 4);
-        lines.forEach((line, i) => {
-          parts.push(
-            `<text x="60" y="${y + 14 + i * 18}" font-family="${FONT_HANDWRITTEN}" font-size="16" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
-          );
-        });
-        y += 40;
-        break;
-      }
-      default:
-        // exhaustiveness — ignore unknown types
-        break;
     }
   }
+
+  // `getPosition` is kept imported as a documented fallback helper even
+  // though the layout strategies now place stats/callouts inline — other
+  // code paths / tests may still reach for it.
+  void getPosition;
 
   // ---- Footer ----
   const footerY = H - 36;
@@ -512,8 +826,8 @@ export const composeInfographic = async (
       .toBuffer();
   }
 
-  // 2. SVG overlay
-  const svg = buildSvgOverlay(layout, W, H);
+  // 2. SVG overlay — style drives text/muted/hairline colors
+  const svg = buildSvgOverlay(layout, W, H, options.style ?? "auto");
   const svgBuffer = Buffer.from(svg);
 
   // 3. Readability sheet between bg and text. Tint varies per visual style

@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, inArray, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notebooks } from "@/db/schema/notebooks";
@@ -25,6 +25,12 @@ export type StudioContext = {
   sourceContext: string;
 };
 
+export type StudioError = {
+  error: string;
+  status: number;
+  retryAfter?: number;
+};
+
 type StudioRateBucket = keyof typeof RATE_LIMITS;
 
 /**
@@ -32,18 +38,17 @@ type StudioRateBucket = keyof typeof RATE_LIMITS;
  *  1. Verify session.
  *  2. Optional per-bucket rate limit (e.g. "studioGenerate", "studioVideo").
  *  3. Verify the user owns the notebook (no id-guessing).
- *  4. Pull processed source text for the prompt.
+ *  4. Pull processed source text for the prompt, optionally filtered by a
+ *     subset of source IDs the caller selected in the generate-dialog.
  *
  * Returns a studio context or a `{ error, status }` the route can pass
  * straight to NextResponse.json.
  */
 export const getStudioContext = async (
   notebookId: string,
+  selectedSourceIds?: string[],
   rateLimitBucket?: StudioRateBucket,
-): Promise<
-  | StudioContext
-  | { error: string; status: number; retryAfter?: number }
-> => {
+): Promise<StudioContext | StudioError> => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
     return { error: "Unauthorized", status: 401 };
@@ -64,6 +69,17 @@ export const getStudioContext = async (
       return { error: "Rate limit exceeded", status: 429, retryAfter };
     }
   }
+
+  // When the caller passed a non-empty selection, restrict the sources
+  // query to just those IDs. An empty array or undefined = include all.
+  const hasSelection =
+    Array.isArray(selectedSourceIds) && selectedSourceIds.length > 0;
+  const sourceWhere = hasSelection
+    ? and(
+        eq(sources.notebookId, notebookId),
+        inArray(sources.id, selectedSourceIds as string[]),
+      )
+    : eq(sources.notebookId, notebookId);
 
   // Ownership check and source fetch are independent — fire both in
   // parallel. If the notebook is missing or owned by someone else, we
@@ -86,7 +102,7 @@ export const getStudioContext = async (
         ),
       })
       .from(sources)
-      .where(eq(sources.notebookId, notebookId))
+      .where(sourceWhere)
       .orderBy(desc(sources.updatedAt))
       .limit(STUDIO_MAX_SOURCES),
   ]);

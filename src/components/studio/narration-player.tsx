@@ -24,6 +24,13 @@ export const NarrationPlayer = ({
   const [progress, setProgress] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [speed, setSpeed] = useState<Speed>(1);
+
+  // Drag-seek state. While dragging, we suspend the <audio>'s timeupdate
+  // from writing into `progress` so the scrub feels smooth — we only
+  // commit `currentTime` on mouseup.
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragProgress, setDragProgress] = useState<number>(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleGenerate = async (): Promise<void> => {
@@ -62,9 +69,7 @@ export const NarrationPlayer = ({
     }
   };
 
-  const cycleSpeed = (): void => {
-    const idx = SPEEDS.indexOf(speed);
-    const next = SPEEDS[(idx + 1) % SPEEDS.length];
+  const setSpeedAndApply = (next: Speed): void => {
     setSpeed(next);
     if (audioRef.current) audioRef.current.playbackRate = next;
   };
@@ -79,7 +84,9 @@ export const NarrationPlayer = ({
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    const onTime = (): void => setProgress(a.currentTime);
+    const onTime = (): void => {
+      if (!isDragging) setProgress(a.currentTime);
+    };
     const onMeta = (): void => setDuration(a.duration);
     const onEnded = (): void => setIsPlaying(false);
     a.addEventListener("timeupdate", onTime);
@@ -90,7 +97,37 @@ export const NarrationPlayer = ({
       a.removeEventListener("loadedmetadata", onMeta);
       a.removeEventListener("ended", onEnded);
     };
-  }, [audioUrl]);
+  }, [audioUrl, isDragging]);
+
+  // Global mouse listeners while dragging so a drag that leaves the track
+  // still tracks correctly.
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e: MouseEvent): void => {
+      const track = trackRef.current;
+      if (!track || !duration) return;
+      const rect = track.getBoundingClientRect();
+      const pct = Math.max(
+        0,
+        Math.min(1, (e.clientX - rect.left) / rect.width),
+      );
+      setDragProgress(pct * duration);
+    };
+    const onUp = (): void => {
+      const a = audioRef.current;
+      if (a && duration) {
+        a.currentTime = Math.max(0, Math.min(duration, dragProgress));
+        setProgress(dragProgress);
+      }
+      setIsDragging(false);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [isDragging, duration, dragProgress]);
 
   if (!audioUrl) {
     return (
@@ -147,6 +184,10 @@ export const NarrationPlayer = ({
     );
   }
 
+  const displayProgress = isDragging ? dragProgress : progress;
+  const pctWidth =
+    duration > 0 ? `${(displayProgress / duration) * 100}%` : "0%";
+
   return (
     <div
       className="flex items-center gap-3 rounded-lg p-3 mb-3"
@@ -170,23 +211,28 @@ export const NarrationPlayer = ({
       </button>
       <div className="flex-1 min-w-0">
         <div
+          ref={trackRef}
           role="slider"
           aria-label="Seek"
           aria-valuemin={0}
           aria-valuemax={duration || 0}
-          aria-valuenow={progress}
+          aria-valuenow={displayProgress}
           tabIndex={0}
-          className="h-1.5 rounded-full overflow-hidden cursor-pointer"
-          style={{ background: "var(--fm-surface-border)" }}
-          onClick={(e) => {
+          className="rounded-full overflow-hidden cursor-pointer"
+          style={{
+            height: 6,
+            background: "var(--fm-surface-border)",
+          }}
+          onMouseDown={(e) => {
             const a = audioRef.current;
             if (!a || !duration) return;
             const rect = e.currentTarget.getBoundingClientRect();
-            const pct = (e.clientX - rect.left) / rect.width;
-            a.currentTime = Math.max(
+            const pct = Math.max(
               0,
-              Math.min(duration, pct * duration),
+              Math.min(1, (e.clientX - rect.left) / rect.width),
             );
+            setDragProgress(pct * duration);
+            setIsDragging(true);
           }}
           onKeyDown={(e) => {
             const a = audioRef.current;
@@ -201,11 +247,9 @@ export const NarrationPlayer = ({
           <div
             className="h-full"
             style={{
-              width:
-                duration > 0
-                  ? `${(progress / duration) * 100}%`
-                  : "0%",
+              width: pctWidth,
               background: "var(--fm-accent-orange)",
+              transition: isDragging ? "none" : "width 60ms linear",
             }}
           />
         </div>
@@ -213,21 +257,43 @@ export const NarrationPlayer = ({
           className="flex justify-between mt-1 text-[11px]"
           style={{ color: "var(--fm-text-tertiary)" }}
         >
-          <span>{formatTime(progress)}</span>
+          <span>{formatTime(displayProgress)}</span>
           <span>{formatTime(duration)}</span>
         </div>
       </div>
-      <button
-        onClick={cycleSpeed}
-        className="text-xs font-medium px-2 py-1 rounded"
+
+      {/* Segmented speed control */}
+      <div
+        className="inline-flex rounded-md p-0.5"
+        role="group"
+        aria-label="Playback speed"
         style={{
-          color: "var(--fm-text-secondary)",
+          background: "var(--fm-surface-elevated)",
           border: "1px solid var(--fm-surface-border)",
         }}
-        aria-label="Playback speed"
       >
-        {speed}x
-      </button>
+        {SPEEDS.map((s) => {
+          const active = speed === s;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSpeedAndApply(s)}
+              className="px-2 py-0.5 text-xs font-medium rounded transition-colors"
+              style={{
+                background: active
+                  ? "var(--fm-accent-orange)"
+                  : "transparent",
+                color: active ? "white" : "var(--fm-text-secondary)",
+              }}
+              aria-pressed={active}
+            >
+              {s}x
+            </button>
+          );
+        })}
+      </div>
+
       <a
         href={audioUrl}
         download={`narration-${outputId}.mp3`}

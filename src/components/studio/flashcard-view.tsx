@@ -9,9 +9,8 @@ import {
   ChevronRight,
   Filter,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +35,24 @@ type Card = {
 
 type FilterMode = "all" | "new" | "due" | "missed" | "mastered";
 
+/** Spec-mandated difficulty colors (not theme tokens — treat as semantic
+ *  status hues, same rule as MC_COLORS.) */
+const DIFFICULTY_BORDER: Record<string, string> = {
+  easy: "#22c55e",
+  medium: "#f59e0b",
+  hard: "#ef4444",
+};
+
+const pillStyle = (bg: string, fg: string): React.CSSProperties => ({
+  background: bg,
+  color: fg,
+  borderRadius: "9999px",
+  padding: "0.125rem 0.625rem",
+  fontSize: "11px",
+  fontWeight: 600,
+  lineHeight: 1.4,
+});
+
 export const FlashcardView = ({
   outputId,
   cards,
@@ -45,6 +62,7 @@ export const FlashcardView = ({
 }): React.ReactNode => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [hasFlipped, setHasFlipped] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [shuffled, setShuffled] = useState(false);
   const [cardOrder, setCardOrder] = useState<number[]>(
@@ -130,6 +148,7 @@ export const FlashcardView = ({
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         setFlipped((f) => !f);
+        setHasFlipped(true);
       } else if (e.key === "ArrowRight") {
         goNext();
       } else if (e.key === "ArrowLeft") {
@@ -167,7 +186,9 @@ export const FlashcardView = ({
   if (!card || filteredOrder.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">No cards match this filter.</p>
+        <p style={{ color: "var(--fm-text-secondary)" }}>
+          No cards match this filter.
+        </p>
         <Button
           variant="outline"
           size="sm"
@@ -180,27 +201,46 @@ export const FlashcardView = ({
     );
   }
 
+  const difficultyColor =
+    DIFFICULTY_BORDER[card.difficulty] ?? DIFFICULTY_BORDER.medium;
+
+  const gotItPill = pillStyle(
+    "color-mix(in srgb, #22c55e 12%, transparent)",
+    "#15803d",
+  );
+  const missedPill = pillStyle(
+    "color-mix(in srgb, #ef4444 12%, transparent)",
+    "#b91c1c",
+  );
+  const duePill = pillStyle(
+    "color-mix(in srgb, #f59e0b 12%, transparent)",
+    "#b45309",
+  );
+  const unseenPill: React.CSSProperties = {
+    background: "var(--fm-surface-elevated)",
+    color: "var(--fm-text-tertiary)",
+    borderRadius: "9999px",
+    padding: "0.125rem 0.625rem",
+    fontSize: "11px",
+    fontWeight: 600,
+    lineHeight: 1.4,
+    border: "1px solid var(--fm-surface-border)",
+  };
+
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-2xl mx-auto">
       {/* Stats bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2">
-          <Badge variant="secondary" className="text-xs">
-            {stats.gotIt} got it
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            {stats.missed} missed
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            {stats.unseen} unseen
-          </Badge>
-          {stats.due > 0 && (
-            <Badge className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-              {stats.due} due
-            </Badge>
-          )}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <span style={gotItPill}>{stats.gotIt} got it</span>
+          <span style={missedPill}>{stats.missed} missed</span>
+          <span style={unseenPill}>{stats.unseen} unseen</span>
+          {stats.due > 0 && <span style={duePill}>{stats.due} due</span>}
         </div>
-        <span className="text-xs text-muted-foreground">
+        <span
+          className="text-xs"
+          style={{ color: "var(--fm-text-tertiary)" }}
+        >
           {(currentIndex % filteredOrder.length) + 1} / {filteredOrder.length}
         </span>
       </div>
@@ -209,7 +249,13 @@ export const FlashcardView = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1">
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-input text-xs text-muted-foreground hover:bg-accent transition-colors cursor-pointer">
+            <DropdownMenuTrigger
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs transition-colors cursor-pointer"
+              style={{
+                borderColor: "var(--fm-surface-border)",
+                color: "var(--fm-text-secondary)",
+              }}
+            >
               <Filter className="h-3 w-3" />
               {filterMode === "all" ? "All" : filterMode}
             </DropdownMenuTrigger>
@@ -250,71 +296,133 @@ export const FlashcardView = ({
         </div>
       </div>
 
-      {/* Card with 3D flip */}
-      <div
-        className="perspective-[1000px] cursor-pointer mb-6"
-        style={{ perspective: 1000 }}
-        onClick={() => setFlipped(!flipped)}
-      >
+      {/* Card with slide-between + 3D flip */}
+      <AnimatePresence mode="wait">
         <motion.div
-          animate={{ rotateY: flipped ? 180 : 0 }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 300, damping: 30 }}
-          style={{ transformStyle: "preserve-3d" }}
-          className="relative h-64 w-full"
+          key={actualIndex}
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -24 }}
+          transition={{ duration: 0.18 }}
+          className="mb-6"
         >
-          {/* Front */}
           <div
-            className="absolute inset-0 rounded-xl border border-border bg-card p-6 flex flex-col items-center justify-center text-center shadow-sm"
-            style={{ backfaceVisibility: "hidden" }}
-          >
-            <Badge variant="secondary" className="mb-3 text-xs">
-              {card.difficulty}
-            </Badge>
-            <p className="text-lg font-medium">{card.front}</p>
-            {card.hint && (
-              <p className="text-xs text-muted-foreground mt-3">
-                Hint: {card.hint}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-4">
-              Click or press space to flip
-            </p>
-          </div>
-
-          {/* Back */}
-          <div
-            className="absolute inset-0 rounded-xl border border-border bg-card p-6 flex flex-col items-center justify-center text-center shadow-sm"
-            style={{
-              backfaceVisibility: "hidden",
-              transform: "rotateY(180deg)",
+            className="cursor-pointer"
+            style={{ perspective: 1000 }}
+            onClick={() => {
+              setFlipped((f) => !f);
+              setHasFlipped(true);
             }}
           >
-            <p className="text-sm leading-relaxed">{card.back}</p>
-            <p className="text-xs text-muted-foreground mt-4">
-              Source: {card.sourceReference}
-            </p>
+            <motion.div
+              animate={{ rotateY: flipped ? 180 : 0 }}
+              transition={{
+                duration: 0.5,
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              style={{ transformStyle: "preserve-3d" }}
+              className="relative min-h-[18rem] w-full"
+            >
+              {/* Front */}
+              <div
+                className="absolute inset-0 rounded-2xl p-10 flex flex-col items-center justify-center text-center"
+                style={{
+                  backfaceVisibility: "hidden",
+                  background: "var(--fm-surface)",
+                  border: "1px solid var(--fm-surface-border)",
+                  borderLeft: `4px solid ${difficultyColor}`,
+                  color: "var(--fm-text)",
+                  boxShadow: "0 2px 14px rgba(0,0,0,0.08)",
+                }}
+              >
+                <span
+                  style={{
+                    ...pillStyle(
+                      `color-mix(in srgb, ${difficultyColor} 14%, transparent)`,
+                      difficultyColor,
+                    ),
+                    marginBottom: "1rem",
+                  }}
+                >
+                  {card.difficulty}
+                </span>
+                <p className="text-xl font-semibold leading-snug">
+                  {card.front}
+                </p>
+                {card.hint && (
+                  <p
+                    className="text-xs mt-4"
+                    style={{ color: "var(--fm-text-tertiary)" }}
+                  >
+                    Hint: {card.hint}
+                  </p>
+                )}
+                {!hasFlipped && (
+                  <p
+                    className="text-xs mt-6"
+                    style={{ color: "var(--fm-text-tertiary)" }}
+                  >
+                    Click or press space to flip
+                  </p>
+                )}
+              </div>
+
+              {/* Back */}
+              <div
+                className="absolute inset-0 rounded-2xl p-10 flex flex-col items-center justify-center text-center"
+                style={{
+                  backfaceVisibility: "hidden",
+                  transform: "rotateY(180deg)",
+                  background: "var(--fm-surface)",
+                  border: "1px solid var(--fm-surface-border)",
+                  borderLeft: `4px solid ${difficultyColor}`,
+                  color: "var(--fm-text)",
+                  boxShadow: "0 2px 14px rgba(0,0,0,0.08)",
+                }}
+              >
+                <p className="text-base leading-relaxed">{card.back}</p>
+                <p
+                  className="text-xs mt-5"
+                  style={{ color: "var(--fm-text-tertiary)" }}
+                >
+                  Source: {card.sourceReference}
+                </p>
+              </div>
+            </motion.div>
           </div>
         </motion.div>
-      </div>
+      </AnimatePresence>
 
       {/* Response buttons */}
       <div className="flex gap-3 justify-center">
-        <Button
-          variant="outline"
+        <button
+          type="button"
           onClick={() => handleResponse(false)}
-          className="gap-2 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+          className="flex items-center justify-center gap-2 min-w-32 py-3 rounded-xl font-medium transition-colors"
+          style={{
+            background: "color-mix(in srgb, #ef4444 10%, transparent)",
+            color: "#ef4444",
+            border: "1px solid color-mix(in srgb, #ef4444 30%, transparent)",
+          }}
         >
           <ThumbsDown className="h-4 w-4" />
           Missed It
-        </Button>
-        <Button
-          variant="outline"
+        </button>
+        <button
+          type="button"
           onClick={() => handleResponse(true)}
-          className="gap-2 border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+          className="flex items-center justify-center gap-2 min-w-32 py-3 rounded-xl font-medium transition-colors"
+          style={{
+            background: "color-mix(in srgb, #22c55e 10%, transparent)",
+            color: "#22c55e",
+            border: "1px solid color-mix(in srgb, #22c55e 30%, transparent)",
+          }}
         >
           <ThumbsUp className="h-4 w-4" />
           Got It
-        </Button>
+        </button>
       </div>
     </div>
   );

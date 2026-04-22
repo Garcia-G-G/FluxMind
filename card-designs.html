@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FluxMind — 3 Studio Card Designs</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0c; color: #e5e5e5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; }
+  h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+  .subtitle { font-size: 14px; color: #888; margin-bottom: 48px; }
+  .design-section { margin-bottom: 64px; }
+  .design-label { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+  .design-desc { font-size: 13px; color: #777; margin-bottom: 20px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 900px; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+  /* ═══════════════════════════════════════════ */
+  /* DESIGN A — "Notion-style Minimal"          */
+  /* ═══════════════════════════════════════════ */
+  .card-a {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 180ms ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card-a:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+  }
+  .card-a .icon-wrap {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .card-a .title { font-size: 14px; font-weight: 600; color: #f0f0f0; }
+  .card-a .desc { font-size: 12px; color: #666; line-height: 1.5; }
+  .card-a .action-row { display: flex; align-items: center; gap: 8px; margin-top: auto; }
+  .card-a .btn-gen {
+    padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: none; cursor: pointer; color: #fff; transition: opacity 150ms;
+  }
+  .card-a .btn-gen:hover { opacity: 0.85; }
+  .card-a .btn-view {
+    padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
+    border: 1px solid rgba(255,255,255,0.08); background: transparent;
+    color: #999; cursor: pointer; transition: all 150ms;
+  }
+  .card-a .btn-view:hover { border-color: rgba(255,255,255,0.15); color: #ccc; }
+
+  /* ═══════════════════════════════════════════ */
+  /* DESIGN B — "Bento Grid / Apple-style"      */
+  /* ═══════════════════════════════════════════ */
+  .card-b {
+    background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 24px 22px;
+    cursor: pointer;
+    transition: all 200ms ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card-b::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  }
+  .card-b:hover {
+    background: linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .card-b .top-row { display: flex; align-items: center; justify-content: space-between; }
+  .card-b .icon-wrap {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    position: relative;
+  }
+  .card-b .icon-wrap::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 13px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .card-b .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.05); color: #666;
+  }
+  .card-b .title { font-size: 15px; font-weight: 600; color: #f0f0f0; letter-spacing: -0.01em; }
+  .card-b .desc { font-size: 12px; color: #555; line-height: 1.6; }
+  .card-b .bottom { display: flex; align-items: center; margin-top: auto; }
+  .card-b .gen-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 10px; font-size: 12px; font-weight: 600;
+    border: none; cursor: pointer; color: #fff; transition: all 150ms;
+  }
+  .card-b .gen-pill:hover { filter: brightness(1.1); }
+  .card-b .gen-pill svg { width: 14px; height: 14px; }
+
+  /* ═══════════════════════════════════════════ */
+  /* DESIGN C — "Stripe-style / Linear"         */
+  /* ═══════════════════════════════════════════ */
+  .card-c {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 160ms ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .card-c:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.08);
+  }
+  .card-c .icon-col {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    margin-top: 2px;
+  }
+  .card-c .content { flex: 1; min-width: 0; }
+  .card-c .title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .card-c .title { font-size: 13px; font-weight: 600; color: #e8e8e8; }
+  .card-c .shortcut {
+    font-size: 10px; font-weight: 500; color: #444;
+    padding: 2px 6px; border-radius: 4px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .card-c .desc { font-size: 11.5px; color: #555; line-height: 1.5; }
+  .card-c .action-row { display: flex; gap: 6px; margin-top: 10px; }
+  .card-c .btn-sm {
+    padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    border: none; cursor: pointer; transition: all 150ms;
+  }
+  .card-c .btn-sm.primary { color: #fff; }
+  .card-c .btn-sm.primary:hover { filter: brightness(1.15); }
+  .card-c .btn-sm.ghost {
+    background: rgba(255,255,255,0.04); color: #888;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .card-c .btn-sm.ghost:hover { background: rgba(255,255,255,0.07); color: #bbb; }
+</style>
+</head>
+<body>
+
+<h1>Studio Card Designs</h1>
+<p class="subtitle">3 options for the Studio output cards. Same data, different visual approach.</p>
+
+<!-- ═══════════════════════ DESIGN A ═══════════════════════ -->
+<div class="design-section">
+  <div class="design-label">Design A — "Notion Minimal"</div>
+  <div class="design-desc">Clean, flat, lots of whitespace. Icon + text stacked vertically. Buttons at the bottom. The most restrained option — lets the content breathe. Good for dense grids.</div>
+  <div class="grid">
+    <div class="card-a">
+      <div class="icon-wrap" style="background: rgba(255,107,53,0.1);">
+        <span style="color: #ff6b35;">&#9654;</span>
+      </div>
+      <div>
+        <div class="title">Slide Deck</div>
+        <div class="desc">AI-generated presentation with rich visuals and data-driven content</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-gen" style="background: #ff6b35;">Generate</button>
+        <button class="btn-view">View saved</button>
+      </div>
+    </div>
+
+    <div class="card-a">
+      <div class="icon-wrap" style="background: rgba(225,29,72,0.1);">
+        <span style="color: #e11d48;">&#9673;</span>
+      </div>
+      <div>
+        <div class="title">Infographic</div>
+        <div class="desc">Visual summary with stats, charts, and illustrated diagrams</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-gen" style="background: #e11d48;">Generate</button>
+        <button class="btn-view">View saved</button>
+      </div>
+    </div>
+
+    <div class="card-a">
+      <div class="icon-wrap" style="background: rgba(124,58,237,0.1);">
+        <span style="color: #7c3aed;">?</span>
+      </div>
+      <div>
+        <div class="title">Quiz</div>
+        <div class="desc">Multiple choice, true/false, and free response questions</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-gen" style="background: #7c3aed;">Generate</button>
+        <button class="btn-view">View saved</button>
+      </div>
+    </div>
+
+    <div class="card-a">
+      <div class="icon-wrap" style="background: rgba(37,99,235,0.1);">
+        <span style="color: #2563eb;">&#9881;</span>
+      </div>
+      <div>
+        <div class="title">Flashcards</div>
+        <div class="desc">Spaced repetition cards with difficulty tracking</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-gen" style="background: #2563eb;">Generate</button>
+      </div>
+    </div>
+
+    <div class="card-a">
+      <div class="icon-wrap" style="background: rgba(5,150,105,0.1);">
+        <span style="color: #059669;">&#8677;</span>
+      </div>
+      <div>
+        <div class="title">Mind Map</div>
+        <div class="desc">Interactive node graph with expandable branches</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-gen" style="background: #059669;">Generate</button>
+      </div>
+    </div>
+
+    <div class="card-a">
+      <div class="icon-wrap" style="background: rgba(217,119,6,0.1);">
+        <span style="color: #d97706;">&#9998;</span>
+      </div>
+      <div>
+        <div class="title">Newsletter</div>
+        <div class="desc">Professional newsletter with sections and pull quotes</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-gen" style="background: #d97706;">Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ DESIGN B ═══════════════════════ -->
+<div class="design-section">
+  <div class="design-label">Design B — "Bento / Apple"</div>
+  <div class="design-desc">Subtle gradient backgrounds, top highlight line, floating shadow on hover. Icon + type badge in the header. Generate button as a pill with an arrow. Premium, polished feel.</div>
+  <div class="grid">
+    <div class="card-b">
+      <div class="top-row">
+        <div class="icon-wrap" style="background: rgba(255,107,53,0.12);">
+          <span style="color: #ff6b35;">&#9654;</span>
+        </div>
+        <span class="badge">Visual</span>
+      </div>
+      <div>
+        <div class="title">Slide Deck</div>
+        <div class="desc">AI-generated presentation with rich visuals, data charts, and illustrated backgrounds</div>
+      </div>
+      <div class="bottom">
+        <button class="gen-pill" style="background: #ff6b35;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="top-row">
+        <div class="icon-wrap" style="background: rgba(225,29,72,0.12);">
+          <span style="color: #e11d48;">&#9673;</span>
+        </div>
+        <span class="badge">Visual</span>
+      </div>
+      <div>
+        <div class="title">Infographic</div>
+        <div class="desc">Visual summary with statistics, comparison charts, and illustrated diagrams</div>
+      </div>
+      <div class="bottom">
+        <button class="gen-pill" style="background: #e11d48;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="top-row">
+        <div class="icon-wrap" style="background: rgba(124,58,237,0.12);">
+          <span style="color: #7c3aed;">?</span>
+        </div>
+        <span class="badge">Study</span>
+      </div>
+      <div>
+        <div class="title">Quiz</div>
+        <div class="desc">Challenging questions that test real understanding with detailed explanations</div>
+      </div>
+      <div class="bottom">
+        <button class="gen-pill" style="background: #7c3aed;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="top-row">
+        <div class="icon-wrap" style="background: rgba(37,99,235,0.12);">
+          <span style="color: #2563eb;">&#9881;</span>
+        </div>
+        <span class="badge">Study</span>
+      </div>
+      <div>
+        <div class="title">Flashcards</div>
+        <div class="desc">SM-2 spaced repetition with difficulty tracking and 3D flip animations</div>
+      </div>
+      <div class="bottom">
+        <button class="gen-pill" style="background: #2563eb;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="top-row">
+        <div class="icon-wrap" style="background: rgba(5,150,105,0.12);">
+          <span style="color: #059669;">&#8677;</span>
+        </div>
+        <span class="badge">Visual</span>
+      </div>
+      <div>
+        <div class="title">Mind Map</div>
+        <div class="desc">Interactive node graph with expand/collapse and draggable branches</div>
+      </div>
+      <div class="bottom">
+        <button class="gen-pill" style="background: #059669;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="top-row">
+        <div class="icon-wrap" style="background: rgba(217,119,6,0.12);">
+          <span style="color: #d97706;">&#9998;</span>
+        </div>
+        <span class="badge">Content</span>
+      </div>
+      <div>
+        <div class="title">Newsletter</div>
+        <div class="desc">Professional newsletter with sections, pull quotes, and multiple themes</div>
+      </div>
+      <div class="bottom">
+        <button class="gen-pill" style="background: #d97706;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ DESIGN C ═══════════════════════ -->
+<div class="design-section">
+  <div class="design-label">Design C — "Linear / Stripe"</div>
+  <div class="design-desc">Horizontal layout — icon on the left, content on the right. Compact, information-dense. Keyboard shortcuts visible. Best for power users who want to scan fast. Similar to Linear's command palette items.</div>
+  <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+    <div class="card-c">
+      <div class="icon-col" style="background: rgba(255,107,53,0.1);">
+        <span style="color: #ff6b35;">&#9654;</span>
+      </div>
+      <div class="content">
+        <div class="title-row">
+          <span class="title">Slide Deck</span>
+          <span class="shortcut">&#8984;1</span>
+        </div>
+        <div class="desc">Presentation with rich visuals and data</div>
+        <div class="action-row">
+          <button class="btn-sm primary" style="background: #ff6b35;">Generate</button>
+          <button class="btn-sm ghost">Saved (2)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-c">
+      <div class="icon-col" style="background: rgba(225,29,72,0.1);">
+        <span style="color: #e11d48;">&#9673;</span>
+      </div>
+      <div class="content">
+        <div class="title-row">
+          <span class="title">Infographic</span>
+          <span class="shortcut">&#8984;2</span>
+        </div>
+        <div class="desc">Visual summary with stats and charts</div>
+        <div class="action-row">
+          <button class="btn-sm primary" style="background: #e11d48;">Generate</button>
+          <button class="btn-sm ghost">Saved (1)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-c">
+      <div class="icon-col" style="background: rgba(124,58,237,0.1);">
+        <span style="color: #7c3aed;">?</span>
+      </div>
+      <div class="content">
+        <div class="title-row">
+          <span class="title">Quiz</span>
+          <span class="shortcut">&#8984;3</span>
+        </div>
+        <div class="desc">MC, true/false, and free response</div>
+        <div class="action-row">
+          <button class="btn-sm primary" style="background: #7c3aed;">Generate</button>
+          <button class="btn-sm ghost">Saved (0)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-c">
+      <div class="icon-col" style="background: rgba(37,99,235,0.1);">
+        <span style="color: #2563eb;">&#9881;</span>
+      </div>
+      <div class="content">
+        <div class="title-row">
+          <span class="title">Flashcards</span>
+          <span class="shortcut">&#8984;4</span>
+        </div>
+        <div class="desc">Spaced repetition with difficulty tracking</div>
+        <div class="action-row">
+          <button class="btn-sm primary" style="background: #2563eb;">Generate</button>
+          <button class="btn-sm ghost">Saved (0)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-c">
+      <div class="icon-col" style="background: rgba(5,150,105,0.1);">
+        <span style="color: #059669;">&#8677;</span>
+      </div>
+      <div class="content">
+        <div class="title-row">
+          <span class="title">Mind Map</span>
+          <span class="shortcut">&#8984;5</span>
+        </div>
+        <div class="desc">Interactive graph with expand/collapse</div>
+        <div class="action-row">
+          <button class="btn-sm primary" style="background: #059669;">Generate</button>
+          <button class="btn-sm ghost">Saved (0)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-c">
+      <div class="icon-col" style="background: rgba(217,119,6,0.1);">
+        <span style="color: #d97706;">&#9998;</span>
+      </div>
+      <div class="content">
+        <div class="title-row">
+          <span class="title">Newsletter</span>
+          <span class="shortcut">&#8984;6</span>
+        </div>
+        <div class="desc">Professional newsletter with themes</div>
+        <div class="action-row">
+          <button class="btn-sm primary" style="background: #d97706;">Generate</button>
+          <button class="btn-sm ghost">Saved (0)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

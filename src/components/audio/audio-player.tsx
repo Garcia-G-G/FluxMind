@@ -14,8 +14,14 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { GlassCard } from "@/components/shared/glass-card";
 import { InteractiveMode } from "@/components/studio/interactive-mode";
+
+const cardStyle: React.CSSProperties = {
+  background: "var(--fm-surface)",
+  border: "1px solid var(--fm-surface-border)",
+  borderRadius: "1rem",
+  padding: "1.25rem",
+};
 
 const formatTime = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -133,7 +139,7 @@ export const AudioPlayer = ({
   // Processing state
   if (status === "pending" || status === "generating") {
     return (
-      <GlassCard padding="lg">
+      <div style={cardStyle}>
         <div className="text-center py-8">
           <Loader2
             className="h-8 w-8 mx-auto mb-4 animate-spin"
@@ -167,14 +173,14 @@ export const AudioPlayer = ({
             />
           </div>
         </div>
-      </GlassCard>
+      </div>
     );
   }
 
   // Error state
   if (status === "error") {
     return (
-      <GlassCard padding="lg">
+      <div style={cardStyle}>
         <div className="text-center py-8">
           <AlertCircle className="h-8 w-8 mx-auto mb-4" style={{ color: "var(--fm-error)" }} />
           <h3 className="font-medium mb-2" style={{ color: "var(--fm-text)" }}>
@@ -188,13 +194,13 @@ export const AudioPlayer = ({
             Retry
           </button>
         </div>
-      </GlassCard>
+      </div>
     );
   }
 
   // Player
   return (
-    <GlassCard padding="lg">
+    <div style={cardStyle}>
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -321,6 +327,6 @@ export const AudioPlayer = ({
           </button>
         </div>
       </div>
-    </GlassCard>
+    </div>
   );
 };

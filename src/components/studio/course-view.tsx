@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   CheckCircle,
-  Circle,
   Clock,
   BookOpen,
   ChevronRight,
@@ -13,11 +12,17 @@ import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type { CourseContent } from "@/app/api/studio/course/route";
 
 type LessonStatus = "not_started" | "in_progress" | "completed";
+
+/** Spec-mandated MC per-option hues (shared with main quiz). */
+const INLINE_MC_COLORS: readonly string[] = [
+  "#3b82f6",
+  "#ef4444",
+  "#f59e0b",
+  "#22c55e",
+] as const;
 
 export const CourseView = ({
   course,
@@ -25,16 +30,20 @@ export const CourseView = ({
   course: CourseContent;
 }): React.ReactNode => {
   const [activeLesson, setActiveLesson] = useState(0);
-  const [lessonStatus, setLessonStatus] = useState<Record<string, LessonStatus>>(
-    () => Object.fromEntries(course.lessons.map((l) => [l.id, "not_started"]))
+  const [lessonStatus, setLessonStatus] = useState<
+    Record<string, LessonStatus>
+  >(() =>
+    Object.fromEntries(course.lessons.map((l) => [l.id, "not_started"])),
   );
   const [showCompletion, setShowCompletion] = useState(false);
 
   const lesson = course.lessons[activeLesson];
   const completedCount = Object.values(lessonStatus).filter(
-    (s) => s === "completed"
+    (s) => s === "completed",
   ).length;
-  const progress = Math.round((completedCount / course.lessons.length) * 100);
+  const progress = Math.round(
+    (completedCount / course.lessons.length) * 100,
+  );
 
   const markComplete = (): void => {
     setLessonStatus((prev) => ({
@@ -42,7 +51,6 @@ export const CourseView = ({
       [lesson.id]: "completed",
     }));
 
-    // Check if all complete
     const newCompleted = completedCount + 1;
     if (newCompleted === course.lessons.length) {
       setShowCompletion(true);
@@ -58,9 +66,20 @@ export const CourseView = ({
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md mx-auto text-center py-12"
       >
-        <Trophy className="h-16 w-16 mx-auto text-amber-500 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Course Complete!</h2>
-        <p className="text-muted-foreground mb-4">
+        <Trophy
+          className="h-16 w-16 mx-auto mb-4"
+          style={{ color: "#f59e0b" }}
+        />
+        <h2
+          className="text-2xl font-bold mb-2"
+          style={{ color: "var(--fm-text)" }}
+        >
+          Course Complete!
+        </h2>
+        <p
+          className="mb-4"
+          style={{ color: "var(--fm-text-secondary)" }}
+        >
           You&apos;ve completed all {course.lessons.length} lessons in{" "}
           <strong>{course.title}</strong>.
         </p>
@@ -72,44 +91,120 @@ export const CourseView = ({
   }
 
   return (
-    <div className="flex gap-4 h-full">
-      {/* Lesson sidebar */}
-      <div className="w-56 shrink-0 border-r border-border pr-3 hidden md:block">
+    <div className="flex flex-col md:flex-row gap-4 h-full">
+      {/* Mobile dropdown selector */}
+      <div className="md:hidden mb-2">
+        <label
+          className="text-xs font-semibold uppercase tracking-wider block mb-1"
+          style={{ color: "var(--fm-text-tertiary)" }}
+        >
+          Lesson
+        </label>
+        <select
+          value={activeLesson}
+          onChange={(e) => setActiveLesson(Number(e.target.value))}
+          className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+          style={{
+            background: "var(--fm-surface-elevated)",
+            border: "1px solid var(--fm-surface-border)",
+            color: "var(--fm-text)",
+          }}
+        >
+          {course.lessons.map((l, i) => (
+            <option key={l.id} value={i}>
+              {i + 1}. {l.title}
+              {lessonStatus[l.id] === "completed" ? " ✓" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop sidebar */}
+      <div
+        className="w-60 shrink-0 hidden md:block"
+        style={{
+          borderRight: "1px solid var(--fm-surface-border)",
+          paddingRight: "0.75rem",
+        }}
+      >
         <div className="mb-3">
-          <p className="text-xs text-muted-foreground">{progress}% complete</p>
-          <div className="h-1.5 bg-muted rounded-full mt-1">
+          <p
+            className="text-xs"
+            style={{ color: "var(--fm-text-tertiary)" }}
+          >
+            {progress}% complete
+          </p>
+          <div
+            className="rounded-full mt-1 overflow-hidden"
+            style={{
+              height: 6,
+              background: "var(--fm-surface-border)",
+            }}
+          >
             <div
-              className="h-full bg-primary rounded-full transition-all"
-              style={{ width: `${progress}%` }}
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${progress}%`,
+                background: "var(--fm-accent-orange)",
+              }}
             />
           </div>
         </div>
-        <div className="space-y-0.5">
+        <div className="flex flex-col gap-1">
           {course.lessons.map((l, i) => {
             const status = lessonStatus[l.id];
+            const isActive = i === activeLesson;
             return (
               <button
                 key={l.id}
                 onClick={() => setActiveLesson(i)}
-                className={cn(
-                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs transition-colors",
-                  i === activeLesson
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50"
-                )}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left text-xs transition-colors"
+                style={{
+                  background: isActive
+                    ? "var(--fm-surface-elevated)"
+                    : "transparent",
+                  color: isActive
+                    ? "var(--fm-text)"
+                    : "var(--fm-text-secondary)",
+                  borderLeft: isActive
+                    ? `3px solid var(--fm-accent-orange)`
+                    : "3px solid transparent",
+                  paddingLeft: isActive ? "0.5rem" : "0.625rem",
+                }}
               >
-                {status === "completed" ? (
-                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                ) : (
-                  <Circle className="h-3.5 w-3.5 shrink-0" />
-                )}
+                <span
+                  className="flex items-center justify-center shrink-0 text-[10px] font-bold tabular-nums"
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "9999px",
+                    background:
+                      status === "completed"
+                        ? "#22c55e"
+                        : isActive
+                          ? "var(--fm-accent-orange)"
+                          : "var(--fm-surface-border)",
+                    color:
+                      status === "completed" || isActive
+                        ? "white"
+                        : "var(--fm-text-tertiary)",
+                  }}
+                >
+                  {status === "completed" ? "✓" : i + 1}
+                </span>
                 <span className="truncate">{l.title}</span>
               </button>
             );
           })}
         </div>
-        <div className="mt-3 pt-3 border-t border-border">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div
+          className="mt-3 pt-3"
+          style={{ borderTop: "1px solid var(--fm-surface-border)" }}
+        >
+          <div
+            className="flex items-center gap-1.5 text-xs"
+            style={{ color: "var(--fm-text-tertiary)" }}
+          >
             <Clock className="h-3.5 w-3.5" />
             {course.estimatedDuration}
           </div>
@@ -127,49 +222,103 @@ export const CourseView = ({
             transition={{ duration: 0.2 }}
           >
             <div className="flex items-center gap-2 mb-1">
-              <Badge variant="secondary" className="text-xs">
+              <span
+                className="text-[11px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-md"
+                style={{
+                  background: "var(--fm-surface-elevated)",
+                  color: "var(--fm-text-tertiary)",
+                  border: "1px solid var(--fm-surface-border)",
+                }}
+              >
                 Lesson {activeLesson + 1}
-              </Badge>
+              </span>
             </div>
-            <h2 className="text-xl font-semibold mb-1">{lesson.title}</h2>
-            <p className="text-sm text-muted-foreground mb-4">
+            <h2
+              className="text-xl font-semibold mb-1"
+              style={{ color: "var(--fm-text)" }}
+            >
+              {lesson.title}
+            </h2>
+            <p
+              className="text-sm mb-4"
+              style={{ color: "var(--fm-text-secondary)" }}
+            >
               {lesson.objective}
             </p>
 
-            {/* Content */}
-            <div className="prose prose-sm dark:prose-invert max-w-none mb-6 [&>*:first-child]:mt-0">
+            {/* Prose content */}
+            <div
+              className="prose prose-sm max-w-none mb-6 [&>*:first-child]:mt-0 [&_p]:leading-relaxed"
+              style={{ color: "var(--fm-text)" }}
+            >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {lesson.content}
               </ReactMarkdown>
             </div>
 
             {/* Key Concepts */}
-            <div className="rounded-lg border border-border bg-primary/5 p-4 mb-6">
-              <h3 className="font-medium text-sm mb-2 flex items-center gap-1.5">
-                <BookOpen className="h-4 w-4" />
+            <div
+              className="rounded-xl p-4 mb-6"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--fm-accent-orange) 6%, transparent)",
+                border:
+                  "1px solid color-mix(in srgb, var(--fm-accent-orange) 24%, transparent)",
+              }}
+            >
+              <h3
+                className="font-semibold text-sm mb-3 flex items-center gap-1.5"
+                style={{ color: "var(--fm-text)" }}
+              >
+                <BookOpen
+                  className="h-4 w-4"
+                  style={{ color: "var(--fm-accent-orange)" }}
+                />
                 Key Concepts
               </h3>
               <div className="flex flex-wrap gap-2">
                 {lesson.keyConcepts.map((concept, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
+                  <span
+                    key={i}
+                    className="rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--fm-accent-orange) 10%, transparent)",
+                      color: "var(--fm-accent-orange)",
+                    }}
+                  >
                     {concept}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             </div>
 
             {/* Inline Quiz */}
             {lesson.quiz.length > 0 && (
-              <div className="rounded-lg border border-border p-4 mb-6">
-                <h3 className="font-medium text-sm mb-3">Quick Check</h3>
+              <div
+                className="rounded-xl p-4 mb-6"
+                style={{
+                  background: "var(--fm-surface)",
+                  border: "1px solid var(--fm-surface-border)",
+                }}
+              >
+                <h3
+                  className="font-semibold text-sm mb-3"
+                  style={{ color: "var(--fm-text)" }}
+                >
+                  Quick Check
+                </h3>
                 {lesson.quiz.map((q, qi) => (
                   <QuickQuiz key={qi} question={q} />
                 ))}
               </div>
             )}
 
-            {/* Mark complete */}
-            <div className="flex justify-between items-center pt-4 border-t border-border">
+            {/* Nav */}
+            <div
+              className="flex justify-between items-center pt-4"
+              style={{ borderTop: "1px solid var(--fm-surface-border)" }}
+            >
               <Button
                 variant="outline"
                 size="sm"
@@ -204,7 +353,7 @@ export const CourseView = ({
   );
 };
 
-// Inline quick quiz for lessons
+// Inline quick quiz for lessons — small, colored-tile variant of the main quiz
 const QuickQuiz = ({
   question,
 }: {
@@ -222,13 +371,31 @@ const QuickQuiz = ({
 
   return (
     <div className="mb-4 last:mb-0">
-      <p className="text-sm font-medium mb-2">{question.question}</p>
+      <p
+        className="text-sm font-medium mb-2"
+        style={{ color: "var(--fm-text)" }}
+      >
+        {question.question}
+      </p>
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
           const letter = ["A", "B", "C", "D"][i];
           const isSelected = selected === letter;
           const isCorrect = submitted && i === correctIndex;
           const isWrong = submitted && isSelected && i !== correctIndex;
+          const baseColor = INLINE_MC_COLORS[i % INLINE_MC_COLORS.length];
+          let background = "var(--fm-surface-elevated)";
+          let borderColor = "var(--fm-surface-border)";
+          if (isCorrect) {
+            background = "color-mix(in srgb, #22c55e 12%, transparent)";
+            borderColor = "#22c55e";
+          } else if (isWrong) {
+            background = "color-mix(in srgb, #ef4444 12%, transparent)";
+            borderColor = "#ef4444";
+          } else if (isSelected) {
+            background = `color-mix(in srgb, ${baseColor} 10%, transparent)`;
+            borderColor = baseColor;
+          }
           return (
             <button
               key={i}
@@ -238,22 +405,35 @@ const QuickQuiz = ({
                   setSubmitted(true);
                 }
               }}
-              className={cn(
-                "w-full text-left px-3 py-2 rounded-md border text-xs transition-all",
-                isCorrect
-                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
-                  : isWrong
-                    ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                    : "border-border hover:border-primary/50"
-              )}
+              className="w-full text-left px-3 py-2 rounded-md border text-xs transition-all flex items-center gap-2"
+              style={{
+                background,
+                borderColor,
+                color: "var(--fm-text)",
+              }}
             >
-              {opt}
+              <span
+                className="flex items-center justify-center shrink-0 text-[10px] font-bold"
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "9999px",
+                  background: baseColor,
+                  color: "white",
+                }}
+              >
+                {letter}
+              </span>
+              <span className="flex-1">{opt}</span>
             </button>
           );
         })}
       </div>
       {submitted && (
-        <p className="text-xs text-muted-foreground mt-2">
+        <p
+          className="text-xs mt-2"
+          style={{ color: "var(--fm-text-tertiary)" }}
+        >
           {question.explanation}
         </p>
       )}

@@ -51,7 +51,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     const body = await request.json();
     const { notebookId } = body;
 
-    const ctx = await getStudioContext(notebookId, "studioPodcast");
+    const ctx = await getStudioContext(notebookId, undefined, "studioPodcast");
     if (isError(ctx)) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
     const outputId = createId();

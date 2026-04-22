@@ -200,17 +200,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       : "";
     const styleInstr = getStyleInstructions(style);
 
-    const ctx = await getStudioContext(notebookId, "studioGenerate");
+    const ctx = await getStudioContext(
+      notebookId,
+      selectedSourceIds,
+      "studioGenerate",
+    );
     if (isError(ctx)) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
 
-    // Forward-compat: log picked sources; do NOT filter ctx.sourceContext yet.
-    if (selectedSourceIds.length > 0) {
-      console.info(
-        `[slides] selectedSourceIds=${selectedSourceIds.length} (forward-compat, not filtering)`,
-      );
-    }
     const finalContext = extraSourceContent
       ? `${ctx.sourceContext}\n\n--- Additional sources ---\n${extraSourceContent}`
       : ctx.sourceContext;

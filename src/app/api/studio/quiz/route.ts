@@ -68,10 +68,41 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       count = 15,
       model: modelId = "gemini-2.5-flash",
       language: rawLanguage = "en",
-    } = body;
+      detailLevel: rawDetail = "standard",
+      customPrompt: rawCustom = "",
+      selectedSourceIds: rawSelectedSourceIds,
+    } = body as {
+      notebookId: string;
+      count?: number;
+      model?: string;
+      language?: string;
+      detailLevel?: string;
+      customPrompt?: string;
+      selectedSourceIds?: string[];
+    };
     const language: "en" | "es" = rawLanguage === "es" ? "es" : "en";
     const LANG_NAME = language === "es" ? "Spanish" : "English";
     const langInstr = `IMPORTANT: Generate ALL content in ${LANG_NAME}. Titles, body text, labels, prompts, everything must be in ${LANG_NAME}. Do not mix languages.`;
+
+    const ALLOWED_DETAIL = ["concise", "standard", "detailed"] as const;
+    const detailLevel: (typeof ALLOWED_DETAIL)[number] =
+      ALLOWED_DETAIL.includes(rawDetail as (typeof ALLOWED_DETAIL)[number])
+        ? (rawDetail as (typeof ALLOWED_DETAIL)[number])
+        : "standard";
+    const customPrompt = typeof rawCustom === "string" ? rawCustom : "";
+    const selectedSourceIds: string[] = Array.isArray(rawSelectedSourceIds)
+      ? rawSelectedSourceIds.filter((s): s is string => typeof s === "string")
+      : [];
+
+    const detailMap = {
+      concise: `${count} short questions`,
+      standard: `${count} balanced questions`,
+      detailed: `${count} comprehensive questions with deep analysis`,
+    } as const;
+    const detailInstr = detailMap[detailLevel] ?? detailMap.standard;
+    const userInstr = customPrompt.trim()
+      ? `\nUSER REQUEST: "${customPrompt.trim()}". Incorporate this focus into the output.\n`
+      : "";
 
     if (!notebookId) {
       return NextResponse.json({ error: "notebookId required" }, { status: 400 });
@@ -79,7 +110,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     // Shared studio context: auth, ownership check, and DB-sliced source
     // text (LEFT() + LIMIT) in a single parallelized call.
-    const ctx = await getStudioContext(notebookId);
+    const ctx = await getStudioContext(notebookId, selectedSourceIds);
     if (isError(ctx)) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
@@ -109,21 +140,57 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
         model: getModel(modelId),
         schema: quizSchema,
         prompt: `${langInstr}
+${userInstr}
+You are an expert assessor building a quiz that tests real, specific knowledge from the provided sources. Every question must probe a concrete fact or relationship — NOT a vague "what is the main idea" prompt.
 
-Generate a comprehensive quiz based on the following source material. Create exactly ${count} questions.
+═══════════════════════════════════════
+STEP 1 — EXTRACT (silently first)
+═══════════════════════════════════════
+Read the sources and list:
+- Every precise definition
+- Every number, statistic, date, or measurable claim
+- Every named entity, technique, framework, or tool
+- Every cause-effect relationship
+- Every comparison, trade-off, or alternative
+- Every ordered process or workflow
+- Every common misconception the sources explicitly correct
 
-Mix question types:
-- 60% Multiple Choice (4 options labeled A) B) C) D), exactly 1 correct)
-- 20% True/False
-- 20% Free Response (short answer)
+Questions come from these extractions ONLY. Do NOT invent facts.
 
-Rules:
-- Questions must be answerable ONLY from the source material
-- Include explanations with source citations for every question
-- Vary difficulty: 30% easy, 50% medium, 20% hard
-- Make questions test understanding, not just memorization
-- Avoid trick questions — be fair and clear
-- Use sequential IDs: q1, q2, q3, etc.
+═══════════════════════════════════════
+STEP 2 — STRUCTURE (${detailInstr})
+═══════════════════════════════════════
+Produce exactly that many questions, mixed:
+- 60% Multiple Choice — 4 options labeled A) B) C) D), exactly 1 correct. Distractors MUST be plausible — pull from neighboring concepts in the sources, not obvious throwaways.
+- 20% True/False — make the statement concrete enough that guessing is unreliable.
+- 20% Free Response — ask for a short written answer (1-3 sentences). Provide a sampleAnswer and 2-4 keyPoints a grader should look for.
+
+Every question needs:
+- question: a specific, unambiguous prompt anchored to a fact in the sources.
+- explanation: cite WHY the correct answer is correct AND reference the source.
+- sourceReference: the [Title] of the source.
+- difficulty: "easy" / "medium" / "hard".
+
+Use sequential IDs: q1, q2, q3, ...
+
+═══════════════════════════════════════
+STEP 3 — DENSITY CHECK
+═══════════════════════════════════════
+GOOD question: "Which HTTP method is idempotent but NOT safe per RFC 7231?"
+BAD question:  "What is the main point of the article about HTTP?"
+
+GOOD explanation: "PUT is idempotent (repeating the request has the same effect) but not safe because it mutates state. See [RFC 7231 overview]."
+BAD explanation:  "Because it is the correct answer."
+
+For MC, reject any distractor that's a language trick ("all of the above", "none") — every distractor must reflect a real, adjacent concept.
+
+═══════════════════════════════════════
+STEP 4 — QUALITY BAR
+═══════════════════════════════════════
+- All content in ${LANG_NAME}.
+- Difficulty distribution: ~30% easy / ~50% medium / ~20% hard.
+- Questions answerable ONLY from the sources — no external trivia.
+- No duplicate questions or paraphrased repeats.
 
 Sources:
 ${sourceContext}`,

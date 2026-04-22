@@ -125,6 +125,21 @@
   transition: opacity 0.2s ease;
 }
 
+/* === Generate-dialog entrance (one-shot, not infinite) === */
+@keyframes fmDialogSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fm-dialog-slide-up {
+  animation: fmDialogSlideUp 200ms ease-out;
+}
+
 /* === Skeleton shimmer for route loading.tsx fallbacks ===
    One linear-gradient sweep on the glass surface; no filter blur, no
    infinite particle work. Reads as "something is coming" instead of blank. */

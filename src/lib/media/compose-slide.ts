@@ -62,17 +62,20 @@ export type ComposedSlide = {
   persisted: boolean;
 };
 
-// ---------- Internal constants ----------
-
-// Sketchbook ink-on-cream palette.
-const COLOR_TEXT = "#1a1a1a";
-const COLOR_MUTED = "#4a4a4a";
-const COLOR_HAIRLINE = "#2a2a2a";
-
 // ---------- SVG layout renderers ----------
+//
+// Each renderer receives a color set so palette choice is driven by the
+// resolved `VisualStyle` — the hero ink-on-cream look is still the default
+// via `STYLE_CONFIGS.auto.textColor / mutedColor`.
 
-const renderFooter = (W: number, H: number): string => {
-  return `<text x="${W - 48}" y="${H - 32}" font-family="${FONT_TECHNICAL}" font-size="14" fill="${COLOR_MUTED}" text-anchor="end">FluxMind</text>`;
+type SlideColors = {
+  text: string;
+  muted: string;
+  hairline: string;
+};
+
+const renderFooter = (W: number, H: number, colors: SlideColors): string => {
+  return `<text x="${W - 48}" y="${H - 32}" font-family="${FONT_TECHNICAL}" font-size="14" fill="${colors.muted}" text-anchor="end">FluxMind</text>`;
 };
 
 const renderTitleLayout = (
@@ -80,6 +83,7 @@ const renderTitleLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
   const cx = W / 2;
@@ -93,7 +97,7 @@ const renderTitleLayout = (
 
   titleLines.forEach((line, i) => {
     parts.push(
-      `<text x="${cx}" y="${startY + (i + 1) * titleLineH - 28}" font-family="${FONT_SERIF}" font-size="96" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle" letter-spacing="-2">${escapeXml(line)}</text>`,
+      `<text x="${cx}" y="${startY + (i + 1) * titleLineH - 28}" font-family="${FONT_SERIF}" font-size="96" font-weight="700" fill="${colors.text}" text-anchor="middle" letter-spacing="-2">${escapeXml(line)}</text>`,
     );
   });
 
@@ -107,7 +111,7 @@ const renderTitleLayout = (
     const subLines = wrapText(slide.subtitle, 60).slice(0, 2);
     subLines.forEach((line, i) => {
       parts.push(
-        `<text x="${cx}" y="${accentLineY + 60 + i * 42}" font-family="${FONT_HANDWRITTEN}" font-size="32" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${cx}" y="${accentLineY + 60 + i * 42}" font-family="${FONT_HANDWRITTEN}" font-size="32" fill="${colors.muted}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
   }
@@ -120,6 +124,7 @@ const renderContentLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
   const leftX = 100;
@@ -129,7 +134,7 @@ const renderContentLayout = (
   const titleLines = wrapText(slide.title ?? "", 32).slice(0, 2);
   titleLines.forEach((line, i) => {
     parts.push(
-      `<text x="${leftX}" y="${topY + i * 58}" font-family="${FONT_SERIF}" font-size="48" font-weight="700" fill="${COLOR_TEXT}" letter-spacing="-1">${escapeXml(line)}</text>`,
+      `<text x="${leftX}" y="${topY + i * 58}" font-family="${FONT_SERIF}" font-size="48" font-weight="700" fill="${colors.text}" letter-spacing="-1">${escapeXml(line)}</text>`,
     );
   });
   const titleBottom = topY + titleLines.length * 58;
@@ -145,7 +150,7 @@ const renderContentLayout = (
     const subLines = wrapText(slide.subtitle, 55).slice(0, 1);
     subLines.forEach((line) => {
       parts.push(
-        `<text x="${leftX}" y="${cursorY}" font-family="${FONT_HANDWRITTEN}" font-size="26" fill="${COLOR_MUTED}">${escapeXml(line)}</text>`,
+        `<text x="${leftX}" y="${cursorY}" font-family="${FONT_HANDWRITTEN}" font-size="26" fill="${colors.muted}">${escapeXml(line)}</text>`,
       );
       cursorY += 36;
     });
@@ -161,14 +166,14 @@ const renderContentLayout = (
   const indentX = leftX + 28;
 
   bullets.slice(0, 5).forEach((bullet) => {
-    const lines = wrapText(bullet, 50).slice(0, 2);
+    const lines = wrapText(bullet, 50).slice(0, 3);
     // Bullet square — accent keeps the eye moving down the list
     parts.push(
       `<rect x="${leftX}" y="${cursorY - 16}" width="8" height="8" fill="${accent}" />`,
     );
     lines.forEach((line, li) => {
       parts.push(
-        `<text x="${indentX}" y="${cursorY + li * bulletLineH - 4}" font-family="${FONT_HANDWRITTEN}" font-size="26" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
+        `<text x="${indentX}" y="${cursorY + li * bulletLineH - 4}" font-family="${FONT_HANDWRITTEN}" font-size="26" fill="${colors.text}">${escapeXml(line)}</text>`,
       );
     });
     cursorY += lines.length * bulletLineH + bulletGap;
@@ -183,6 +188,7 @@ const renderStatLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
 
@@ -191,7 +197,7 @@ const renderStatLayout = (
     const titleLines = wrapText(slide.title.toUpperCase(), 50).slice(0, 1);
     titleLines.forEach((line, i) => {
       parts.push(
-        `<text x="100" y="${110 + i * 28}" font-family="${FONT_TECHNICAL}" font-size="18" font-weight="700" fill="${COLOR_MUTED}" letter-spacing="2">${escapeXml(line)}</text>`,
+        `<text x="100" y="${110 + i * 28}" font-family="${FONT_TECHNICAL}" font-size="18" font-weight="700" fill="${colors.muted}" letter-spacing="2">${escapeXml(line)}</text>`,
       );
     });
   }
@@ -211,7 +217,7 @@ const renderStatLayout = (
   const labelLines = wrapText(statLabel, 35).slice(0, 2);
   labelLines.forEach((line, i) => {
     parts.push(
-      `<text x="${cx}" y="${cy + 100 + i * 38}" font-family="${FONT_TECHNICAL}" font-size="30" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+      `<text x="${cx}" y="${cy + 100 + i * 38}" font-family="${FONT_TECHNICAL}" font-size="30" fill="${colors.muted}" text-anchor="middle">${escapeXml(line)}</text>`,
     );
   });
 
@@ -223,6 +229,7 @@ const renderComparisonLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
   const leftX = 100;
@@ -232,7 +239,7 @@ const renderComparisonLayout = (
   const titleLines = wrapText(slide.title ?? "", 40).slice(0, 2);
   titleLines.forEach((line, i) => {
     parts.push(
-      `<text x="${leftX}" y="${topY + i * 58}" font-family="${FONT_SERIF}" font-size="48" font-weight="700" fill="${COLOR_TEXT}" letter-spacing="-1">${escapeXml(line)}</text>`,
+      `<text x="${leftX}" y="${topY + i * 58}" font-family="${FONT_SERIF}" font-size="48" font-weight="700" fill="${colors.text}" letter-spacing="-1">${escapeXml(line)}</text>`,
     );
   });
   const titleBottom = topY + titleLines.length * 58;
@@ -254,14 +261,17 @@ const renderComparisonLayout = (
   items.forEach((item, i) => {
     const bx = startX + i * (colW + gap);
     parts.push(
-      `<rect x="${bx}" y="${boxY}" width="${colW}" height="${boxH}" rx="6" fill="white" fill-opacity="0.92" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
+      `<rect x="${bx}" y="${boxY}" width="${colW}" height="${boxH}" rx="6" fill="white" fill-opacity="0.92" stroke="${colors.hairline}" stroke-width="0.75" />`,
     );
 
-    // Value
-    const valueLines = wrapText(item.value, 14).slice(0, 1);
-    valueLines.forEach((line) => {
+    // Value — widened wrap (18 chars) and up to 2 lines so long values fit
+    const valueLines = wrapText(item.value, 18).slice(0, 2);
+    const valueLineH = 56;
+    const valueStartY =
+      boxY + boxH / 2 - 4 - ((valueLines.length - 1) * valueLineH) / 2;
+    valueLines.forEach((line, li) => {
       parts.push(
-        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 - 4}" font-family="${FONT_SERIF}" font-size="64" font-weight="700" fill="${accent}" text-anchor="middle" letter-spacing="-1">${escapeXml(line)}</text>`,
+        `<text x="${bx + colW / 2}" y="${valueStartY + li * valueLineH}" font-family="${FONT_SERIF}" font-size="64" font-weight="700" fill="${accent}" text-anchor="middle" letter-spacing="-1">${escapeXml(line)}</text>`,
       );
     });
 
@@ -269,7 +279,7 @@ const renderComparisonLayout = (
     const labelLines = wrapText(item.label, 26).slice(0, 2);
     labelLines.forEach((line, li) => {
       parts.push(
-        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 + 50 + li * 28}" font-family="${FONT_TECHNICAL}" font-size="22" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${bx + colW / 2}" y="${boxY + boxH / 2 + 50 + li * 28}" font-family="${FONT_TECHNICAL}" font-size="22" fill="${colors.muted}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
   });
@@ -282,6 +292,7 @@ const renderQuoteLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
   const leftX = 140;
@@ -301,7 +312,7 @@ const renderQuoteLayout = (
   const quoteX = leftX + 60;
   quoteLines.forEach((line, i) => {
     parts.push(
-      `<text x="${quoteX}" y="${quoteStartY + i * lineH}" font-family="${FONT_SERIF}" font-size="42" font-style="italic" fill="${COLOR_TEXT}">${escapeXml(line)}</text>`,
+      `<text x="${quoteX}" y="${quoteStartY + i * lineH}" font-family="${FONT_SERIF}" font-size="42" font-style="italic" fill="${colors.text}">${escapeXml(line)}</text>`,
     );
   });
 
@@ -309,7 +320,7 @@ const renderQuoteLayout = (
   if (attribution) {
     const attrY = quoteStartY + quoteLines.length * lineH + 40;
     parts.push(
-      `<text x="${W - 140}" y="${attrY}" font-family="${FONT_HANDWRITTEN}" font-size="24" fill="${COLOR_MUTED}" text-anchor="end">${escapeXml(`— ${attribution}`)}</text>`,
+      `<text x="${W - 140}" y="${attrY}" font-family="${FONT_HANDWRITTEN}" font-size="24" fill="${colors.muted}" text-anchor="end">${escapeXml(`— ${attribution}`)}</text>`,
     );
   }
 
@@ -321,6 +332,7 @@ const renderFlowLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
   const leftX = 100;
@@ -330,7 +342,7 @@ const renderFlowLayout = (
   const titleLines = wrapText(slide.title ?? "", 40).slice(0, 2);
   titleLines.forEach((line, i) => {
     parts.push(
-      `<text x="${leftX}" y="${topY + i * 58}" font-family="${FONT_SERIF}" font-size="48" font-weight="700" fill="${COLOR_TEXT}" letter-spacing="-1">${escapeXml(line)}</text>`,
+      `<text x="${leftX}" y="${topY + i * 58}" font-family="${FONT_SERIF}" font-size="48" font-weight="700" fill="${colors.text}" letter-spacing="-1">${escapeXml(line)}</text>`,
     );
   });
   const titleBottom = topY + titleLines.length * 58;
@@ -362,16 +374,16 @@ const renderFlowLayout = (
     const labelLines = wrapText(step.label, 22).slice(0, 2);
     labelLines.forEach((line, li) => {
       parts.push(
-        `<text x="${stepX}" y="${cy + r + 36 + li * 28}" font-family="${FONT_HANDWRITTEN}" font-size="22" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${stepX}" y="${cy + r + 36 + li * 28}" font-family="${FONT_HANDWRITTEN}" font-size="22" font-weight="700" fill="${colors.text}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
     const labelBottom = cy + r + 36 + labelLines.length * 28;
 
-    // Detail below label
-    const detailLines = wrapText(step.detail, 28).slice(0, 3);
+    // Detail below label — wider wrap (32 chars) so tighter steps don't crop
+    const detailLines = wrapText(step.detail, 32).slice(0, 3);
     detailLines.forEach((line, li) => {
       parts.push(
-        `<text x="${stepX}" y="${labelBottom + 8 + li * 22}" font-family="${FONT_TECHNICAL}" font-size="16" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
+        `<text x="${stepX}" y="${labelBottom + 8 + li * 22}" font-family="${FONT_TECHNICAL}" font-size="16" fill="${colors.muted}" text-anchor="middle">${escapeXml(line)}</text>`,
       );
     });
 
@@ -381,7 +393,7 @@ const renderFlowLayout = (
       const ax1 = stepX + r + 8;
       const ax2 = nextX - r - 8;
       parts.push(
-        `<line x1="${ax1}" y1="${cy}" x2="${ax2}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1.25" marker-end="url(#fm-slide-arrowhead)" />`,
+        `<line x1="${ax1}" y1="${cy}" x2="${ax2}" y2="${cy}" stroke="${colors.hairline}" stroke-width="1.25" marker-end="url(#fm-slide-arrowhead)" />`,
       );
     }
   });
@@ -394,6 +406,7 @@ const renderClosingLayout = (
   W: number,
   H: number,
   accent: string,
+  colors: SlideColors,
 ): string => {
   const parts: string[] = [];
   const cx = W / 2;
@@ -419,7 +432,7 @@ const renderClosingLayout = (
   const startY = cy - ((lines.length - 1) * lineH) / 2 + 10;
   lines.forEach((line, i) => {
     parts.push(
-      `<text x="${cx}" y="${startY + i * lineH}" font-family="${FONT_SERIF}" font-size="56" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle" letter-spacing="-1">${escapeXml(line)}</text>`,
+      `<text x="${cx}" y="${startY + i * lineH}" font-family="${FONT_SERIF}" font-size="56" font-weight="700" fill="${colors.text}" text-anchor="middle" letter-spacing="-1">${escapeXml(line)}</text>`,
     );
   });
 
@@ -433,7 +446,20 @@ const buildSlideSvg = (
   W: number,
   H: number,
   accent: string,
+  style: VisualStyle = "auto",
 ): string => {
+  const styleConfig = STYLE_CONFIGS[style];
+  const COLOR_TEXT = styleConfig.textColor;
+  const COLOR_MUTED = styleConfig.mutedColor;
+  // Hairline follows text color so the sketched ink-on-paper feel stays
+  // consistent across style palettes.
+  const COLOR_HAIRLINE = styleConfig.textColor;
+  const colors: SlideColors = {
+    text: COLOR_TEXT,
+    muted: COLOR_MUTED,
+    hairline: COLOR_HAIRLINE,
+  };
+
   const parts: string[] = [];
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
@@ -447,33 +473,33 @@ const buildSlideSvg = (
 
   switch (slide.layout) {
     case "title":
-      parts.push(renderTitleLayout(slide, W, H, accent));
+      parts.push(renderTitleLayout(slide, W, H, accent, colors));
       break;
     case "content":
-      parts.push(renderContentLayout(slide, W, H, accent));
+      parts.push(renderContentLayout(slide, W, H, accent, colors));
       break;
     case "stat":
-      parts.push(renderStatLayout(slide, W, H, accent));
+      parts.push(renderStatLayout(slide, W, H, accent, colors));
       break;
     case "comparison":
-      parts.push(renderComparisonLayout(slide, W, H, accent));
+      parts.push(renderComparisonLayout(slide, W, H, accent, colors));
       break;
     case "quote":
-      parts.push(renderQuoteLayout(slide, W, H, accent));
+      parts.push(renderQuoteLayout(slide, W, H, accent, colors));
       break;
     case "flow":
-      parts.push(renderFlowLayout(slide, W, H, accent));
+      parts.push(renderFlowLayout(slide, W, H, accent, colors));
       break;
     case "closing":
-      parts.push(renderClosingLayout(slide, W, H, accent));
+      parts.push(renderClosingLayout(slide, W, H, accent, colors));
       break;
     default:
       // Fallback: just render title
-      parts.push(renderTitleLayout(slide, W, H, accent));
+      parts.push(renderTitleLayout(slide, W, H, accent, colors));
       break;
   }
 
-  parts.push(renderFooter(W, H));
+  parts.push(renderFooter(W, H, colors));
   parts.push(`</svg>`);
   return parts.join("\n");
 };
@@ -515,8 +541,8 @@ export const composeSlide = async (
       .toBuffer();
   }
 
-  // 2. SVG overlay
-  const svg = buildSlideSvg(slide, W, H, deckAccent);
+  // 2. SVG overlay — style drives text/muted/hairline colors
+  const svg = buildSlideSvg(slide, W, H, deckAccent, options.style ?? "auto");
   const svgBuffer = Buffer.from(svg);
 
   // 3. Readability sheet for legibility — tint driven by visual style.

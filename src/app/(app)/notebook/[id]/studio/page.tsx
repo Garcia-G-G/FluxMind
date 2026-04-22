@@ -104,7 +104,6 @@ const ReelScriptView = dynamic(
   () => importReelScriptView().then((m) => m.ReelScriptView),
   { ssr: false, loading: ViewerFallback },
 );
-import { useGenerateQuiz, useGenerateFlashcards } from "@/hooks/use-study";
 import {
   useOutputs,
   useGenerateSlides,
@@ -116,6 +115,8 @@ import {
   useGenerateCourse,
   useGenerateMindMap,
   useGenerateVideo,
+  useGenerateFlashcards,
+  useGenerateQuiz,
 } from "@/hooks/use-studio-outputs";
 import type { OutputListItem } from "@/hooks/use-studio-outputs";
 import {
@@ -218,6 +219,7 @@ const TYPE_TO_TAB: Record<string, StudioTab> = {
   course: "course",
   mindmap: "mindmap",
   video: "video",
+  reel: "reel",
   research_report: "research",
 };
 
@@ -232,6 +234,7 @@ const TYPE_ICON: Record<string, { icon: LucideIcon; color: string }> = {
   course: { icon: GraduationCap, color: "#e11d48" },
   mindmap: { icon: Network, color: "#7c3aed" },
   video: { icon: Film, color: "#ff6b35" },
+  reel: { icon: Video, color: "#e11d48" },
   research_report: { icon: Search, color: "#7c3aed" },
 };
 
@@ -378,9 +381,19 @@ const StudioPage = ({
   const [activeTab, setActiveTab] = useState<StudioTab>("overview");
   const { data: savedOutputs } = useOutputs(notebookId);
 
-  // Dialog-driven generators: slides, infographic, video, mindmap.
-  // Everything else generates instantly on Generate-button click.
-  type DialogType = "slides" | "infographic" | "video" | "mindmap";
+  // Dialog-driven generators: every studio output that accepts customization.
+  type DialogType =
+    | "slides"
+    | "infographic"
+    | "video"
+    | "mindmap"
+    | "flashcards"
+    | "quiz"
+    | "thread"
+    | "newsletter"
+    | "reel"
+    | "course"
+    | "datatable";
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [dialogType, setDialogType] = useState<DialogType | null>(null);
 
@@ -469,6 +482,9 @@ const StudioPage = ({
         case "video":
           setOutput("video", data);
           break;
+        case "reel":
+          setOutput("reel", data);
+          break;
       }
       setActiveTab(tab);
     },
@@ -511,6 +527,27 @@ const StudioPage = ({
       case "mindmap":
         await generate("mindmap", generateMindMap.mutateAsync, config);
         break;
+      case "flashcards":
+        await generate("flashcards", generateFlashcards.mutateAsync, config);
+        break;
+      case "quiz":
+        await generate("quiz", generateQuiz.mutateAsync, config);
+        break;
+      case "thread":
+        await generate("thread", generateThread.mutateAsync, config);
+        break;
+      case "newsletter":
+        await generate("newsletter", generateNewsletter.mutateAsync, config);
+        break;
+      case "reel":
+        await generate("reel", generateReel.mutateAsync, config);
+        break;
+      case "course":
+        await generate("course", generateCourse.mutateAsync, config);
+        break;
+      case "datatable":
+        await generate("datatable", generateDataTable.mutateAsync, config);
+        break;
     }
     setDialogOpen(false);
   };
@@ -527,6 +564,13 @@ const StudioPage = ({
     (dialogType === "infographic" && generateInfographic.isPending) ||
     (dialogType === "video" && generateVideoOverview.isPending) ||
     (dialogType === "mindmap" && generateMindMap.isPending) ||
+    (dialogType === "flashcards" && generateFlashcards.isPending) ||
+    (dialogType === "quiz" && generateQuiz.isPending) ||
+    (dialogType === "thread" && generateThread.isPending) ||
+    (dialogType === "newsletter" && generateNewsletter.isPending) ||
+    (dialogType === "reel" && generateReel.isPending) ||
+    (dialogType === "course" && generateCourse.isPending) ||
+    (dialogType === "datatable" && generateDataTable.isPending) ||
     false;
 
   // Render active output view
@@ -616,17 +660,17 @@ const StudioPage = ({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         <StudioCard icon={HelpCircle} title="Quiz" onView={() => setActiveTab("quiz")} accent="var(--fm-secondary)"
           description="MC, T/F, and free response questions."
-          onGenerate={() => generate("quiz", generateQuiz.mutateAsync)}
+          onGenerate={() => openDialog("quiz")}
           onHover={importQuizView}
           isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData} />
         <StudioCard icon={Layers} title="Flashcards" onView={() => setActiveTab("flashcards")} accent="var(--fm-secondary)"
           description="Spaced repetition flashcards."
-          onGenerate={() => generate("flashcards", generateFlashcards.mutateAsync)}
+          onGenerate={() => openDialog("flashcards")}
           onHover={importFlashcardView}
           isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData} />
         <StudioCard icon={GraduationCap} title="Mini-Course" onView={() => setActiveTab("course")} accent="var(--fm-secondary)"
           description="Structured lessons with quizzes."
-          onGenerate={() => generate("course", generateCourse.mutateAsync)}
+          onGenerate={() => openDialog("course")}
           onHover={importCourseView}
           isPending={generateCourse.isPending} error={generateCourse.error} hasData={!!courseData} />
       </div>
@@ -646,7 +690,7 @@ const StudioPage = ({
           isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData} />
         <StudioCard icon={Table} title="Data Tables" onView={() => setActiveTab("datatable")} accent="var(--fm-secondary)"
           description="Extract tabular data from sources."
-          onGenerate={() => generate("datatable", generateDataTable.mutateAsync)}
+          onGenerate={() => openDialog("datatable")}
           onHover={importDataTableView}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
         <StudioCard icon={Network} title="Mind Map" onView={() => setActiveTab("mindmap")} accent="var(--fm-secondary)"
@@ -666,17 +710,17 @@ const StudioPage = ({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         <StudioCard icon={MessageCircle} title="X Thread" onView={() => setActiveTab("thread")} accent="var(--fm-secondary)"
           description="Viral thread with hook and CTA."
-          onGenerate={() => generate("thread", generateThread.mutateAsync)}
+          onGenerate={() => openDialog("thread")}
           onHover={importThreadPreview}
           isPending={generateThread.isPending} error={generateThread.error} hasData={!!threadData} />
         <StudioCard icon={Mail} title="Newsletter" onView={() => setActiveTab("newsletter")} accent="var(--fm-secondary)"
           description="Professional email newsletter."
-          onGenerate={() => generate("newsletter", generateNewsletter.mutateAsync)}
+          onGenerate={() => openDialog("newsletter")}
           onHover={importNewsletterPreview}
           isPending={generateNewsletter.isPending} error={generateNewsletter.error} hasData={!!newsletterData} />
         <StudioCard icon={Video} title="Reel Script" onView={() => setActiveTab("reel")} accent="var(--fm-secondary)"
           description="30-60s short-form video script."
-          onGenerate={() => generate("reel", generateReel.mutateAsync)}
+          onGenerate={() => openDialog("reel")}
           onHover={importReelScriptView}
           isPending={generateReel.isPending} error={generateReel.error} hasData={!!reelData} />
       </div>
