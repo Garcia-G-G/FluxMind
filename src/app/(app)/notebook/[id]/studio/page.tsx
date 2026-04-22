@@ -240,6 +240,22 @@ const TYPE_ICON: Record<string, { icon: LucideIcon; color: string }> = {
 
 const DEFAULT_TYPE_ICON = { icon: Wand2, color: "#6b7280" };
 
+/** Bold Blocks — each card owns a saturated identity color. */
+const CARD_COLORS: Record<string, { bg: string; text: string; tag: string }> = {
+  quiz:        { bg: "#8B5CF6", text: "#ffffff", tag: "Study" },
+  flashcards:  { bg: "#3B82F6", text: "#ffffff", tag: "Study" },
+  course:      { bg: "#A855F7", text: "#ffffff", tag: "Study" },
+  slides:      { bg: "#FF7A45", text: "#ffffff", tag: "Visual" },
+  infographic: { bg: "#F43F5E", text: "#ffffff", tag: "Visual" },
+  datatable:   { bg: "#64748B", text: "#ffffff", tag: "Data" },
+  mindmap:     { bg: "#10B981", text: "#ffffff", tag: "Visual" },
+  video:       { bg: "#EC4899", text: "#ffffff", tag: "Media" },
+  thread:      { bg: "#0EA5E9", text: "#ffffff", tag: "Social" },
+  newsletter:  { bg: "#F59E0B", text: "#422006", tag: "Content" },
+  reel:        { bg: "#EC4899", text: "#ffffff", tag: "Media" },
+};
+const DEFAULT_CARD_COLOR = { bg: "#64748B", text: "#ffffff", tag: "Other" };
+
 const RESEARCH_CARD_STYLE: React.CSSProperties = {
   background: "var(--fm-glass-bg)",
   border: "1px solid var(--fm-glass-border)",
@@ -266,7 +282,9 @@ type StudioCardProps = {
   isPending: boolean;
   error: Error | null;
   hasData: boolean;
-  accent?: string;
+  /** Bold Blocks color — { bg, text, tag } from CARD_COLORS */
+  colors: { bg: string; text: string; tag: string };
+  wide?: boolean;
   onHover?: () => void;
   onView?: () => void;
 };
@@ -279,51 +297,85 @@ const StudioCard = memo(({
   isPending,
   error,
   hasData,
-  accent = "var(--fm-secondary)",
+  colors,
+  wide,
   onHover,
   onView,
 }: StudioCardProps): React.ReactNode => (
   <div
     onMouseEnter={onHover}
     onFocus={onHover}
-    className="fm-hover-tint group relative overflow-hidden rounded-2xl p-5 transition-transform duration-150 ease-out hover:-translate-y-0.5"
+    className={`group relative overflow-hidden rounded-xl p-5 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] ${wide ? "sm:col-span-2" : ""}`}
     style={{
-      background: "var(--fm-glass-bg)",
-      border: "1px solid var(--fm-glass-border)",
-      ["--fm-card-accent" as string]: accent,
-    } as React.CSSProperties}
+      background: colors.bg,
+      color: colors.text,
+      minHeight: 160,
+    }}
   >
+    {/* Decorative circle — top right, subtle */}
     <div
-      className="absolute top-0 left-0 right-0 h-[2px]"
-      style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }}
+      aria-hidden
+      className="absolute -top-8 -right-8 w-[120px] h-[120px] rounded-full pointer-events-none"
+      style={{ background: colors.text, opacity: 0.08 }}
     />
-    <div className="flex items-start gap-3">
-      <div
-        className="shrink-0 flex items-center justify-center rounded-lg"
+
+    {/* Icon — NO box around it */}
+    <Icon
+      style={{ width: 40, height: 40, color: colors.text }}
+      strokeWidth={1.6}
+    />
+
+    {/* Title — bold, large */}
+    <h3
+      className="mt-4 font-bold text-lg leading-tight tracking-tight"
+      style={{ color: colors.text, fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif" }}
+    >
+      {title}
+    </h3>
+
+    {/* Description — only show on wide cards */}
+    {wide && (
+      <p
+        className="text-sm mt-1 leading-relaxed"
+        style={{ color: colors.text, opacity: 0.7 }}
+      >
+        {description}
+      </p>
+    )}
+
+    {/* Bottom row — tag + actions */}
+    <div className="flex items-center gap-2 mt-4">
+      <span
+        className="text-xs font-semibold px-2.5 py-1 rounded-md"
         style={{
-          width: 36,
-          height: 36,
-          background: `color-mix(in srgb, ${accent} 12%, transparent)`,
+          background: `color-mix(in srgb, ${colors.text} 20%, transparent)`,
+          color: colors.text,
         }}
       >
-        <Icon style={{ width: 18, height: 18, color: accent }} strokeWidth={1.8} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-sm leading-tight" style={{ color: "var(--fm-text)" }}>
-          {title}
-        </h3>
-        <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--fm-text-tertiary)" }}>
-          {description}
-        </p>
-      </div>
-    </div>
-
-    <div className="flex items-center gap-2 mt-4">
+        {colors.tag}
+      </span>
+      <div className="flex-1" />
+      {hasData && onView && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onView(); }}
+          className="flex items-center h-7 px-3 text-xs font-medium rounded-md transition-opacity"
+          style={{
+            background: `color-mix(in srgb, ${colors.text} 15%, transparent)`,
+            color: colors.text,
+          }}
+        >
+          <Eye className="h-3 w-3 mr-1.5" />
+          View
+        </button>
+      )}
       <button
-        onClick={onGenerate}
+        onClick={(e) => { e.stopPropagation(); onGenerate(); }}
         disabled={isPending}
-        className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white rounded-lg transition-opacity disabled:opacity-50"
-        style={{ background: accent }}
+        className="flex items-center gap-1.5 h-7 px-3.5 text-xs font-semibold rounded-md transition-opacity disabled:opacity-50"
+        style={{
+          background: `color-mix(in srgb, ${colors.text} 25%, transparent)`,
+          color: colors.text,
+        }}
       >
         {isPending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -332,26 +384,14 @@ const StudioCard = memo(({
         )}
         Generate
       </button>
-      {hasData && onView && (
-        <button
-          onClick={onView}
-          className="flex items-center h-8 px-3.5 text-xs font-medium rounded-lg transition-colors"
-          style={{
-            background: "var(--fm-bg-tertiary)",
-            color: "var(--fm-text-secondary)",
-          }}
-        >
-          View
-        </button>
-      )}
     </div>
 
     {error && (
       <p
         className="text-xs mt-3 px-2 py-1.5 rounded-md"
         style={{
-          color: "var(--fm-error, #ef4444)",
-          background: "color-mix(in srgb, var(--fm-error, #ef4444) 8%, transparent)",
+          color: colors.text,
+          background: `color-mix(in srgb, ${colors.text} 12%, transparent)`,
         }}
       >
         {error.message}
@@ -657,18 +697,21 @@ const StudioPage = ({
 
       {/* Study section */}
       <SectionHeader label="Study" />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={HelpCircle} title="Quiz" onView={() => setActiveTab("quiz")} accent="var(--fm-secondary)"
+      <div className="grid gap-3.5 grid-cols-2 lg:grid-cols-4 mb-6">
+        <StudioCard icon={HelpCircle} title="Quiz" onView={() => setActiveTab("quiz")}
+          colors={CARD_COLORS.quiz ?? DEFAULT_CARD_COLOR}
           description="MC, T/F, and free response questions."
           onGenerate={() => openDialog("quiz")}
           onHover={importQuizView}
           isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData} />
-        <StudioCard icon={Layers} title="Flashcards" onView={() => setActiveTab("flashcards")} accent="var(--fm-secondary)"
+        <StudioCard icon={Layers} title="Flashcards" onView={() => setActiveTab("flashcards")}
+          colors={CARD_COLORS.flashcards ?? DEFAULT_CARD_COLOR}
           description="Spaced repetition flashcards."
           onGenerate={() => openDialog("flashcards")}
           onHover={importFlashcardView}
           isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData} />
-        <StudioCard icon={GraduationCap} title="Mini-Course" onView={() => setActiveTab("course")} accent="var(--fm-secondary)"
+        <StudioCard icon={GraduationCap} title="Mini-Course" onView={() => setActiveTab("course")}
+          colors={CARD_COLORS.course ?? DEFAULT_CARD_COLOR}
           description="Structured lessons with quizzes."
           onGenerate={() => openDialog("course")}
           onHover={importCourseView}
@@ -677,28 +720,33 @@ const StudioPage = ({
 
       {/* Visual section */}
       <SectionHeader label="Visual" />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={Presentation} title="Slide Deck" onView={() => setActiveTab("slides")} accent="var(--fm-secondary)"
-          description="Presentation with multiple layouts."
+      <div className="grid gap-3.5 grid-cols-2 lg:grid-cols-4 mb-6">
+        <StudioCard icon={Presentation} title="Slide Deck" onView={() => setActiveTab("slides")}
+          colors={CARD_COLORS.slides ?? DEFAULT_CARD_COLOR} wide
+          description="Presentation with multiple layouts and illustrated backgrounds."
           onGenerate={() => openDialog("slides")}
           onHover={importSlideViewer}
           isPending={generateSlides.isPending} error={generateSlides.error} hasData={!!slidesData} />
-        <StudioCard icon={Image} title="Infographic" onView={() => setActiveTab("infographic")} accent="var(--fm-secondary)"
+        <StudioCard icon={Image} title="Infographic" onView={() => setActiveTab("infographic")}
+          colors={CARD_COLORS.infographic ?? DEFAULT_CARD_COLOR}
           description="Stats, timelines, and comparisons."
           onGenerate={() => openDialog("infographic")}
           onHover={importInfographicViewer}
           isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData} />
-        <StudioCard icon={Table} title="Data Tables" onView={() => setActiveTab("datatable")} accent="var(--fm-secondary)"
+        <StudioCard icon={Table} title="Data Tables" onView={() => setActiveTab("datatable")}
+          colors={CARD_COLORS.datatable ?? DEFAULT_CARD_COLOR}
           description="Extract tabular data from sources."
           onGenerate={() => openDialog("datatable")}
           onHover={importDataTableView}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
-        <StudioCard icon={Network} title="Mind Map" onView={() => setActiveTab("mindmap")} accent="var(--fm-secondary)"
+        <StudioCard icon={Network} title="Mind Map" onView={() => setActiveTab("mindmap")}
+          colors={CARD_COLORS.mindmap ?? DEFAULT_CARD_COLOR}
           description="Explorable knowledge graph from sources."
           onGenerate={() => openDialog("mindmap")}
           onHover={importMindMapCanvas}
           isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
-        <StudioCard icon={Film} title="Video Overview" onView={() => setActiveTab("video")} accent="var(--fm-secondary)"
+        <StudioCard icon={Film} title="Video Overview" onView={() => setActiveTab("video")}
+          colors={CARD_COLORS.video ?? DEFAULT_CARD_COLOR}
           description="AI-narrated video with generated visuals."
           onGenerate={() => openDialog("video")}
           onHover={importVideoPlayer}
@@ -707,18 +755,21 @@ const StudioPage = ({
 
       {/* Content section */}
       <SectionHeader label="Content" />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StudioCard icon={MessageCircle} title="X Thread" onView={() => setActiveTab("thread")} accent="var(--fm-secondary)"
+      <div className="grid gap-3.5 grid-cols-2 lg:grid-cols-4 mb-6">
+        <StudioCard icon={MessageCircle} title="X Thread" onView={() => setActiveTab("thread")}
+          colors={CARD_COLORS.thread ?? DEFAULT_CARD_COLOR}
           description="Viral thread with hook and CTA."
           onGenerate={() => openDialog("thread")}
           onHover={importThreadPreview}
           isPending={generateThread.isPending} error={generateThread.error} hasData={!!threadData} />
-        <StudioCard icon={Mail} title="Newsletter" onView={() => setActiveTab("newsletter")} accent="var(--fm-secondary)"
-          description="Professional email newsletter."
+        <StudioCard icon={Mail} title="Newsletter" onView={() => setActiveTab("newsletter")}
+          colors={CARD_COLORS.newsletter ?? DEFAULT_CARD_COLOR} wide
+          description="Professional email newsletter with sections and pull quotes."
           onGenerate={() => openDialog("newsletter")}
           onHover={importNewsletterPreview}
           isPending={generateNewsletter.isPending} error={generateNewsletter.error} hasData={!!newsletterData} />
-        <StudioCard icon={Video} title="Reel Script" onView={() => setActiveTab("reel")} accent="var(--fm-secondary)"
+        <StudioCard icon={Video} title="Reel Script" onView={() => setActiveTab("reel")}
+          colors={CARD_COLORS.reel ?? DEFAULT_CARD_COLOR}
           description="30-60s short-form video script."
           onGenerate={() => openDialog("reel")}
           onHover={importReelScriptView}
