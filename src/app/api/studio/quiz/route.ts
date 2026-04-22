@@ -11,9 +11,15 @@ import { getModel } from "@/lib/ai/models";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
+import { generateOutputImages } from "@/lib/media/generate-output-images";
 
 const quizSchema = z.object({
   title: z.string(),
+  coverImagePrompt: z
+    .string()
+    .describe(
+      "1-sentence visual description for a cover illustration. NO text. Visual objects and scenes related to the quiz topic.",
+    ),
   questions: z.array(
     z.discriminatedUnion("type", [
       z.object({
@@ -197,16 +203,33 @@ Sources:
 ${sourceContext}`,
       });
 
+      // Single cover illustration for the quiz.
+      const images = await generateOutputImages({
+        topics: [quiz.coverImagePrompt],
+        outputType: "quiz",
+        outputId,
+        notebookId,
+      });
+      const coverImage = images[0]?.url ?? null;
+
+      const savedContent = {
+        ...quiz,
+        coverImage,
+      };
+
       await db
         .update(outputs)
         .set({
-          content: quiz as unknown as Record<string, unknown>,
+          content: savedContent as unknown as Record<string, unknown>,
           status: "ready",
           updatedAt: new Date(),
         })
         .where(eq(outputs.id, outputId));
 
-      return NextResponse.json({ id: outputId, ...quiz }, { status: 201 });
+      return NextResponse.json(
+        { id: outputId, ...savedContent },
+        { status: 201 },
+      );
     } catch (genError) {
       await db
         .update(outputs)

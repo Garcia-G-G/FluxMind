@@ -79,6 +79,16 @@ export const ThreadPreview = ({
 
   return (
     <div className="max-w-xl mx-auto">
+      {thread.coverImage && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={thread.coverImage}
+          alt=""
+          className="w-full h-40 object-cover rounded-xl mb-4"
+          loading="lazy"
+          style={{ border: "1px solid var(--fm-surface-border)" }}
+        />
+      )}
       <div className="flex items-center justify-between mb-4">
         <p
           className="text-sm"

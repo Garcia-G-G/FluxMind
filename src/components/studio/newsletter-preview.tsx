@@ -167,6 +167,18 @@ export const NewsletterPreview = ({
           {/* Header accent band */}
           <div style={{ height: 6, background: spec.accent }} />
 
+          {/* Hero illustration — optional, only rendered when the output
+              carries a heroImage; old outputs keep the plain accent band. */}
+          {newsletter.heroImage && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={newsletter.heroImage}
+              alt=""
+              className="w-full h-48 object-cover"
+              loading="eager"
+            />
+          )}
+
           <div className="p-8">
             {/* Headline */}
             <h1
@@ -188,15 +200,27 @@ export const NewsletterPreview = ({
             </p>
 
             {/* Sections */}
-            {newsletter.sections.map((section, i) => (
+            {newsletter.sections.map((section, i) => {
+              const sectionImage = newsletter.sectionImages?.[i];
+              return (
               <div
                 key={i}
-                className="mb-6 rounded-xl p-5"
+                className="mb-6 rounded-xl overflow-hidden"
                 style={{
                   background: "var(--fm-surface-elevated)",
                   border: "1px solid var(--fm-surface-border)",
                 }}
               >
+                {sectionImage && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={sectionImage}
+                    alt=""
+                    className="w-full h-40 object-cover"
+                    loading="lazy"
+                  />
+                )}
+                <div className="p-5">
                 <h2
                   className="font-semibold mb-3"
                   style={{
@@ -230,8 +254,10 @@ export const NewsletterPreview = ({
                     &ldquo;{section.pullQuote}&rdquo;
                   </blockquote>
                 )}
+                </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Key Takeaways */}
             <div

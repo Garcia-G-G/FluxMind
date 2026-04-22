@@ -7,16 +7,28 @@ import { db } from "@/lib/db";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
+import { generateOutputImages } from "@/lib/media/generate-output-images";
 
 const newsletterSchema = z.object({
   title: z.string(),
   headline: z.string(),
   introduction: z.string(),
+  heroImagePrompt: z
+    .string()
+    .describe(
+      "1-sentence visual description for the newsletter hero banner. NO text, NO labels.",
+    ),
   sections: z.array(
     z.object({
       title: z.string(),
       body: z.string(),
       pullQuote: z.string().nullable(),
+      imagePrompt: z
+        .string()
+        .nullable()
+        .describe(
+          "Optional 1-sentence section illustration. NO text. null when the section is too abstract to illustrate.",
+        ),
     })
   ),
   keyTakeaways: z.array(z.string()),
@@ -27,7 +39,10 @@ const newsletterSchema = z.object({
   footer: z.string(),
 });
 
-export type NewsletterContent = z.infer<typeof newsletterSchema>;
+export type NewsletterContent = z.infer<typeof newsletterSchema> & {
+  heroImage?: string | null;
+  sectionImages?: Record<number, string>;
+};
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -140,8 +155,56 @@ Sources:
 ${ctx.sourceContext}`,
       });
 
-      await db.update(outputs).set({ content: newsletter as unknown as Record<string, unknown>, status: "ready", updatedAt: new Date() }).where(eq(outputs.id, outputId));
-      return NextResponse.json({ id: outputId, ...newsletter }, { status: 201 });
+      // Hero + up to 3 section illustrations. We track which section each
+      // image belongs to via `sectionIdx` so the final Record keys map to
+      // the section's position in the array the viewer iterates.
+      type SectionPick = { sectionIdx: number; prompt: string };
+      const sectionPicks: SectionPick[] = [];
+      newsletter.sections.forEach((s, idx) => {
+        if (
+          sectionPicks.length < 3 &&
+          typeof s.imagePrompt === "string" &&
+          s.imagePrompt.trim().length > 0
+        ) {
+          sectionPicks.push({ sectionIdx: idx, prompt: s.imagePrompt });
+        }
+      });
+      const imageTopics = [
+        newsletter.heroImagePrompt,
+        ...sectionPicks.map((p) => p.prompt),
+      ];
+      const images = await generateOutputImages({
+        topics: imageTopics,
+        outputType: "newsletter",
+        outputId,
+        notebookId,
+      });
+
+      const heroImage = images[0]?.url ?? null;
+      const sectionImages: Record<number, string> = {};
+      sectionPicks.forEach((pick, i) => {
+        const img = images[i + 1];
+        if (img) sectionImages[pick.sectionIdx] = img.url;
+      });
+
+      const savedContent: NewsletterContent = {
+        ...newsletter,
+        heroImage,
+        sectionImages,
+      };
+
+      await db
+        .update(outputs)
+        .set({
+          content: savedContent as unknown as Record<string, unknown>,
+          status: "ready",
+          updatedAt: new Date(),
+        })
+        .where(eq(outputs.id, outputId));
+      return NextResponse.json(
+        { id: outputId, ...savedContent },
+        { status: 201 },
+      );
     } catch (genError) {
       await db.update(outputs).set({ status: "error", content: { error: genError instanceof Error ? genError.message : "Failed" }, updatedAt: new Date() }).where(eq(outputs.id, outputId));
       throw genError;

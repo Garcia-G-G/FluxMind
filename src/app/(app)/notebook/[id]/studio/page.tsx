@@ -632,9 +632,24 @@ const StudioPage = ({
     );
 
     if (activeTab === "quiz" && quizData)
-      return wrap(quizData.title, <QuizView outputId={quizData.id} questions={quizData.questions as ComponentProps<typeof QuizView>["questions"]} />);
+      return wrap(
+        quizData.title,
+        <QuizView
+          outputId={quizData.id}
+          questions={quizData.questions as ComponentProps<typeof QuizView>["questions"]}
+          coverImage={(quizData as { coverImage?: string | null }).coverImage ?? null}
+        />,
+      );
     if (activeTab === "flashcards" && flashcardData)
-      return wrap(flashcardData.title, <FlashcardView outputId={flashcardData.id} cards={flashcardData.cards as ComponentProps<typeof FlashcardView>["cards"]} />);
+      return wrap(
+        flashcardData.title,
+        <FlashcardView
+          outputId={flashcardData.id}
+          cards={flashcardData.cards as ComponentProps<typeof FlashcardView>["cards"]}
+          coverImage={(flashcardData as { coverImage?: string | null }).coverImage ?? null}
+          cardImages={(flashcardData as { cardImages?: Record<string, string> }).cardImages}
+        />,
+      );
     if (activeTab === "slides" && slidesData)
       return wrap(slidesData.title, <SlideViewer slides={slidesData as SlidesContent} />);
     if (activeTab === "infographic" && infographicData)

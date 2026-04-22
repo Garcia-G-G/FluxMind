@@ -7,10 +7,16 @@ import { db } from "@/lib/db";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
+import { generateOutputImages } from "@/lib/media/generate-output-images";
 
 const courseSchema = z.object({
   title: z.string(),
   description: z.string(),
+  coverImagePrompt: z
+    .string()
+    .describe(
+      "1-sentence visual description for the course cover. NO text, NO labels.",
+    ),
   lessons: z
     .array(
       z.object({
@@ -19,6 +25,11 @@ const courseSchema = z.object({
         objective: z.string(),
         content: z.string(),
         keyConcepts: z.array(z.string()),
+        imagePrompt: z
+          .string()
+          .describe(
+            "1-sentence visual for this lesson's main concept. NO text/labels.",
+          ),
         quiz: z.array(
           z.object({
             question: z.string(),
@@ -41,7 +52,10 @@ const courseSchema = z.object({
   estimatedDuration: z.string(),
 });
 
-export type CourseContent = z.infer<typeof courseSchema>;
+export type CourseContent = z.infer<typeof courseSchema> & {
+  coverImage?: string | null;
+  lessonImages?: Record<string, string>;
+};
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -174,8 +188,44 @@ Sources:
 ${ctx.sourceContext}`,
       });
 
-      await db.update(outputs).set({ content: course as unknown as Record<string, unknown>, status: "ready", updatedAt: new Date() }).where(eq(outputs.id, outputId));
-      return NextResponse.json({ id: outputId, ...course }, { status: 201 });
+      // Cover + up to 6 lesson illustrations in parallel.
+      const lessonsWithImages = course.lessons.slice(0, 6);
+      const imageTopics = [
+        course.coverImagePrompt,
+        ...lessonsWithImages.map((l) => l.imagePrompt),
+      ];
+      const images = await generateOutputImages({
+        topics: imageTopics,
+        outputType: "course",
+        outputId,
+        notebookId,
+      });
+
+      const coverImage = images[0]?.url ?? null;
+      const lessonImages: Record<string, string> = {};
+      lessonsWithImages.forEach((lesson, i) => {
+        const img = images[i + 1];
+        if (img) lessonImages[lesson.id] = img.url;
+      });
+
+      const savedContent: CourseContent = {
+        ...course,
+        coverImage,
+        lessonImages,
+      };
+
+      await db
+        .update(outputs)
+        .set({
+          content: savedContent as unknown as Record<string, unknown>,
+          status: "ready",
+          updatedAt: new Date(),
+        })
+        .where(eq(outputs.id, outputId));
+      return NextResponse.json(
+        { id: outputId, ...savedContent },
+        { status: 201 },
+      );
     } catch (genError) {
       await db.update(outputs).set({ status: "error", content: { error: genError instanceof Error ? genError.message : "Failed" }, updatedAt: new Date() }).where(eq(outputs.id, outputId));
       throw genError;

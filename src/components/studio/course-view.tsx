@@ -90,8 +90,21 @@ export const CourseView = ({
     );
   }
 
+  const lessonImage = course.lessonImages?.[lesson.id];
+
   return (
-    <div className="flex flex-col md:flex-row gap-4 h-full">
+    <div className="flex flex-col h-full">
+      {course.coverImage && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={course.coverImage}
+          alt=""
+          className="w-full h-32 sm:h-40 object-cover rounded-xl mb-4"
+          loading="lazy"
+          style={{ border: "1px solid var(--fm-surface-border)" }}
+        />
+      )}
+      <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
       {/* Mobile dropdown selector */}
       <div className="md:hidden mb-2">
         <label
@@ -221,6 +234,16 @@ export const CourseView = ({
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
+            {lessonImage && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={lessonImage}
+                alt=""
+                className="w-full h-40 object-cover rounded-xl mb-3"
+                loading="lazy"
+                style={{ border: "1px solid var(--fm-surface-border)" }}
+              />
+            )}
             <div className="flex items-center gap-2 mb-1">
               <span
                 className="text-[11px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-md"
@@ -348,6 +371,7 @@ export const CourseView = ({
             </div>
           </motion.div>
         </AnimatePresence>
+      </div>
       </div>
     </div>
   );

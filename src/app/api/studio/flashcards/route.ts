@@ -11,9 +11,15 @@ import { getModel } from "@/lib/ai/models";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
+import { generateOutputImages } from "@/lib/media/generate-output-images";
 
 const flashcardsSchema = z.object({
   title: z.string(),
+  coverImagePrompt: z
+    .string()
+    .describe(
+      "1-sentence visual description for a cover illustration. NO text, NO labels. Visual objects and scenes related to the overall topic. Example: 'Colorful neurons firing in a brain cross-section with synapses glowing blue and purple'.",
+    ),
   cards: z.array(
     z.object({
       id: z.string(),
@@ -23,11 +29,23 @@ const flashcardsSchema = z.object({
       difficulty: z.enum(["easy", "medium", "hard"]),
       sourceReference: z.string(),
       tags: z.array(z.string()),
+      imagePrompt: z
+        .string()
+        .nullable()
+        .describe(
+          "Optional: 1-sentence visual for this card's concept. NO text/labels. null when the concept is too abstract to illustrate. Example for 'photosynthesis': 'A leaf cross-section showing chloroplasts absorbing sunlight rays with green and gold energy particles'.",
+        ),
     })
   ),
 });
 
-export type FlashcardContent = z.infer<typeof flashcardsSchema>;
+/** What gets persisted to output.content — schema fields + image URLs that
+ *  the server attaches after generation. coverImage/cardImages are optional
+ *  so old outputs with no images still type-check. */
+export type FlashcardContent = z.infer<typeof flashcardsSchema> & {
+  coverImage?: string | null;
+  cardImages?: Record<string, string>;
+};
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -178,16 +196,50 @@ Sources:
 ${sourceContext}`,
       });
 
+      // Generate cover + up to 5 card images in parallel. One cover at
+      // index 0, then each illustratable card in the order it appears.
+      const cardsWithImages = flashcards.cards
+        .filter((c): c is typeof c & { imagePrompt: string } =>
+          typeof c.imagePrompt === "string" && c.imagePrompt.trim().length > 0,
+        )
+        .slice(0, 5);
+      const imageTopics: string[] = [
+        flashcards.coverImagePrompt,
+        ...cardsWithImages.map((c) => c.imagePrompt),
+      ];
+      const images = await generateOutputImages({
+        topics: imageTopics,
+        outputType: "flashcards",
+        outputId,
+        notebookId,
+      });
+
+      const coverImage = images[0]?.url ?? null;
+      const cardImages: Record<string, string> = {};
+      cardsWithImages.forEach((card, i) => {
+        const img = images[i + 1];
+        if (img) cardImages[card.id] = img.url;
+      });
+
+      const savedContent: FlashcardContent = {
+        ...flashcards,
+        coverImage,
+        cardImages,
+      };
+
       await db
         .update(outputs)
         .set({
-          content: flashcards as unknown as Record<string, unknown>,
+          content: savedContent as unknown as Record<string, unknown>,
           status: "ready",
           updatedAt: new Date(),
         })
         .where(eq(outputs.id, outputId));
 
-      return NextResponse.json({ id: outputId, ...flashcards }, { status: 201 });
+      return NextResponse.json(
+        { id: outputId, ...savedContent },
+        { status: 201 },
+      );
     } catch (genError) {
       await db
         .update(outputs)

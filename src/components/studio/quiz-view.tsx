@@ -83,9 +83,11 @@ const difficultyPillStyle = (difficulty: string): React.CSSProperties => {
 export const QuizView = ({
   outputId,
   questions,
+  coverImage,
 }: {
   outputId: string;
   questions: Question[];
+  coverImage?: string | null;
 }): React.ReactNode => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -324,6 +326,17 @@ export const QuizView = ({
 
   return (
     <div className="max-w-3xl mx-auto">
+      {coverImage && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={coverImage}
+          alt=""
+          className="w-full h-32 sm:h-40 object-cover rounded-xl mb-4"
+          loading="lazy"
+          style={{ border: "1px solid var(--fm-surface-border)" }}
+        />
+      )}
+
       {/* Segmented progress bar */}
       <div className="flex gap-1 mb-6">
         {questions.map((_, i) => {

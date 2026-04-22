@@ -56,9 +56,13 @@ const pillStyle = (bg: string, fg: string): React.CSSProperties => ({
 export const FlashcardView = ({
   outputId,
   cards,
+  coverImage,
+  cardImages,
 }: {
   outputId: string;
   cards: Card[];
+  coverImage?: string | null;
+  cardImages?: Record<string, string>;
 }): React.ReactNode => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -227,8 +231,22 @@ export const FlashcardView = ({
     border: "1px solid var(--fm-surface-border)",
   };
 
+  const cardImageUrl = cardImages?.[card.id];
+
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Cover illustration — optional, skipped on old outputs */}
+      {coverImage && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={coverImage}
+          alt=""
+          className="w-full h-32 sm:h-40 object-cover rounded-xl mb-4"
+          loading="lazy"
+          style={{ border: "1px solid var(--fm-surface-border)" }}
+        />
+      )}
+
       {/* Stats bar */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex gap-2 flex-wrap">
@@ -348,6 +366,15 @@ export const FlashcardView = ({
                 >
                   {card.difficulty}
                 </span>
+                {cardImageUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={cardImageUrl}
+                    alt=""
+                    className="w-40 h-40 object-cover rounded-lg mb-4"
+                    loading="lazy"
+                  />
+                )}
                 <p className="text-xl font-semibold leading-snug">
                   {card.front}
                 </p>

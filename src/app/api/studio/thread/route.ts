@@ -7,9 +7,15 @@ import { db } from "@/lib/db";
 import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
+import { generateOutputImages } from "@/lib/media/generate-output-images";
 
 const threadSchema = z.object({
   title: z.string(),
+  coverImagePrompt: z
+    .string()
+    .describe(
+      "1-sentence visual illustration for the thread topic. NO text, NO labels.",
+    ),
   tweets: z.array(
     z.object({
       id: z.string(),
@@ -20,7 +26,9 @@ const threadSchema = z.object({
   ),
 });
 
-export type ThreadContent = z.infer<typeof threadSchema>;
+export type ThreadContent = z.infer<typeof threadSchema> & {
+  coverImage?: string | null;
+};
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -123,8 +131,31 @@ Sources:
 ${ctx.sourceContext}`,
       });
 
-      await db.update(outputs).set({ content: thread as unknown as Record<string, unknown>, status: "ready", updatedAt: new Date() }).where(eq(outputs.id, outputId));
-      return NextResponse.json({ id: outputId, ...thread }, { status: 201 });
+      const images = await generateOutputImages({
+        topics: [thread.coverImagePrompt],
+        outputType: "thread",
+        outputId,
+        notebookId,
+      });
+      const coverImage = images[0]?.url ?? null;
+
+      const savedContent: ThreadContent = {
+        ...thread,
+        coverImage,
+      };
+
+      await db
+        .update(outputs)
+        .set({
+          content: savedContent as unknown as Record<string, unknown>,
+          status: "ready",
+          updatedAt: new Date(),
+        })
+        .where(eq(outputs.id, outputId));
+      return NextResponse.json(
+        { id: outputId, ...savedContent },
+        { status: 201 },
+      );
     } catch (genError) {
       await db.update(outputs).set({ status: "error", content: { error: genError instanceof Error ? genError.message : "Failed" }, updatedAt: new Date() }).where(eq(outputs.id, outputId));
       throw genError;
