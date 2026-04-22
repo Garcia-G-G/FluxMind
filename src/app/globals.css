@@ -147,4 +147,28 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* Chrome/Safari paint autofilled inputs with a hard-coded pale yellow/blue
+     background that ignores our dark theme. `background-clip: text` restricts
+     the browser-injected fill to glyphs only, so the input's real background
+     shows through untouched. The 5000s transition defers the flash of color
+     on page load (old trick, still the most reliable). */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  textarea:-webkit-autofill:active,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus,
+  select:-webkit-autofill:active {
+    -webkit-text-fill-color: #ffffff !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    transition: background-color 5000s ease-in-out 0s;
+    caret-color: #ffffff;
+  }
 }

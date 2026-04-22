@@ -290,10 +290,10 @@ export const LandingPage = (): ReactNode => {
             }}
           >
             <span style={{ fontWeight: 700, color: "white" }}>Think deeper</span>
-            <span style={{ fontWeight: 300, color: "rgba(255,255,255,0.25)" }}>
+            <span style={{ fontWeight: 300, color: "rgba(255,255,255,0.5)" }}>
               {" with "}
             </span>
-            <span style={{ fontWeight: 300, color: "rgba(255,255,255,0.25)" }}>
+            <span style={{ fontWeight: 300, color: "rgba(255,255,255,0.5)" }}>
               everything you{" "}
             </span>
             <span style={{ fontWeight: 700, color: "white" }}>know.</span>
@@ -334,8 +334,8 @@ export const LandingPage = (): ReactNode => {
                 className="fm-landing-pill"
                 style={{
                   ...PILL_BASE_STYLE,
-                  color: "rgba(255,255,255,0.22)",
-                  border: "1px solid rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.4)",
+                  border: "1px solid rgba(255,255,255,0.06)",
                 }}
               >
                 {pill}
@@ -345,7 +345,7 @@ export const LandingPage = (): ReactNode => {
           <p
             style={{
               fontSize: 13,
-              color: "rgba(255,255,255,0.18)",
+              color: "rgba(255,255,255,0.4)",
               marginTop: 36,
               fontWeight: 350,
               letterSpacing: "-0.01em",
