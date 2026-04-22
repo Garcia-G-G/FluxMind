@@ -37,6 +37,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
         title: sources.title,
         tokenCount: sources.tokenCount,
         status: sources.status,
+        metadata: sources.metadata,
         createdAt: sources.createdAt,
         updatedAt: sources.updatedAt,
         chunkCount: sql<number>`COALESCE(COUNT(${sourceChunks.id}), 0)::int`.as(

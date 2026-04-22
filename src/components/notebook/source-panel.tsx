@@ -13,6 +13,8 @@ import {
   PlayCircle,
   BookOpen,
   Check,
+  Globe,
+  ChevronDown,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UnifiedSourceInput } from "@/components/upload/unified-source-input";
@@ -29,6 +31,38 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string }> = {
   youtube: { icon: PlayCircle, color: "#ef4444" },
 };
 const fallbackCfg = { icon: File, color: "#6b7280" };
+
+/* Special visual override for web-search sources: they live as type="txt" in
+ * the DB (metadata.origin === "web-search") but should look like web-research
+ * rather than a plain text file. */
+const WEB_SEARCH_CFG = { icon: Globe, color: "#3b82f6" } as const;
+
+type FoundUrl = {
+  url: string;
+  title: string;
+  domain: string;
+  favicon: string;
+};
+
+const isWebSearchSource = (meta: unknown): boolean => {
+  if (typeof meta !== "object" || meta === null) return false;
+  return (meta as { origin?: unknown }).origin === "web-search";
+};
+
+const getFoundUrls = (meta: unknown): FoundUrl[] => {
+  if (typeof meta !== "object" || meta === null) return [];
+  const raw = (meta as { foundUrls?: unknown }).foundUrls;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (u): u is FoundUrl =>
+      typeof u === "object" &&
+      u !== null &&
+      typeof (u as FoundUrl).url === "string" &&
+      typeof (u as FoundUrl).title === "string" &&
+      typeof (u as FoundUrl).domain === "string" &&
+      typeof (u as FoundUrl).favicon === "string",
+  );
+};
 
 /* ── Inline checkbox ── */
 const SourceCheck = ({
@@ -62,6 +96,16 @@ export const SourcePanel = ({
   const { data: sources, isLoading } = useSources(notebookId);
   const deleteSource = useDeleteSource();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string): void => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const sourceCount = sources?.length ?? 0;
   const readySources = useMemo(
@@ -161,21 +205,26 @@ export const SourcePanel = ({
         ) : sourceCount > 0 ? (
           <div className="px-2 py-1">
             {sources!.map((source, i) => {
-              const cfg = typeConfig[source.type] ?? fallbackCfg;
+              const isWebSearch = isWebSearchSource(source.metadata);
+              const cfg = isWebSearch
+                ? WEB_SEARCH_CFG
+                : (typeConfig[source.type] ?? fallbackCfg);
               const Icon = cfg.icon;
               const isReady = source.status === "ready";
               const isProcessing = source.status === "pending" || source.status === "processing";
               const isError = source.status === "error";
               const isChecked = selected.has(source.id);
+              const foundUrls = isWebSearch ? getFoundUrls(source.metadata) : [];
+              const isExpanded = expanded.has(source.id);
+              const canExpand = foundUrls.length > 0;
 
               return (
                 <div
                   key={source.id}
-                  className="group flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors cursor-default fm-stagger-item hover:bg-[var(--fm-surface-hover)]"
-                  style={{
-                    animationDelay: `${i * 15}ms`,
-                  }}
+                  className="group fm-stagger-item"
+                  style={{ animationDelay: `${i * 15}ms` }}
                 >
+                  <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors hover:bg-[var(--fm-surface-hover)]">
                   {/* Favicon-style icon */}
                   <div
                     className="shrink-0 flex items-center justify-center rounded-md"
@@ -204,17 +253,53 @@ export const SourcePanel = ({
                     )}
                   </div>
 
-                  {/* Title */}
-                  <span
-                    className="flex-1 min-w-0 text-[13px] truncate"
-                    style={{
-                      color: isError
-                        ? "var(--fm-text-tertiary)"
-                        : "var(--fm-text-secondary)",
-                    }}
-                  >
-                    {source.title}
-                  </span>
+                  {/* Title (click to expand for web-search) */}
+                  {canExpand ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(source.id)}
+                      aria-expanded={isExpanded}
+                      className="flex-1 min-w-0 flex items-center gap-1.5 text-left"
+                    >
+                      <span
+                        className="min-w-0 text-[13px] truncate"
+                        style={{
+                          color: isError
+                            ? "var(--fm-text-tertiary)"
+                            : "var(--fm-text-secondary)",
+                        }}
+                      >
+                        {source.title}
+                      </span>
+                      <span
+                        className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{
+                          background: `${cfg.color}18`,
+                          color: cfg.color,
+                        }}
+                      >
+                        {foundUrls.length}
+                      </span>
+                      <ChevronDown
+                        className="shrink-0 h-3 w-3 transition-transform"
+                        style={{
+                          color: "var(--fm-text-tertiary)",
+                          transform: isExpanded ? "rotate(180deg)" : "none",
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <span
+                      className="flex-1 min-w-0 text-[13px] truncate"
+                      style={{
+                        color: isError
+                          ? "var(--fm-text-tertiary)"
+                          : "var(--fm-text-secondary)",
+                      }}
+                    >
+                      {source.title}
+                    </span>
+                  )}
 
                   {/* Right side: checkbox or delete */}
                   <div className="shrink-0 flex items-center">
@@ -241,6 +326,50 @@ export const SourcePanel = ({
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
+                  </div>
+
+                  {/* Found URLs — only for web-search sources */}
+                  {canExpand && isExpanded && (
+                    <div className="ml-9 mr-2 mb-2 mt-1 flex flex-col gap-1 max-h-[220px] overflow-y-auto">
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-wider px-1"
+                        style={{ color: "var(--fm-text-tertiary)" }}
+                      >
+                        Sources found ({foundUrls.length})
+                      </span>
+                      {foundUrls.map((found) => (
+                        <a
+                          key={found.url}
+                          href={found.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--fm-surface-elevated)]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={found.favicon}
+                            alt=""
+                            width={14}
+                            height={14}
+                            className="shrink-0 rounded-sm"
+                            style={{ objectFit: "contain" }}
+                          />
+                          <span
+                            className="truncate flex-1 font-medium"
+                            style={{ color: "var(--fm-text)" }}
+                          >
+                            {found.title}
+                          </span>
+                          <span
+                            className="shrink-0 text-[10px]"
+                            style={{ color: "var(--fm-text-tertiary)" }}
+                          >
+                            {found.domain}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

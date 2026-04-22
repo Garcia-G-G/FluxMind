@@ -8,6 +8,7 @@ type SourceListItem = {
   title: string;
   tokenCount: number | null;
   status: string;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   chunkCount: number;
