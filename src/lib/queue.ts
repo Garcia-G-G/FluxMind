@@ -65,10 +65,34 @@ export const getDocumentQueue = (): Queue => {
   return _documentQueue;
 };
 
+/** Shared queue — the "type" field discriminates between document / video /
+ *  podcast jobs. Adding a new kind of background job means extending this
+ *  union + adding a case in the worker's processJob switch. */
 export type DocumentJobData = {
+  type?: "document";
   sourceId: string;
   notebookId: string;
   fileKey: string;
   sourceType: string;
   filename: string;
 };
+
+export type VideoJobData = {
+  type: "video";
+  notebookId: string;
+  outputId: string;
+  language?: "en" | "es";
+  style?: string;
+  detailLevel?: string;
+  customPrompt?: string;
+  extraSourceContent?: string;
+};
+
+export type PodcastJobData = {
+  type: "podcast";
+  notebookId: string;
+  outputId: string;
+  language?: "en" | "es";
+};
+
+export type QueueJobData = DocumentJobData | VideoJobData | PodcastJobData;

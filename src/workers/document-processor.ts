@@ -9,7 +9,12 @@ import { parseDocument } from "../lib/processing/parsers";
 import { chunkText, estimateTokenCount } from "../lib/processing/chunker";
 import { generateEmbeddings } from "../lib/ai/embeddings";
 import { downloadFile } from "../lib/storage/r2";
-import type { DocumentJobData } from "../lib/queue";
+import type {
+  DocumentJobData,
+  PodcastJobData,
+  QueueJobData,
+  VideoJobData,
+} from "../lib/queue";
 
 // Direct DB connection (worker runs standalone, not via Next.js)
 const connectionString = process.env.DATABASE_URL!;
@@ -134,30 +139,76 @@ const processDocument = async (job: Job<DocumentJobData>): Promise<void> => {
   }
 };
 
-const worker = new Worker<DocumentJobData>(
+/** Describe a job in logs without assuming its shape. */
+const describeJob = (data: QueueJobData): string => {
+  if ("type" in data && data.type === "video") return `video ${data.outputId}`;
+  if ("type" in data && data.type === "podcast")
+    return `podcast ${data.outputId}`;
+  return `source ${(data as DocumentJobData).sourceId}`;
+};
+
+const processJob = async (job: Job<QueueJobData>): Promise<void> => {
+  const data = job.data;
+  // Discriminate by `type`. Legacy document jobs either omit `type` or set
+  // it to "document" — both are handled by processDocument.
+  if ("type" in data && data.type === "video") {
+    const v = data as VideoJobData;
+    console.log(`[Worker] Processing video ${v.outputId}`);
+    // Load generateVideo lazily — no sense importing sharp/fal/elevenlabs
+    // on every worker boot when most jobs are document processing.
+    const { generateVideo } = await import("../lib/video/generate-video");
+    type VideoStyle = Parameters<typeof generateVideo>[2] extends infer O
+      ? O extends { style?: infer S }
+        ? S
+        : never
+      : never;
+    type VideoDetail = Parameters<typeof generateVideo>[2] extends infer O
+      ? O extends { detailLevel?: infer D }
+        ? D
+        : never
+      : never;
+    await generateVideo(v.notebookId, v.outputId, {
+      language: v.language,
+      style: v.style as VideoStyle,
+      detailLevel: v.detailLevel as VideoDetail,
+      customPrompt: v.customPrompt,
+      extraSourceContent: v.extraSourceContent,
+    });
+    return;
+  }
+  if ("type" in data && data.type === "podcast") {
+    const p = data as PodcastJobData;
+    console.log(`[Worker] Processing podcast ${p.outputId}`);
+    const { generatePodcast } = await import("../lib/podcast/generate-podcast");
+    await generatePodcast(p.notebookId, p.outputId, p.language ?? "en");
+    return;
+  }
+  // Default path — document ingestion.
+  await processDocument(job as Job<DocumentJobData>);
+};
+
+const worker = new Worker<QueueJobData>(
   "document-processing",
-  processDocument,
+  processJob,
   {
     connection,
     concurrency: 3,
-  }
+  },
 );
 
 worker.on("completed", (job) => {
-  console.log(
-    `[Worker] Job ${job.id} completed for source ${job.data.sourceId}`
-  );
+  console.log(`[Worker] Job ${job.id} completed for ${describeJob(job.data)}`);
 });
 
 worker.on("failed", (job, error) => {
   console.error(
-    `[Worker] Job ${job?.id} failed for source ${job?.data.sourceId}:`,
-    error.message
+    `[Worker] Job ${job?.id} failed for ${job ? describeJob(job.data) : "?"}:`,
+    error.message,
   );
 });
 
 worker.on("ready", () => {
-  console.log("[Worker] Document processing worker is ready");
+  console.log("[Worker] Queue worker ready (document / video / podcast)");
 });
 
 // Graceful shutdown

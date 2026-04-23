@@ -40,11 +40,22 @@ const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 // Voice fallback chain:
 //   1. ELEVENLABS_VOICE_VIDEO  — dedicated video voice if configured
 //   2. ELEVENLABS_VOICE_ALEX   — shared with the podcast path
-//   3. Rachel (21m00Tcm4TlvDq8ikWAM) — ElevenLabs default multilingual voice
-const resolveVoice = (): string =>
-  process.env.ELEVENLABS_VOICE_VIDEO ??
-  process.env.ELEVENLABS_VOICE_ALEX ??
-  "21m00Tcm4TlvDq8ikWAM";
+//   3. ELEVENLABS_NARRATOR_VOICE — shared with the single-voice narrator
+//   4. Matilda (XrExE9yKIg1WjnnlVkGX) — reliably present on every account
+//      (Rachel 21m00Tcm4TlvDq8ikWAM was deprecated on new accounts and
+//       caused TTS to 404 out-of-the-box).
+//   Spanish selects matching ES voice via ELEVENLABS_VOICE_VIDEO_ES if
+//   provided, otherwise falls through to the multilingual default.
+const resolveVoice = (language: "en" | "es" = "en"): string => {
+  if (language === "es" && process.env.ELEVENLABS_VOICE_VIDEO_ES)
+    return process.env.ELEVENLABS_VOICE_VIDEO_ES;
+  return (
+    process.env.ELEVENLABS_VOICE_VIDEO ??
+    process.env.ELEVENLABS_VOICE_ALEX ??
+    process.env.ELEVENLABS_NARRATOR_VOICE ??
+    "XrExE9yKIg1WjnnlVkGX"
+  );
+};
 
 const scriptSchema = z.object({
   title: z.string(),
@@ -312,7 +323,7 @@ ${sourceContext}`,
     // ── Step 3: Synthesize TTS per chapter (ElevenLabs) ─────────────
     const hasEleven = !!process.env.ELEVENLABS_API_KEY;
     let partial = !hasEleven;
-    const voiceId = resolveVoice();
+    const voiceId = resolveVoice(language);
 
     if (hasEleven) {
       for (let i = 0; i < chapters.length; i++) {
