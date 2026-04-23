@@ -192,10 +192,17 @@ const renderChart = (
         `<path d="${pathD}" fill="none" stroke="${accent}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />`,
       );
     } else if (block.chartType === "bar") {
-      const barW = Math.max(8, plotW / (n * 2));
+      // Cap bar width so 3-point charts don't render as a solid wall.
+      // `plotW / (n * 3)` leaves ~2/3 of the slot as gap between bars;
+      // the 60px ceiling keeps wide charts from looking cartoonishly chunky.
+      const barW = Math.min(60, Math.max(8, plotW / (n * 3)));
       for (const p of points) {
         parts.push(
           `<rect x="${(p.px - barW / 2).toFixed(1)}" y="${p.py.toFixed(1)}" width="${barW.toFixed(1)}" height="${(baselineY - p.py).toFixed(1)}" fill="${accent}" rx="2" />`,
+        );
+        // Value label above each bar so the scale is readable without the y-axis.
+        parts.push(
+          `<text x="${p.px.toFixed(1)}" y="${(p.py - 8).toFixed(1)}" font-family="${FONT_TECHNICAL}" font-size="11" fill="${accent}" text-anchor="middle" font-weight="600">${escapeXml(String(p.y))}</text>`,
         );
       }
     } else {
@@ -554,16 +561,28 @@ const buildSvgOverlay = (
     const n = block.items.length;
     const gap = 16;
     const colW = (w - gap * (n - 1)) / n;
-    const rowH = 110;
+    const rowH = 140;
+    // Long comparison *values* used to render at font-size 26 with zero
+    // wrapping — any prose value bled out of the box. Truncate to what
+    // fits the column at that font-size (~14px per glyph).
+    const maxValueChars = Math.max(8, Math.floor(colW / 14));
+    // Label wrapping used to hard-code 16 chars — way too narrow for
+    // 400-600px columns. Derive from actual colW (~7.5px per glyph at
+    // font-size 13) so labels fill the box and wrap cleanly.
+    const charsPerLine = Math.max(12, Math.floor(colW / 7.5));
     block.items.forEach((item, i) => {
       const bx = x + i * (colW + gap);
       parts.push(
         `<rect x="${bx}" y="${y0}" width="${colW}" height="${rowH}" rx="4" fill="white" fill-opacity="0.92" stroke="${COLOR_HAIRLINE}" stroke-width="0.75" />`,
       );
+      const displayValue =
+        item.value.length > maxValueChars
+          ? item.value.slice(0, Math.max(1, maxValueChars - 1)) + "…"
+          : item.value;
       parts.push(
-        `<text x="${bx + colW / 2}" y="${y0 + 34}" font-family="${FONT_SERIF}" font-size="26" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(item.value)}</text>`,
+        `<text x="${bx + colW / 2}" y="${y0 + 34}" font-family="${FONT_SERIF}" font-size="26" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(displayValue)}</text>`,
       );
-      const labelLines = wrapText(item.label, 16).slice(0, 3);
+      const labelLines = wrapText(item.label, charsPerLine).slice(0, 4);
       labelLines.forEach((line, li) => {
         parts.push(
           `<text x="${bx + colW / 2}" y="${y0 + 58 + li * 15}" font-family="${FONT_TECHNICAL}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,

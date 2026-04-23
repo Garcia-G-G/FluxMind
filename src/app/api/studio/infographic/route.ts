@@ -284,16 +284,17 @@ ${userInstr}
 You are an expert teacher building a SERIES of exactly ${infographicCount} connected infographics about this topic. Each page is one infographic in a visual series; they flow as a single narrative.
 
 SERIES STRUCTURE:
-- Page 1: Overview & hook. Lead with the most surprising stats and frame what the series will cover.
-- Pages 2..${infographicCount - 1}: Deep dives. Each picks a different subtopic / angle. Never repeat the same block-type pattern two pages in a row.
-- Page ${infographicCount}: Conclusion. Wrap with the single biggest takeaway + what to do next.
+- Page 1: "Data Dashboard" — hook with the most surprising numbers, overview the topic
+- Page 2: "Chart Analysis" — visual data deep dive with charts and annotations
+- Page 3: "Process & Context" — how things work or evolved, with comparisons
+- Pages 4+: Rotate through different emphases (versus, trends, concepts, summary)
+- Last page: Always end with a strong "takeaway" block
 
 CRITICAL VARIETY RULES:
 - Every page MUST have a unique title AND unique subtitle.
 - Every page MUST have its own illustrationPrompt describing different visual vignettes.
 - accentColor CAN vary between pages — pick what fits each page's mood.
-- Every page MUST use a different mix of block types from its neighbours (if one page is stat-heavy, the next leans on chart + flow; if one uses callouts heavily, the next leans on comparison).
-- Each page's blocks follow the same density/quality rules below.
+- Each page's blocks follow the density/quality rules below.
 
 Per-page rules below apply to EACH page inside the "pages" array.
 
@@ -315,25 +316,37 @@ Read the sources and pull out:
 All block content must come from these extractions. Do NOT invent facts.
 
 ═══════════════════════════════════════
-STEP 2 — STRUCTURE (target: ${detailPick})
+STEP 2 — STRUCTURE (EACH PAGE MUST HAVE A DIFFERENT BLOCK MIX)
 ═══════════════════════════════════════
 
-An infographic tells a visual story. Compose:
+The infographic series must feel visually varied. Each page uses a DIFFERENT combination of block types. Follow these compositions strictly:
 
-Opening (hook):
-→ 1-2 "stat" blocks with surprising numbers to anchor attention
+PAGE 1 — "Data Dashboard" (overview with numbers):
+  • 3-4 "stat" blocks (the biggest, most surprising numbers from the sources)
+  • 1 "text" block (2-3 sentences framing the topic)
+  • 1 "takeaway" block (the single most important insight)
+  • NO chart, NO flow, NO comparison on this page
 
-Body (teach):
-→ 1 "chart" block if the sources contain quantitative data (trends, distributions)
-→ 1-2 "callout" blocks for concepts that need deeper explanation
-→ 1 "flow" or "timeline" block if there's a process or chronology
-→ 1 "comparison" block if named alternatives are discussed
-→ 0-1 "text" blocks ONLY when essential context can't be conveyed visually
+PAGE 2 — "Chart Analysis" (visual data story):
+  • 1 "chart" block — this is the hero (line, bar, or area chart with 4-8 real data points, annotations on 1-2)
+  • 2-3 "callout" blocks explaining what the chart reveals, with specific numbers
+  • NO stat blocks on this page
 
-Closing (seal):
-→ 1 "takeaway" block with a specific, memorable, actionable conclusion
+PAGE 3 — "Process & Context" (narrative flow):
+  • 1 "flow" OR "timeline" block — the main visual element (pick whichever fits)
+  • 1 "comparison" block (2-4 named alternatives with quantifiable differences)
+  • 1 "callout" block for extra context
+  • NO stat blocks, NO chart on this page
 
-Never use more than 2 of the same block type. Vary layouts.
+FOR PAGES 4+ (if ${infographicCount} > 3), rotate through these patterns in order:
+  • "Versus Page":  2 "comparison" blocks + 2 "stat" blocks (head-to-head analysis)
+  • "Deep Analysis": 1 "chart" + 1 "timeline" + 1 "takeaway" (trends over time)
+  • "Key Concepts": 3 "callout" blocks + 1 "stat" (definitions and explanations)
+  • "Summary Dashboard": 4 "stat" blocks + 1 "takeaway" (numbers recap)
+
+STRICT RULE: No two consecutive pages may share the same dominant block type. If page 2 has a chart, page 3 must NOT have a chart. If page 3 has a timeline, page 4 must NOT have a timeline.
+
+Each page has 4-8 blocks total (density target: ${detailPick}).
 
 ═══════════════════════════════════════
 STEP 3 — DENSITY (every block must teach)
