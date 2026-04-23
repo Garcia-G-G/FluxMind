@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Search, Wand2 } from "lucide-react";
+import { Loader2, Search, Wand2, ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -346,6 +346,7 @@ export const GenerateDialog = ({
     Set<string>
   >(new Set());
   const [isScrapingOnSubmit, setIsScrapingOnSubmit] = useState<boolean>(false);
+  const [sourcesExpanded, setSourcesExpanded] = useState<boolean>(false);
 
   // Reset defaults whenever the dialog opens with a new type
   useEffect(() => {
@@ -362,6 +363,7 @@ export const GenerateDialog = ({
       setDiscoveredSources([]);
       setSelectedDiscoveredUrls(new Set());
       setIsScrapingOnSubmit(false);
+      setSourcesExpanded(false);
     }
   }, [open, currentLanguage]);
 
@@ -880,13 +882,39 @@ export const GenerateDialog = ({
                 borderRadius: "0.75rem",
               }}
             >
-              <div className="flex items-center justify-between">
-                <span
-                  className={sectionLabelClass}
-                  style={sectionLabelStyle}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSourcesExpanded((v) => !v)}
+                  aria-expanded={sourcesExpanded}
+                  className="flex flex-1 items-center gap-2 text-left"
                 >
-                  Sources
-                </span>
+                  <span
+                    className={sectionLabelClass}
+                    style={sectionLabelStyle}
+                  >
+                    Sources
+                  </span>
+                  <span
+                    className="inline-flex items-center text-[10px] font-semibold rounded-full px-1.5 py-0.5"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--fm-accent-rose) 10%, transparent)",
+                      color: "var(--fm-accent-rose)",
+                    }}
+                  >
+                    {selectedSourceIds.size + selectedDiscoveredUrls.size}
+                  </span>
+                  <ChevronDown
+                    className="h-3.5 w-3.5 transition-transform"
+                    style={{
+                      color: "var(--fm-text-tertiary)",
+                      transform: sourcesExpanded
+                        ? "rotate(180deg)"
+                        : "none",
+                    }}
+                  />
+                </button>
                 <button
                   type="button"
                   onClick={findSources}
@@ -906,6 +934,9 @@ export const GenerateDialog = ({
                   Find sources
                 </button>
               </div>
+              {sourcesExpanded && (
+              <>
+              {/* begin collapsible body */}
 
               {/* Existing notebook sources */}
               {existingSources.length > 0 && (
@@ -1066,6 +1097,9 @@ export const GenerateDialog = ({
                   </>
                 )}
               </div>
+              {/* end collapsible body */}
+              </>
+              )}
             </div>
 
             {/* Custom prompt */}
