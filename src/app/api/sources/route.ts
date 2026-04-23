@@ -35,6 +35,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
         id: sources.id,
         type: sources.type,
         title: sources.title,
+        originalUrl: sources.originalUrl,
         tokenCount: sources.tokenCount,
         status: sources.status,
         metadata: sources.metadata,

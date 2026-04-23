@@ -6,6 +6,7 @@ type SourceListItem = {
   id: string;
   type: string;
   title: string;
+  originalUrl: string | null;
   tokenCount: number | null;
   status: string;
   metadata: Record<string, unknown> | null;

@@ -214,7 +214,30 @@ export const SourcePanel = ({
               const isProcessing = source.status === "pending" || source.status === "processing";
               const isError = source.status === "error";
               const isChecked = selected.has(source.id);
-              const foundUrls = isWebSearch ? getFoundUrls(source.metadata) : [];
+              // Build the URL list to show under the source title. Priority:
+              //   1. Web-search sources carry multiple URLs in metadata.foundUrls.
+              //   2. URL / YouTube sources carry a single originalUrl column.
+              //   3. File / pasted-text sources have neither — nothing to show.
+              const foundUrls: FoundUrl[] = (() => {
+                if (isWebSearch) return getFoundUrls(source.metadata);
+                if (source.originalUrl) {
+                  let hostname = source.originalUrl;
+                  try {
+                    hostname = new URL(source.originalUrl).hostname;
+                  } catch {
+                    /* leave hostname as the raw string */
+                  }
+                  return [
+                    {
+                      url: source.originalUrl,
+                      title: source.title || hostname,
+                      domain: hostname,
+                      favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
+                    },
+                  ];
+                }
+                return [];
+              })();
               const isExpanded = expanded.has(source.id);
               const canExpand = foundUrls.length > 0;
 
