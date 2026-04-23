@@ -126,7 +126,21 @@ const layoutSchema = z.object({
 
 type LayoutContent = z.infer<typeof layoutSchema>;
 
-// Back-compat shape consumed by the existing viewer.
+const multiLayoutSchema = z.object({
+  pages: z.array(layoutSchema).min(3).max(10),
+});
+
+export type InfographicPage = {
+  index: number;
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+};
+
+// Back-compat shape consumed by the existing viewer. Older single-image
+// outputs read `imageUrl` directly; multi-page outputs also populate
+// `pages` so the viewer can paginate.
 export type InfographicContent = {
   id?: string;
   title: string;
@@ -138,6 +152,8 @@ export type InfographicContent = {
   keyStats: Array<{ value: string; label: string }>;
   layout?: LayoutContent;
   error?: string;
+  /** Multi-page infographic series — first entry mirrors imageUrl. */
+  pages?: InfographicPage[];
 };
 
 // ---------- Route ----------
@@ -155,6 +171,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       detailLevel: rawDetail = "standard",
       customPrompt: rawCustom = "",
       orientation: rawOrientation = "vertical",
+      infographicCount: rawInfographicCount = 3,
       selectedSourceIds: rawSelectedSourceIds,
       extraSourceContent: rawExtraSourceContent,
     } = body as {
@@ -165,9 +182,14 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       detailLevel?: string;
       customPrompt?: string;
       orientation?: string;
+      infographicCount?: number;
       selectedSourceIds?: string[];
       extraSourceContent?: string;
     };
+    const infographicCount = Math.max(
+      3,
+      Math.min(Math.floor(Number(rawInfographicCount) || 3), 10),
+    );
 
     const selectedSourceIds: string[] = Array.isArray(rawSelectedSourceIds)
       ? rawSelectedSourceIds.filter((s): s is string => typeof s === "string")
@@ -252,13 +274,29 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     });
 
     // ---- Phase 1: structured layout ----
-    let content: LayoutContent;
+    let pagesContent: LayoutContent[];
     try {
       const { object } = await generateObject({
         model: getModel(modelId),
-        schema: layoutSchema,
+        schema: multiLayoutSchema,
         prompt: `${langInstr}
 ${userInstr}
+You are an expert teacher building a SERIES of exactly ${infographicCount} connected infographics about this topic. Each page is one infographic in a visual series; they flow as a single narrative.
+
+SERIES STRUCTURE:
+- Page 1: Overview & hook. Lead with the most surprising stats and frame what the series will cover.
+- Pages 2..${infographicCount - 1}: Deep dives. Each picks a different subtopic / angle. Never repeat the same block-type pattern two pages in a row.
+- Page ${infographicCount}: Conclusion. Wrap with the single biggest takeaway + what to do next.
+
+CRITICAL VARIETY RULES:
+- Every page MUST have a unique title AND unique subtitle.
+- Every page MUST have its own illustrationPrompt describing different visual vignettes.
+- accentColor CAN vary between pages — pick what fits each page's mood.
+- Every page MUST use a different mix of block types from its neighbours (if one page is stat-heavy, the next leans on chart + flow; if one uses callouts heavily, the next leans on comparison).
+- Each page's blocks follow the same density/quality rules below.
+
+Per-page rules below apply to EACH page inside the "pages" array.
+
 You are an expert teacher building an infographic that TEACHES real, specific facts from the provided sources. Content density and factual accuracy come first; the visual is secondary.
 
 ═══════════════════════════════════════
@@ -338,7 +376,7 @@ All text must be in ${LANG_NAME}. The illustrationPrompt itself may be prose in 
 Sources:
 ${finalContext}`,
       });
-      content = object;
+      pagesContent = object.pages;
     } catch (err) {
       console.error("Infographic content generation failed:", err);
       const msg =
@@ -357,44 +395,68 @@ ${finalContext}`,
       );
     }
 
-    // ---- Phase 2: compose via hybrid pipeline ----
-    // If FAL_KEY is missing, composeInfographic internally falls back to a
-    // plain cream background — the text still renders. But we also expose an
-    // explicit "error" path so the viewer can surface a soft warning.
-    let imageUrl = "";
-    let thumbnailUrl: string | null = null;
-    let composeError: string | null = null;
-    try {
-      // Style drives the composer's readability sheet tint via
-      // STYLE_CONFIGS[style].overlayBg.
-      const composeOpts: ComposeOptions = {
-        notebookId,
-        outputId,
-        width: canvasSize.width,
-        height: canvasSize.height,
-        style,
-      };
-      const composed = await composeInfographic(
-        content as InfographicLayout,
-        composeOpts,
-      );
-      imageUrl = composed.imageUrl;
-      thumbnailUrl = composed.thumbnailUrl;
-    } catch (err) {
-      console.error("Infographic composition failed:", err);
-      composeError =
-        err instanceof Error ? err.message : "composition failed";
-    }
+    // ---- Phase 2: compose every page in parallel ----
+    // Each page uses its own pageIndex so selectTemplate rolls across the
+    // template pool — the same outputId + pageIndex is deterministic, so
+    // a retry renders identical pages. FAL failures fall back to the cream
+    // background per-page; we only flag the whole output as error when no
+    // page succeeded.
+    const composedPages = await Promise.all(
+      pagesContent.map(async (pageContent, i) => {
+        const pageId = i === 0 ? outputId! : `${outputId}-p${i + 1}`;
+        try {
+          const composeOpts: ComposeOptions = {
+            notebookId,
+            outputId: pageId,
+            width: canvasSize.width,
+            height: canvasSize.height,
+            style,
+            pageIndex: i,
+          };
+          const composed = await composeInfographic(
+            pageContent as InfographicLayout,
+            composeOpts,
+          );
+          return {
+            imageUrl: composed.imageUrl,
+            thumbnailUrl: composed.thumbnailUrl,
+            error: null as string | null,
+          };
+        } catch (err) {
+          console.error(`Infographic page ${i + 1} composition failed:`, err);
+          return {
+            imageUrl: "",
+            thumbnailUrl: null as string | null,
+            error: err instanceof Error ? err.message : "composition failed",
+          };
+        }
+      }),
+    );
+
+    const pages: InfographicPage[] = composedPages.map((composed, i) => ({
+      index: i + 1,
+      title: pagesContent[i].title,
+      subtitle: pagesContent[i].subtitle,
+      imageUrl: composed.imageUrl,
+      thumbnailUrl: composed.thumbnailUrl,
+    }));
+
+    const allFailed = composedPages.every((p) => !p.imageUrl);
+    const composeError = allFailed
+      ? (composedPages[0]?.error ?? "composition failed")
+      : null;
+    const firstPage = pagesContent[0];
 
     const saved: InfographicContent = {
       id: outputId,
-      title: content.title,
-      subtitle: content.subtitle,
-      imageUrl,
-      thumbnailUrl,
-      imagePrompt: content.illustrationPrompt,
-      sections: content.sections,
-      keyStats: content.keyStats,
+      title: firstPage.title,
+      subtitle: firstPage.subtitle,
+      imageUrl: pages[0]?.imageUrl ?? "",
+      thumbnailUrl: pages[0]?.thumbnailUrl ?? null,
+      imagePrompt: firstPage.illustrationPrompt,
+      sections: firstPage.sections,
+      keyStats: firstPage.keyStats,
+      pages,
       ...(composeError ? { error: composeError } : {}),
     };
 
@@ -403,10 +465,11 @@ ${finalContext}`,
       .set({
         content: {
           ...(saved as unknown as Record<string, unknown>),
-          layout: content,
+          layout: firstPage,
+          allLayouts: pagesContent,
         },
-        fileUrl: imageUrl || null,
-        thumbnailUrl: thumbnailUrl ?? undefined,
+        fileUrl: pages[0]?.imageUrl || null,
+        thumbnailUrl: pages[0]?.thumbnailUrl ?? undefined,
         status: composeError ? "error" : "ready",
         updatedAt: new Date(),
       })

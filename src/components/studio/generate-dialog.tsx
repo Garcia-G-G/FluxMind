@@ -36,6 +36,8 @@ export type GenerateConfig = {
   detailLevel: "concise" | "standard" | "detailed";
   customPrompt: string;
   slideCount?: number;
+  /** Number of connected infographic pages in the generated series (3-10). */
+  infographicCount?: number;
   accentColor?: "orange" | "violet" | "blue" | "rose" | "emerald" | "amber";
   /** IDs of existing notebook sources the user selected. Forward-compat plumbing. */
   selectedSourceIds?: string[];
@@ -328,6 +330,7 @@ export const GenerateDialog = ({
     useState<GenerateConfig["detailLevel"]>("standard");
   const [customPrompt, setCustomPrompt] = useState<string>("");
   const [slideCount, setSlideCount] = useState<number>(8);
+  const [infographicCount, setInfographicCount] = useState<number>(3);
   const [accentColor, setAccentColor] =
     useState<NonNullable<GenerateConfig["accentColor"]>>("orange");
 
@@ -357,6 +360,7 @@ export const GenerateDialog = ({
       setDetailLevel("standard");
       setCustomPrompt("");
       setSlideCount(8);
+      setInfographicCount(3);
       setAccentColor("orange");
       setIsDiscovering(false);
       setHasDiscovered(false);
@@ -402,6 +406,7 @@ export const GenerateDialog = ({
     outputType === "infographic" ||
     outputType === "video";
   const showSlideCount = outputType === "slides";
+  const showInfographicCount = outputType === "infographic";
   const showAccent =
     outputType === "slides" || outputType === "infographic";
 
@@ -471,6 +476,7 @@ export const GenerateDialog = ({
       customPrompt: customPrompt.trim(),
     };
     if (showSlideCount) config.slideCount = slideCount;
+    if (showInfographicCount) config.infographicCount = infographicCount;
     if (showAccent) config.accentColor = accentColor;
 
     // Thread selected existing source ids through (forward-compat).
@@ -531,6 +537,7 @@ export const GenerateDialog = ({
     showOrientation ? capitalize(orientation) : null,
     showStyle ? capitalize(style) : null,
     showSlideCount ? `${slideCount} slides` : null,
+    showInfographicCount ? `${infographicCount} pages` : null,
     capitalize(detailLevel),
     `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
   ].filter((x): x is string => Boolean(x));
@@ -789,6 +796,65 @@ export const GenerateDialog = ({
                         style={{ color: "var(--fm-text-tertiary)" }}
                       >
                         slides
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Infographic count — number of connected pages */}
+                {showInfographicCount && (
+                  <div className="flex flex-col gap-2">
+                    <span
+                      className={sectionLabelClass}
+                      style={sectionLabelStyle}
+                    >
+                      Pages
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setInfographicCount(Math.max(3, infographicCount - 1))
+                        }
+                        disabled={infographicCount <= 3}
+                        aria-label="Decrease page count"
+                        className="w-8 h-8 rounded-lg border flex items-center justify-center text-base transition-colors disabled:opacity-30"
+                        style={{
+                          background: "var(--fm-surface-elevated)",
+                          borderColor: "var(--fm-surface-border)",
+                          color: "var(--fm-text-secondary)",
+                        }}
+                      >
+                        −
+                      </button>
+                      <span
+                        className="text-lg font-bold min-w-[28px] text-center"
+                        style={{ color: "var(--fm-text)" }}
+                        aria-live="polite"
+                      >
+                        {infographicCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setInfographicCount(Math.min(10, infographicCount + 1))
+                        }
+                        disabled={infographicCount >= 10}
+                        aria-label="Increase page count"
+                        className="w-8 h-8 rounded-lg border flex items-center justify-center text-base transition-colors disabled:opacity-30"
+                        style={{
+                          background: "var(--fm-surface-elevated)",
+                          borderColor: "var(--fm-surface-border)",
+                          color: "var(--fm-text-secondary)",
+                        }}
+                      >
+                        +
+                      </button>
+                      <span
+                        className="text-[11px]"
+                        style={{ color: "var(--fm-text-tertiary)" }}
+                      >
+                        infographics in sequence
                       </span>
                     </div>
                   </div>
