@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { scrapePage } from "@/lib/research/web-scrape";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+export const maxDuration = 60;
 
 export type ScrapedResult = {
   url: string;
@@ -21,6 +24,12 @@ export const POST = async (
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "studio.scrape",
+      ...RATE_LIMITS.scrapeSources,
+    });
+    if (limited) return limited;
 
     const body = await request.json();
     const rawUrls: unknown = body?.urls;

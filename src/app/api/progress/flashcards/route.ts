@@ -5,7 +5,9 @@ import { createId } from "@paralleldrive/cuid2";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { flashcardProgress } from "@/db/schema/progress";
+import { outputs } from "@/db/schema/outputs";
 import { calculateSM2 } from "@/lib/study/sm2";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -42,6 +44,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "progress.flashcards",
+      ...RATE_LIMITS.progress,
+    });
+    if (limited) return limited;
 
     const body = await request.json();
     const { outputId, cardIndex, gotIt } = body as {
@@ -52,6 +60,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     if (!outputId || cardIndex === undefined || gotIt === undefined) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    // Ownership check — the output must belong to this user.
+    const [owner] = await db
+      .select({ userId: outputs.userId })
+      .from(outputs)
+      .where(eq(outputs.id, outputId));
+    if (!owner || owner.userId !== session.user.id) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     // Find existing progress or create new

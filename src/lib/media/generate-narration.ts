@@ -75,8 +75,10 @@ export const synthesizeSpeech = async (
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
 
-  const res = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
+  const { fetchWithTimeout } = await import("@/lib/utils/fetch-timeout");
+  const res = await fetchWithTimeout(`${ELEVENLABS_API_URL}/${voiceId}`, {
     method: "POST",
+    timeoutMs: 60_000,
     headers: {
       "xi-api-key": apiKey,
       "Content-Type": "application/json",

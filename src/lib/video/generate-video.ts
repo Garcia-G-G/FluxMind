@@ -108,8 +108,10 @@ const synthesizeNarration = async (
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
 
-  const res = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
+  const { fetchWithTimeout } = await import("@/lib/utils/fetch-timeout");
+  const res = await fetchWithTimeout(`${ELEVENLABS_API_URL}/${voiceId}`, {
     method: "POST",
+    timeoutMs: 60_000,
     headers: {
       "xi-api-key": apiKey,
       "Content-Type": "application/json",
@@ -135,7 +137,8 @@ const synthesizeNarration = async (
 };
 
 const downloadToBuffer = async (url: string): Promise<Buffer> => {
-  const res = await fetch(url);
+  const { fetchWithTimeout } = await import("@/lib/utils/fetch-timeout");
+  const res = await fetchWithTimeout(url, { timeoutMs: 30_000 });
   if (!res.ok) throw new Error(`Download ${url} failed: ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 };
@@ -279,45 +282,57 @@ ${sourceContext}`,
     // ── Step 2: Generate chapter images via fal.ai (best-effort) ────
     const hasFal = !!process.env.FAL_KEY;
     if (hasFal) {
-      for (let i = 0; i < chapters.length; i++) {
-        try {
-          const result = (await fal.subscribe("fal-ai/flux/schnell", {
-            input: {
-              prompt: `${chapters[i].imagePrompt}. Landscape 16:9. Professional, high quality, clean design, suitable for educational video.`,
-              image_size: "landscape_16_9",
-              num_images: 1,
-              num_inference_steps: 4,
-              enable_safety_checker: false,
-            },
-            logs: false,
-          })) as { data?: { images?: Array<{ url: string }> } };
-          const falUrl = result.data?.images?.[0]?.url;
-          if (falUrl) {
+      // Generate all chapter images in parallel — flux/schnell finishes in
+      // ~10s each, so 6 chapters should complete in ~10-15s wall clock vs
+      // ~60-90s sequential. Per-chapter timeouts cap a stuck call.
+      const { withDeadline } = await import("@/lib/utils/fetch-timeout");
+      const imageResults = await Promise.all(
+        chapters.map(async (chapter, i) => {
+          try {
+            const result = (await withDeadline(
+              fal.subscribe("fal-ai/flux/schnell", {
+                input: {
+                  prompt: `${chapter.imagePrompt}. Landscape 16:9. Professional, high quality, clean design, suitable for educational video.`,
+                  image_size: "landscape_16_9",
+                  num_images: 1,
+                  num_inference_steps: 4,
+                  enable_safety_checker: false,
+                },
+                logs: false,
+              }) as Promise<{ data?: { images?: Array<{ url: string }> } }>,
+              90_000,
+              `fal-ai/flux/schnell ch${i}`,
+            )) as { data?: { images?: Array<{ url: string }> } };
+            const falUrl = result.data?.images?.[0]?.url;
+            if (!falUrl) return null;
             try {
               const buf = await downloadToBuffer(falUrl);
-              chapters[i].imageUrl = await uploadFile(
+              return await uploadFile(
                 buf,
                 `videos/${notebookId}/${outputId}/images/${i}-${createId()}.png`,
                 "image/png",
               );
             } catch {
-              // Fall back to the short-lived fal URL — better than nothing.
-              chapters[i].imageUrl = falUrl;
+              return falUrl; // short-lived fal URL is better than nothing
             }
+          } catch (err) {
+            console.warn(`Chapter ${i} image failed:`, err);
+            return null;
           }
-        } catch (err) {
-          console.warn(`Chapter ${i} image failed:`, err);
-        }
-        await updateProgress(outputId, {
-          content: {
-            script,
-            chapters,
-            progress: 20 + Math.round(((i + 1) / chapters.length) * 30),
-            phase: "images",
-            mode: "slideshow",
-          },
-        });
-      }
+        }),
+      );
+      imageResults.forEach((url, i) => {
+        if (url) chapters[i].imageUrl = url;
+      });
+      await updateProgress(outputId, {
+        content: {
+          script,
+          chapters,
+          progress: 50,
+          phase: "images",
+          mode: "slideshow",
+        },
+      });
     }
 
     // ── Step 3: Synthesize TTS per chapter (ElevenLabs) ─────────────
@@ -326,32 +341,47 @@ ${sourceContext}`,
     const voiceId = resolveVoice(language);
 
     if (hasEleven) {
-      for (let i = 0; i < chapters.length; i++) {
-        try {
-          const audio = await synthesizeNarration(
-            chapters[i].narration,
-            voiceId,
-          );
-          const key = `videos/${notebookId}/${outputId}/chapters/${i}.mp3`;
-          chapters[i].audioUrl = await uploadFile(audio, key, "audio/mpeg");
-        } catch (err) {
-          console.warn(`Chapter ${i} TTS failed:`, err);
-          partial = true;
-          chapters[i].audioUrl = "";
-        }
-
+      // Parallelise TTS — ElevenLabs allows multiple in-flight per key, so
+      // narrating 6 chapters drops from ~60s sequential to ~10-15s. We
+      // chunk by 3 to stay well below the per-second cap.
+      const TTS_CONCURRENCY = 3;
+      for (let start = 0; start < chapters.length; start += TTS_CONCURRENCY) {
+        const slice = chapters.slice(start, start + TTS_CONCURRENCY);
+        const audios = await Promise.all(
+          slice.map(async (chapter, j) => {
+            const i = start + j;
+            try {
+              const audio = await synthesizeNarration(
+                chapter.narration,
+                voiceId,
+              );
+              const key = `videos/${notebookId}/${outputId}/chapters/${i}.mp3`;
+              return await uploadFile(audio, key, "audio/mpeg");
+            } catch (err) {
+              console.warn(`Chapter ${i} TTS failed:`, err);
+              return null;
+            }
+          }),
+        );
+        audios.forEach((url, j) => {
+          const i = start + j;
+          if (url) chapters[i].audioUrl = url;
+          else {
+            partial = true;
+            chapters[i].audioUrl = "";
+          }
+        });
         await updateProgress(outputId, {
           content: {
             script,
             chapters,
-            progress: 50 + Math.round(((i + 1) / chapters.length) * 40),
+            progress:
+              50 +
+              Math.round(((start + slice.length) / chapters.length) * 40),
             phase: "tts",
             mode: "slideshow",
           },
         });
-
-        // Soft rate limit — ElevenLabs per-second cap guardrail.
-        await new Promise((r) => setTimeout(r, 150));
       }
     }
 

@@ -37,6 +37,9 @@ export const useQuizProgress = (outputId: string) => {
       return res.json();
     },
     enabled: !!outputId,
+    // Quiz attempts only change when the user completes a run; the save
+    // mutation invalidates this key. 5 min cache between viewer mounts.
+    staleTime: 5 * 60_000,
   });
 };
 
@@ -72,6 +75,9 @@ export const useSaveQuizProgress = () => {
 export const useFlashcardProgress = (outputId: string) => {
   return useQuery({
     queryKey: ["flashcard-progress", outputId],
+    // Flashcard progress is invalidated by the SM-2 update mutation per
+    // card; cache between mounts so re-opening the viewer does not refetch.
+    staleTime: 60_000,
     queryFn: async (): Promise<FlashcardProgressItem[]> => {
       const res = await fetch(
         `/api/progress/flashcards?outputId=${outputId}`

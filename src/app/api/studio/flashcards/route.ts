@@ -13,6 +13,8 @@ import { getStudioContext, isError } from "@/lib/studio/generate";
 import { cacheDel, statsCacheKey, dashboardCacheKey } from "@/lib/cache/redis";
 import { generateOutputImages } from "@/lib/media/generate-output-images";
 
+export const maxDuration = 60;
+
 const flashcardsSchema = z.object({
   title: z.string(),
   coverImagePrompt: z

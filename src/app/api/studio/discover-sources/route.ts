@@ -9,6 +9,9 @@ import { notebooks } from "@/db/schema/notebooks";
 import { sources } from "@/db/schema/sources";
 import { getModel } from "@/lib/ai/models";
 import { searchWeb, type SearchResult } from "@/lib/research/web-search";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+export const maxDuration = 45;
 
 export type DiscoveredSource = {
   url: string;
@@ -73,6 +76,12 @@ export const POST = async (
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "studio.discover",
+      ...RATE_LIMITS.discoverSources,
+    });
+    if (limited) return limited;
 
     const body = await request.json();
     const notebookId =

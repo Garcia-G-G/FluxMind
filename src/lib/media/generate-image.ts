@@ -89,10 +89,16 @@ export const generateInfographicImage = async (
     };
   })();
 
-  const result = (await fal.subscribe(model, {
-    input,
-    logs: false,
-  })) as FalImageResult;
+  // fal.subscribe doesn't accept an AbortSignal — race it against a wall
+  // clock so a stuck job can't pin a worker slot for hours. flux-pro can
+  // legitimately need ~60s; flux/schnell finishes in ~10s. 120s is the
+  // generous ceiling.
+  const { withDeadline } = await import("@/lib/utils/fetch-timeout");
+  const result = (await withDeadline(
+    fal.subscribe(model, { input, logs: false }) as Promise<FalImageResult>,
+    120_000,
+    `fal.ai ${model}`,
+  )) as FalImageResult;
 
   const falUrl =
     result.data?.images?.[0]?.url ?? result.data?.image?.url ?? null;
@@ -104,7 +110,8 @@ export const generateInfographicImage = async (
 
   // Try to persist to R2; fall back to fal URL on any failure
   try {
-    const res = await fetch(falUrl);
+    const { fetchWithTimeout } = await import("@/lib/utils/fetch-timeout");
+    const res = await fetchWithTimeout(falUrl, { timeoutMs: 30_000 });
     if (!res.ok) throw new Error(`download failed: ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
     const permanentUrl = await uploadFile(

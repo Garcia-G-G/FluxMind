@@ -59,17 +59,6 @@ export const wrapText = (text: string, maxChars: number): string[] => {
   return lines;
 };
 
-export type AnchorPosition =
-  | "top-left"
-  | "top-center"
-  | "top-right"
-  | "mid-left"
-  | "mid-center"
-  | "mid-right"
-  | "bottom-left"
-  | "bottom-center"
-  | "bottom-right";
-
 /**
  * Maps a semantic anchor name to an (x, y) coordinate inside a W×H canvas.
  * Uses three bands vertically (top ~20%, mid ~50%, bottom ~80%) and three

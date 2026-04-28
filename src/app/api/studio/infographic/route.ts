@@ -17,6 +17,8 @@ import {
   type VisualStyle,
 } from "@/lib/media/styles";
 
+export const maxDuration = 120;
+
 // ---------- Layout schema ----------
 
 const layoutSchema = z.object({

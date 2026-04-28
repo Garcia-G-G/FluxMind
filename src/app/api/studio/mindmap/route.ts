@@ -8,6 +8,8 @@ import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 
+export const maxDuration = 60;
+
 const mindMapSchema = z.object({
   centralTopic: z.object({
     label: z.string(),

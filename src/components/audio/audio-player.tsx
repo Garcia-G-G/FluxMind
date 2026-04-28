@@ -14,7 +14,18 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { InteractiveMode } from "@/components/studio/interactive-mode";
+import dynamic from "next/dynamic";
+
+// Interactive mode is gated on a user toggle; lazy-load it so the audio
+// player's first paint doesn't pull motion/AnimatePresence + the
+// MediaRecorder code path.
+const InteractiveMode = dynamic(
+  () =>
+    import("@/components/studio/interactive-mode").then(
+      (m) => m.InteractiveMode,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 const cardStyle: React.CSSProperties = {
   background: "var(--fm-surface)",

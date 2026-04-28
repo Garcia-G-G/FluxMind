@@ -147,15 +147,24 @@ const describeJob = (data: QueueJobData): string => {
   return `source ${(data as DocumentJobData).sourceId}`;
 };
 
-const processJob = async (job: Job<QueueJobData>): Promise<void> => {
+/** Per-job hard deadlines. Keeps stuck upstreams from pinning a worker
+ *  slot indefinitely; BullMQ's default lockDuration (30s) is way too short
+ *  for media work, so we set a generous deadline at the application layer.
+ *
+ *  Document: parsing + embeddings ~ minutes for big PDFs.
+ *  Video:    LLM script + N×fal images + N×TTS — 6–7 minutes typical.
+ *  Podcast:  LLM script + 15–25 ElevenLabs synth calls — 4–5 min typical. */
+const JOB_DEADLINES: Record<string, number> = {
+  document: 8 * 60_000,
+  video: 9 * 60_000,
+  podcast: 6 * 60_000,
+};
+
+const dispatchJob = async (job: Job<QueueJobData>): Promise<void> => {
   const data = job.data;
-  // Discriminate by `type`. Legacy document jobs either omit `type` or set
-  // it to "document" — both are handled by processDocument.
   if ("type" in data && data.type === "video") {
     const v = data as VideoJobData;
     console.log(`[Worker] Processing video ${v.outputId}`);
-    // Load generateVideo lazily — no sense importing sharp/fal/elevenlabs
-    // on every worker boot when most jobs are document processing.
     const { generateVideo } = await import("../lib/video/generate-video");
     type VideoStyle = Parameters<typeof generateVideo>[2] extends infer O
       ? O extends { style?: infer S }
@@ -183,8 +192,15 @@ const processJob = async (job: Job<QueueJobData>): Promise<void> => {
     await generatePodcast(p.notebookId, p.outputId, p.language ?? "en");
     return;
   }
-  // Default path — document ingestion.
   await processDocument(job as Job<DocumentJobData>);
+};
+
+const processJob = async (job: Job<QueueJobData>): Promise<void> => {
+  const kind =
+    "type" in job.data && job.data.type ? job.data.type : "document";
+  const deadlineMs = JOB_DEADLINES[kind] ?? 8 * 60_000;
+  const { withDeadline } = await import("../lib/utils/fetch-timeout");
+  await withDeadline(dispatchJob(job), deadlineMs, `${kind} job ${job.id}`);
 };
 
 const worker = new Worker<QueueJobData>(
@@ -193,6 +209,13 @@ const worker = new Worker<QueueJobData>(
   {
     connection,
     concurrency: 3,
+    // BullMQ default lockDuration is 30s — far too short for AI work.
+    // The application-layer deadline above is the real ceiling; lockDuration
+    // just keeps a worker holding the lock between Redis renewals (every
+    // lockRenewTime = lockDuration / 2 = 60s here). 2 minutes is safe even
+    // when the event loop is briefly busy with sharp/ffmpeg work.
+    lockDuration: 120_000,
+    stalledInterval: 60_000,
   },
 );
 

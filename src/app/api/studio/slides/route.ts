@@ -18,6 +18,8 @@ import {
   type VisualStyle,
 } from "@/lib/media/styles";
 
+export const maxDuration = 120;
+
 // ---------- Zod deck schema ----------
 
 const slideSchema = z.object({

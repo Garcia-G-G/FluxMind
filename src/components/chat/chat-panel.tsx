@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat/chat-message";
@@ -102,6 +102,13 @@ export const ChatPanel = ({
     sendMessage({ text: question });
   };
 
+  // Stable handler for the regenerate button. Without `useCallback`, every
+  // streamed token re-creates the arrow and breaks the memo on the last
+  // assistant ChatMessage — the bottom card re-renders on every chunk.
+  const handleRegenerate = useCallback(() => {
+    regenerate();
+  }, [regenerate]);
+
   return (
     <div className="flex flex-col h-full">
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
@@ -125,7 +132,7 @@ export const ChatPanel = ({
                   }
                   onRegenerate={
                     message.role === "assistant" && i === messages.length - 1
-                      ? () => regenerate()
+                      ? handleRegenerate
                       : undefined
                   }
                 />

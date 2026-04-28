@@ -1,6 +1,13 @@
 "use client";
 
-import { memo, use, useCallback, useState, type ComponentProps } from "react";
+import {
+  memo,
+  use,
+  useCallback,
+  useMemo,
+  useState,
+  type ComponentProps,
+} from "react";
 import dynamic from "next/dynamic";
 import {
   HelpCircle,
@@ -592,11 +599,42 @@ const StudioPage = ({
     setDialogOpen(false);
   };
 
-  /** Open the customization dialog for a given output type. */
-  const openDialog = (type: DialogType): void => {
+  /** Open the customization dialog for a given output type. Stable identity
+   *  so the inline `() => openDialog("quiz")` arrows on each StudioCard
+   *  share the same parent callback ref — combined with `useTabHandlers`
+   *  below, this preserves StudioCard's memo. */
+  const openDialog = useCallback((type: DialogType): void => {
     setDialogType(type);
     setDialogOpen(true);
-  };
+  }, []);
+
+  /** Cache per-tab `(onView, onGenerate)` pairs so StudioCard's memo holds.
+   *  Without this, every parent re-render produces fresh inline arrows for
+   *  all 11 cards and React.memo bails. */
+  type TabHandler = { onView: () => void; onGenerate: () => void };
+  const tabHandlers = useMemo<Record<DialogType, TabHandler>>(() => {
+    const tabs: DialogType[] = [
+      "quiz",
+      "flashcards",
+      "slides",
+      "infographic",
+      "datatable",
+      "thread",
+      "newsletter",
+      "reel",
+      "course",
+      "mindmap",
+      "video",
+    ];
+    const out = {} as Record<DialogType, TabHandler>;
+    for (const tab of tabs) {
+      out[tab] = {
+        onView: () => setActiveTab(tab as StudioTab),
+        onGenerate: () => openDialog(tab),
+      };
+    }
+    return out;
+  }, [openDialog]);
 
   /** `isPending` for whichever dialog-type is currently open. */
   const dialogIsPending =
@@ -713,22 +751,22 @@ const StudioPage = ({
       {/* Study section */}
       <SectionHeader label="Study" />
       <div className="grid gap-3.5 grid-cols-2 lg:grid-cols-4 mb-6">
-        <StudioCard icon={HelpCircle} title="Quiz" onView={() => setActiveTab("quiz")}
+        <StudioCard icon={HelpCircle} title="Quiz" onView={tabHandlers["quiz"].onView}
           colors={CARD_COLORS.quiz ?? DEFAULT_CARD_COLOR}
           description="MC, T/F, and free response questions."
-          onGenerate={() => openDialog("quiz")}
+          onGenerate={tabHandlers["quiz"].onGenerate}
           onHover={importQuizView}
           isPending={generateQuiz.isPending} error={generateQuiz.error} hasData={!!quizData} />
-        <StudioCard icon={Layers} title="Flashcards" onView={() => setActiveTab("flashcards")}
+        <StudioCard icon={Layers} title="Flashcards" onView={tabHandlers["flashcards"].onView}
           colors={CARD_COLORS.flashcards ?? DEFAULT_CARD_COLOR}
           description="Spaced repetition flashcards."
-          onGenerate={() => openDialog("flashcards")}
+          onGenerate={tabHandlers["flashcards"].onGenerate}
           onHover={importFlashcardView}
           isPending={generateFlashcards.isPending} error={generateFlashcards.error} hasData={!!flashcardData} />
-        <StudioCard icon={GraduationCap} title="Mini-Course" onView={() => setActiveTab("course")}
+        <StudioCard icon={GraduationCap} title="Mini-Course" onView={tabHandlers["course"].onView}
           colors={CARD_COLORS.course ?? DEFAULT_CARD_COLOR}
           description="Structured lessons with quizzes."
-          onGenerate={() => openDialog("course")}
+          onGenerate={tabHandlers["course"].onGenerate}
           onHover={importCourseView}
           isPending={generateCourse.isPending} error={generateCourse.error} hasData={!!courseData} />
       </div>
@@ -736,34 +774,34 @@ const StudioPage = ({
       {/* Visual section */}
       <SectionHeader label="Visual" />
       <div className="grid gap-3.5 grid-cols-2 lg:grid-cols-4 mb-6">
-        <StudioCard icon={Presentation} title="Slide Deck" onView={() => setActiveTab("slides")}
+        <StudioCard icon={Presentation} title="Slide Deck" onView={tabHandlers["slides"].onView}
           colors={CARD_COLORS.slides ?? DEFAULT_CARD_COLOR} wide
           description="Presentation with multiple layouts and illustrated backgrounds."
-          onGenerate={() => openDialog("slides")}
+          onGenerate={tabHandlers["slides"].onGenerate}
           onHover={importSlideViewer}
           isPending={generateSlides.isPending} error={generateSlides.error} hasData={!!slidesData} />
-        <StudioCard icon={Image} title="Infographic" onView={() => setActiveTab("infographic")}
+        <StudioCard icon={Image} title="Infographic" onView={tabHandlers["infographic"].onView}
           colors={CARD_COLORS.infographic ?? DEFAULT_CARD_COLOR}
           description="Stats, timelines, and comparisons."
-          onGenerate={() => openDialog("infographic")}
+          onGenerate={tabHandlers["infographic"].onGenerate}
           onHover={importInfographicViewer}
           isPending={generateInfographic.isPending} error={generateInfographic.error} hasData={!!infographicData} />
-        <StudioCard icon={Table} title="Data Tables" onView={() => setActiveTab("datatable")}
+        <StudioCard icon={Table} title="Data Tables" onView={tabHandlers["datatable"].onView}
           colors={CARD_COLORS.datatable ?? DEFAULT_CARD_COLOR}
           description="Extract tabular data from sources."
-          onGenerate={() => openDialog("datatable")}
+          onGenerate={tabHandlers["datatable"].onGenerate}
           onHover={importDataTableView}
           isPending={generateDataTable.isPending} error={generateDataTable.error} hasData={!!dataTableData} />
-        <StudioCard icon={Network} title="Mind Map" onView={() => setActiveTab("mindmap")}
+        <StudioCard icon={Network} title="Mind Map" onView={tabHandlers["mindmap"].onView}
           colors={CARD_COLORS.mindmap ?? DEFAULT_CARD_COLOR}
           description="Explorable knowledge graph from sources."
-          onGenerate={() => openDialog("mindmap")}
+          onGenerate={tabHandlers["mindmap"].onGenerate}
           onHover={importMindMapCanvas}
           isPending={generateMindMap.isPending} error={generateMindMap.error} hasData={!!mindMapData} />
-        <StudioCard icon={Film} title="Video Overview" onView={() => setActiveTab("video")}
+        <StudioCard icon={Film} title="Video Overview" onView={tabHandlers["video"].onView}
           colors={CARD_COLORS.video ?? DEFAULT_CARD_COLOR}
           description="AI-narrated video with generated visuals."
-          onGenerate={() => openDialog("video")}
+          onGenerate={tabHandlers["video"].onGenerate}
           onHover={importVideoPlayer}
           isPending={generateVideoOverview.isPending} error={generateVideoOverview.error} hasData={!!videoData} />
       </div>
@@ -771,22 +809,22 @@ const StudioPage = ({
       {/* Content section */}
       <SectionHeader label="Content" />
       <div className="grid gap-3.5 grid-cols-2 lg:grid-cols-4 mb-6">
-        <StudioCard icon={MessageCircle} title="X Thread" onView={() => setActiveTab("thread")}
+        <StudioCard icon={MessageCircle} title="X Thread" onView={tabHandlers["thread"].onView}
           colors={CARD_COLORS.thread ?? DEFAULT_CARD_COLOR}
           description="Viral thread with hook and CTA."
-          onGenerate={() => openDialog("thread")}
+          onGenerate={tabHandlers["thread"].onGenerate}
           onHover={importThreadPreview}
           isPending={generateThread.isPending} error={generateThread.error} hasData={!!threadData} />
-        <StudioCard icon={Mail} title="Newsletter" onView={() => setActiveTab("newsletter")}
+        <StudioCard icon={Mail} title="Newsletter" onView={tabHandlers["newsletter"].onView}
           colors={CARD_COLORS.newsletter ?? DEFAULT_CARD_COLOR} wide
           description="Professional email newsletter with sections and pull quotes."
-          onGenerate={() => openDialog("newsletter")}
+          onGenerate={tabHandlers["newsletter"].onGenerate}
           onHover={importNewsletterPreview}
           isPending={generateNewsletter.isPending} error={generateNewsletter.error} hasData={!!newsletterData} />
-        <StudioCard icon={Video} title="Reel Script" onView={() => setActiveTab("reel")}
+        <StudioCard icon={Video} title="Reel Script" onView={tabHandlers["reel"].onView}
           colors={CARD_COLORS.reel ?? DEFAULT_CARD_COLOR}
           description="30-60s short-form video script."
-          onGenerate={() => openDialog("reel")}
+          onGenerate={tabHandlers["reel"].onGenerate}
           onHover={importReelScriptView}
           isPending={generateReel.isPending} error={generateReel.error} hasData={!!reelData} />
       </div>

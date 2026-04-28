@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Mic,
   MicOff,
@@ -34,51 +34,52 @@ export const InteractiveMode = ({
   const [state, setState] = useState<InteractiveState>("idle");
   const [textInput, setTextInput] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
+  // Mic-based STT is deferred to a future iteration — the UI falls back to
+  // a text-input mode for now. We keep the `isRecording` flag so the
+  // existing button state still renders, but the recorder code path is
+  // gone (the captured blob was never sent anywhere, and the setTimeout
+  // chain in submitQuestion leaked across unmount).
   const [isRecording, setIsRecording] = useState(false);
   const [useTextInput, setUseTextInput] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+
+  // Track every setTimeout we schedule so we can cancel them on unmount —
+  // without this, navigating away while in `speaking`/`transition` fires
+  // setState on an unmounted component and calls onResume on a stale ref.
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const scheduleTimer = useCallback(
+    (fn: () => void, ms: number): ReturnType<typeof setTimeout> => {
+      const id = setTimeout(() => {
+        timersRef.current.delete(id);
+        fn();
+      }, ms);
+      timersRef.current.add(id);
+      return id;
+    },
+    [],
+  );
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      for (const id of timers) clearTimeout(id);
+      timers.clear();
+    };
+  }, []);
 
   const startInteractive = useCallback((): void => {
     onPause();
     setState("inviting");
     // Simulate host invitation (would be TTS in production)
-    setTimeout(() => setState("listening"), 1500);
-  }, [onPause]);
+    scheduleTimer(() => setState("listening"), 1500);
+  }, [onPause, scheduleTimer]);
 
-  const startRecording = useCallback(async (): Promise<void> => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : "audio/mp4",
-      });
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current);
-        // In production: send blob to STT API (Whisper/ElevenLabs)
-        // For now, fall back to text input
-        console.log("Recorded audio blob:", blob.size, "bytes");
-        setUseTextInput(true);
-      };
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-      setIsRecording(true);
-    } catch {
-      // Microphone not available, use text input
-      setUseTextInput(true);
-    }
+  const startRecording = useCallback((): void => {
+    // Mic STT not yet wired — fall straight to the text input UI. When we
+    // wire Whisper / ElevenLabs STT, the navigator.mediaDevices flow
+    // belongs here behind a feature flag.
+    setUseTextInput(true);
   }, []);
 
   const stopRecording = useCallback((): void => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
     setIsRecording(false);
   }, []);
 
@@ -104,9 +105,9 @@ export const InteractiveMode = ({
         // In production: play TTS audio of the answer
         // Simulate speaking duration based on answer length
         const speakDuration = Math.max(3000, data.answer.length * 40);
-        setTimeout(() => {
+        scheduleTimer(() => {
           setState("transition");
-          setTimeout(() => {
+          scheduleTimer(() => {
             setState("idle");
             setAnswer(null);
             setUseTextInput(false);
@@ -120,7 +121,7 @@ export const InteractiveMode = ({
         onResume();
       }
     },
-    [notebookId, onResume]
+    [notebookId, onResume, scheduleTimer],
   );
 
   const cancel = useCallback((): void => {

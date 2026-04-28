@@ -7,7 +7,7 @@
  *   - the studio dialog (renders the style tiles)
  *
  * Keep exports stable: downstream agents import `VisualStyle`,
- * `STYLE_CONFIGS`, `getStyleInstructions`, and `getOverlayBg` by name.
+ * `STYLE_CONFIGS` and `getStyleInstructions` by name.
  */
 
 export type VisualStyle =
@@ -90,8 +90,3 @@ export const getStyleInstructions = (style: VisualStyle): string => {
   return `Illustration style: ${config.name}.\n\n${config.illustrationPrefix}\n\n${ABSOLUTE_RULE}`;
 };
 
-/** Helper: compose-time overlay tint for the chosen visual style. */
-export const getOverlayBg = (
-  style: VisualStyle,
-): { r: number; g: number; b: number; alpha: number } =>
-  STYLE_CONFIGS[style].overlayBg;

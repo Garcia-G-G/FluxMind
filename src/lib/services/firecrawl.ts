@@ -21,8 +21,10 @@ export const scrapeWithFirecrawl = async (
   }
 
   try {
-    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    const { fetchWithTimeout } = await import("@/lib/utils/fetch-timeout");
+    const res = await fetchWithTimeout("https://api.firecrawl.dev/v1/scrape", {
       method: "POST",
+      timeoutMs: 30_000,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -39,7 +41,11 @@ export const scrapeWithFirecrawl = async (
     const content = (data.data?.markdown ?? "").slice(0, maxChars);
 
     return content.length > 50 ? { url, content } : null;
-  } catch {
+  } catch (err) {
+    // Don't swallow silently — caller falls back to cheerio when null,
+    // but we still want a breadcrumb in the worker log when the upstream
+    // dies (timeouts, 5xx, etc.).
+    console.warn(`[firecrawl] scrape ${url} failed:`, err);
     return null;
   }
 };

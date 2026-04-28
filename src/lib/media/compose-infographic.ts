@@ -22,7 +22,6 @@ import {
   FONT_SERIF,
   FONT_TECHNICAL,
   getLeaderEnd,
-  getPosition,
   gridPatternDef,
   wrapText,
 } from "@/lib/media/svg-helpers";
@@ -271,8 +270,9 @@ const renderStatBox = (
   parts.push(
     `<text x="${cx}" y="${valueY}" font-family="${FONT_SERIF}" font-size="32" font-weight="700" fill="${accent}" text-anchor="middle">${escapeXml(block.value)}</text>`,
   );
-  // Label wraps up to 2 lines at ~28 char width
-  const labelLines = wrapText(block.label, 28).slice(0, 3);
+  // Dynamic label wrapping based on actual box width (~7.5px per char at font-size 13)
+  const statCharsPerLine = Math.max(12, Math.floor(bw / 7.5));
+  const labelLines = wrapText(block.label, statCharsPerLine).slice(0, 3);
   const labelStartY = by + Math.round(bh * 0.62);
   labelLines.forEach((line, i) => {
     parts.push(
@@ -299,7 +299,9 @@ const renderCalloutBox = (
   parts.push(
     `<text x="${bx + 14}" y="${by + 26}" font-family="${FONT_HANDWRITTEN}" font-size="20" font-weight="700" fill="${colors.text}">${escapeXml(block.title)}</text>`,
   );
-  const bodyLines = wrapText(block.body, 42).slice(0, 8);
+  // Dynamic wrapping based on box width (~8px per char at font-size 14 handwritten)
+  const calloutCharsPerLine = Math.max(16, Math.floor((bw - 28) / 8));
+  const bodyLines = wrapText(block.body, calloutCharsPerLine).slice(0, 8);
   bodyLines.forEach((line, i) => {
     parts.push(
       `<text x="${bx + 14}" y="${by + 50 + i * 16}" font-family="${FONT_HANDWRITTEN}" font-size="14" fill="${colors.text}">${escapeXml(line)}</text>`,
@@ -508,16 +510,24 @@ const buildSvgOverlay = (
     const n = block.steps.length;
     const r = 22;
     const cy = y0 + r;
+    // Dynamic wrapping: derive chars-per-step from available horizontal space
+    const stepSpan = n === 1 ? w : w / n;
+    const charsPerStep = Math.max(14, Math.floor(stepSpan / 8));
     block.steps.forEach((step, i) => {
       const stepX = x + (n === 1 ? w / 2 : (i / (n - 1)) * w);
       parts.push(`<circle cx="${stepX}" cy="${cy}" r="${r}" fill="${accent}" />`);
       parts.push(
         `<text x="${stepX}" y="${cy + 7}" font-family="${FONT_SERIF}" font-size="20" font-weight="700" fill="white" text-anchor="middle">${i + 1}</text>`,
       );
+      // Truncate step label to avoid overflow on narrow step slots
+      const maxLabelChars = Math.max(10, Math.floor(stepSpan / 10));
+      const displayLabel = step.label.length > maxLabelChars
+        ? step.label.slice(0, maxLabelChars - 1) + "…"
+        : step.label;
       parts.push(
-        `<text x="${stepX}" y="${cy + r + 20}" font-family="${FONT_HANDWRITTEN}" font-size="16" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(step.label)}</text>`,
+        `<text x="${stepX}" y="${cy + r + 20}" font-family="${FONT_HANDWRITTEN}" font-size="16" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(displayLabel)}</text>`,
       );
-      const detailLines = wrapText(step.detail, 30).slice(0, 5);
+      const detailLines = wrapText(step.detail, charsPerStep).slice(0, 5);
       detailLines.forEach((line, li) => {
         parts.push(
           `<text x="${stepX}" y="${cy + r + 36 + li * 13}" font-family="${FONT_TECHNICAL}" font-size="11" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
@@ -537,6 +547,9 @@ const buildSvgOverlay = (
   const renderTimelineAt: InfoCtx["renderTimeline"] = (block, x, y0, w) => {
     const cy = y0 + 20;
     const n = block.events.length;
+    // Dynamic char width per event based on horizontal space
+    const eventSpan = n === 1 ? w : w / n;
+    const charsPerEvent = Math.max(12, Math.floor(eventSpan / 8));
     parts.push(
       `<line x1="${x}" y1="${cy}" x2="${x + w}" y2="${cy}" stroke="${COLOR_HAIRLINE}" stroke-width="1.25" />`,
     );
@@ -548,7 +561,7 @@ const buildSvgOverlay = (
       parts.push(
         `<text x="${ex}" y="${cy - 12}" font-family="${FONT_TECHNICAL}" font-size="12" font-weight="700" fill="${COLOR_TEXT}" text-anchor="middle">${escapeXml(ev.date)}</text>`,
       );
-      const lines = wrapText(ev.label, 24).slice(0, 4);
+      const lines = wrapText(ev.label, charsPerEvent).slice(0, 4);
       lines.forEach((line, li) => {
         parts.push(
           `<text x="${ex}" y="${cy + 22 + li * 13}" font-family="${FONT_HANDWRITTEN}" font-size="13" fill="${COLOR_MUTED}" text-anchor="middle">${escapeXml(line)}</text>`,
@@ -649,10 +662,6 @@ const buildSvgOverlay = (
 
   const template = selectTemplate(style, outputId, pageIndex);
   template.render(ctx);
-
-  // `getPosition` is kept imported as a documented fallback helper —
-  // templates position stats/callouts directly via renderer calls.
-  void getPosition;
 
   // ---- Footer ----
   const footerY = H - 36;

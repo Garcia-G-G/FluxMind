@@ -5,6 +5,9 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { outputs } from "@/db/schema/outputs";
 import { generateNarration } from "@/lib/media/generate-narration";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+export const maxDuration = 90;
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -12,6 +15,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "studio.narrate",
+      ...RATE_LIMITS.studioNarrate,
+    });
+    if (limited) return limited;
 
     const body = await request.json();
     const outputId: string | undefined = body?.outputId;

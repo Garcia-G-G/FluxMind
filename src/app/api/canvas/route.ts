@@ -61,6 +61,17 @@ export const PUT = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
+    // Canvas snapshots are jsonb — cap them at 5 MB serialised so a runaway
+    // tldraw client (or a malicious one) can't fill the DB. Real diagrams
+    // rarely exceed 200 KB; 5 MB is generous.
+    const snapshotJson = JSON.stringify(snapshot);
+    if (snapshotJson.length > 5 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "snapshot too large (5 MB max)" },
+        { status: 413 },
+      );
+    }
+
     // Verify access
     const [notebook] = await db
       .select({ userId: notebooks.userId })

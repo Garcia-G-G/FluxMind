@@ -9,6 +9,8 @@ import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 import { generateOutputImages } from "@/lib/media/generate-output-images";
 
+export const maxDuration = 60;
+
 const courseSchema = z.object({
   title: z.string(),
   description: z.string(),

@@ -23,7 +23,10 @@ export const useSources = (notebookId: string) => {
       if (!res.ok) throw new Error("Failed to fetch sources");
       return res.json();
     },
-    // Poll every 3 seconds if any source is processing
+    // Sources change via explicit mutations (upload, delete) which
+    // invalidate this query. Keep cache fresh between tab switches; the
+    // refetchInterval below still kicks in when something is processing.
+    staleTime: 30_000,
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;

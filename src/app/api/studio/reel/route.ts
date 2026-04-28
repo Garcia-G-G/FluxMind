@@ -8,6 +8,8 @@ import { outputs } from "@/db/schema/outputs";
 import { getModel } from "@/lib/ai/models";
 import { getStudioContext, isError } from "@/lib/studio/generate";
 
+export const maxDuration = 60;
+
 const reelSchema = z.object({
   title: z.string(),
   durationEstimate: z.number(),

@@ -1,10 +1,21 @@
 "use client";
 
 import { memo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import dynamic from "next/dynamic";
 import { Copy, Check, RotateCcw } from "lucide-react";
 import { Citation, type CitationData } from "@/components/chat/citation";
+
+// react-markdown + remark-gfm is ~80 KB. Only the assistant message body
+// needs it — user messages render as plain text — so we lazy-load via
+// next/dynamic. The first assistant reply will pay a one-time fetch; every
+// subsequent message uses the cached chunk.
+const MarkdownBody = dynamic(
+  () => import("@/components/chat/markdown-body").then((m) => m.MarkdownBody),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+);
 
 const CITATION_REGEX = /\[Source:\s*"([^"]+)"(?:\s*p\.(\d+))?\]/g;
 
@@ -90,34 +101,11 @@ export const ChatMessage = memo(({
           borderRadius: "20px 20px 20px 6px",
         }}
       >
-        <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0" style={{ color: "var(--fm-text)" }}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              pre: ({ children }) => (
-                <pre
-                  className="overflow-x-auto rounded-lg p-3 text-xs"
-                  style={{ background: "var(--fm-bg-tertiary)" }}
-                >
-                  {children}
-                </pre>
-              ),
-              code: ({ children, className }) => {
-                const isBlock = className?.includes("language-");
-                if (isBlock) return <code className={className}>{children}</code>;
-                return (
-                  <code
-                    className="rounded px-1 py-0.5 text-xs"
-                    style={{ background: "var(--fm-bg-tertiary)" }}
-                  >
-                    {children}
-                  </code>
-                );
-              },
-            }}
-          >
-            {cleanContent}
-          </ReactMarkdown>
+        <div
+          className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          style={{ color: "var(--fm-text)" }}
+        >
+          <MarkdownBody content={cleanContent} />
         </div>
 
         {citations.length > 0 && (

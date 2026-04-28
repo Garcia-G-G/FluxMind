@@ -80,17 +80,38 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
             }
           };
 
-          await db.insert(subscriptions).values({
-            id: createId(),
-            userId,
-            stripeSubscriptionId: subscriptionId,
-            plan: "pro",
-            status: mapStatus(sub.status),
-            currentPeriodStart: periodStart,
-            currentPeriodEnd: periodEnd,
-            createdAt: now,
-            updatedAt: now,
-          });
+          // Stripe retries webhooks on transient failures — make insert
+          // idempotent by checking for an existing row first. Without this,
+          // a single retried checkout.session.completed produces duplicate
+          // subscription rows for the same stripeSubscriptionId.
+          const [existing] = await db
+            .select({ id: subscriptions.id })
+            .from(subscriptions)
+            .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
+
+          if (existing) {
+            await db
+              .update(subscriptions)
+              .set({
+                status: mapStatus(sub.status),
+                currentPeriodStart: periodStart,
+                currentPeriodEnd: periodEnd,
+                updatedAt: now,
+              })
+              .where(eq(subscriptions.id, existing.id));
+          } else {
+            await db.insert(subscriptions).values({
+              id: createId(),
+              userId,
+              stripeSubscriptionId: subscriptionId,
+              plan: "pro",
+              status: mapStatus(sub.status),
+              currentPeriodStart: periodStart,
+              currentPeriodEnd: periodEnd,
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
         }
         break;
       }

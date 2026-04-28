@@ -36,12 +36,24 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       return new Response("ElevenLabs API key not configured", { status: 503 });
     }
 
-    const voice = voiceId ?? "21m00Tcm4TlvDq8ikWAM";
+    // Voice fallback chain matches the rest of the audio pipeline:
+    //   user-provided voiceId → ELEVENLABS_NARRATOR_VOICE → Matilda
+    // (Rachel was deprecated on new accounts — see generate-narration.ts.)
+    const voice =
+      voiceId ??
+      process.env.ELEVENLABS_NARRATOR_VOICE ??
+      "XrExE9yKIg1WjnnlVkGX";
 
-    const ttsResponse = await fetch(
+    // Forward client disconnect (request.signal) so the upstream
+    // ElevenLabs connection is closed when the user navigates away.
+    // Plus a 60s wall-clock cap so a stuck stream can't pin the route.
+    const { fetchWithTimeout } = await import("@/lib/utils/fetch-timeout");
+    const ttsResponse = await fetchWithTimeout(
       `https://api.elevenlabs.io/v1/text-to-speech/${voice}/stream`,
       {
         method: "POST",
+        timeoutMs: 60_000,
+        signal: request.signal,
         headers: {
           "xi-api-key": apiKey,
           "Content-Type": "application/json",
@@ -56,7 +68,7 @@ export const POST = async (request: NextRequest): Promise<Response> => {
             style: 0.3,
           },
         }),
-      }
+      },
     );
 
     if (!ttsResponse.ok) {

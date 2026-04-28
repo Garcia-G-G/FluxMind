@@ -110,4 +110,14 @@ export const RATE_LIMITS = {
   deepResearch: { limit: 5, windowMs: 10 * 60_000 },
   uploadFile: { limit: 30, windowMs: 60_000 },
   searchSource: { limit: 10, windowMs: 60_000 },
+  /** Narrate spends ElevenLabs credits per call. Tighter than chat. */
+  studioNarrate: { limit: 8, windowMs: 60_000 },
+  /** Interactive Q&A — one LLM + RAG call. Comparable to chat. */
+  studioInteractive: { limit: 30, windowMs: 60_000 },
+  /** Source discovery — LLM + 5-8 Serper calls. Limit aggressively. */
+  discoverSources: { limit: 6, windowMs: 60_000 },
+  /** URL scraping — up to 25 URLs per call. Tighter still. */
+  scrapeSources: { limit: 10, windowMs: 60_000 },
+  /** Progress writes (quiz / flashcard). Tight to prevent abuse. */
+  progress: { limit: 60, windowMs: 60_000 },
 } as const;

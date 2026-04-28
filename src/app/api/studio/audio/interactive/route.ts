@@ -4,6 +4,9 @@ import { generateText } from "ai";
 import { auth } from "@/lib/auth";
 import { getModel } from "@/lib/ai/models";
 import { retrieveContext, buildSystemPrompt } from "@/lib/ai/rag";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+export const maxDuration = 30;
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -11,6 +14,12 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const limited = await checkRateLimit({
+      userId: session.user.id,
+      bucket: "studio.interactive",
+      ...RATE_LIMITS.studioInteractive,
+    });
+    if (limited) return limited;
 
     const { question, notebookId } = await request.json();
 

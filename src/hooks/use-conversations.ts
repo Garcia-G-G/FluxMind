@@ -30,6 +30,9 @@ export const useConversations = (notebookId: string) => {
       if (!res.ok) throw new Error("Failed to fetch conversations");
       return res.json();
     },
+    // Conversations rarely change between tab switches — keep the list
+    // fresh for 60 s so re-mounting doesn't refetch on every visit.
+    staleTime: 60_000,
   });
 };
 
@@ -42,6 +45,10 @@ export const useConversation = (conversationId: string | null) => {
       return res.json();
     },
     enabled: !!conversationId,
+    // The transcript is updated by mutations (post message, regenerate);
+    // explicit invalidation handles freshness, so we can keep the cache
+    // hot for 5 minutes between tab switches.
+    staleTime: 5 * 60_000,
   });
 };
 

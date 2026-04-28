@@ -374,6 +374,8 @@ export const SourcePanel = ({
                             alt=""
                             width={14}
                             height={14}
+                            loading="lazy"
+                            decoding="async"
                             className="shrink-0 rounded-sm"
                             style={{ objectFit: "contain" }}
                           />
